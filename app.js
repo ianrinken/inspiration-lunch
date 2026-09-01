@@ -29,30 +29,6 @@
   // Standing alternate entrées offered alongside the day's hot meal.
   const ALTERNATE_RX = /bagel bag|uncrustable|jammer/i;
 
-  // First matching keyword wins.
-  const EMOJI_MAP = [
-    [/pizza|calzone/i, "🍕"],
-    [/corn dog|hot dog/i, "🌭"],
-    [/burger/i, "🍔"],
-    [/taco|nacho|totcho|quesadilla|burrito|fiestada/i, "🌮"],
-    [/orange chicken|teriyaki|fried rice|egg roll/i, "🥡"],
-    [/spaghetti|alfredo|pasta|meatball|lasagna|ravioli/i, "🍝"],
-    [/mac(aroni)? & cheese|mac and cheese/i, "🧀"],
-    [/pancake|french toast|waffle|omelet|breakfast/i, "🥞"],
-    [/chicken|turkey/i, "🍗"],
-    [/soup|chili/i, "🍲"],
-    [/fish|shrimp/i, "🐟"],
-    [/sub|sandwich|sloppy|ripper|melt|grilled cheese/i, "🥪"],
-    [/dunkers|breadstick|garlic/i, "🥖"],
-    [/salad/i, "🥗"],
-    [/rib|pork|ham\b/i, "🍖"],
-    [/potato|tater/i, "🥔"],
-  ];
-  const emojiFor = (name) => {
-    for (const [rx, e] of EMOJI_MAP) if (rx.test(name)) return e;
-    return "🍽️";
-  };
-
   const $ = (id) => document.getElementById(id);
   const calendarEl = $("calendar");
   const monthLabelEl = $("monthLabel");
@@ -185,31 +161,38 @@
   async function renderHero() {
     const heroEl = $("hero");
     const now = new Date();
-    const thisMonth = await getMonthData(now.getFullYear(), now.getMonth());
-    let days = (thisMonth && thisMonth.days) || {};
 
-    // Find today or the next school day, looking into next month if needed.
-    let target = null, label = "Today";
+    // Parents mostly check the night before: after lunchtime the hero
+    // looks ahead to the next school day instead of today.
     const probe = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (now.getHours() >= 13) probe.setDate(probe.getDate() + 1);
+
+    let days = {};
+    const loaded = new Set();
+    const ensureMonth = async (dt) => {
+      const k = `${dt.getFullYear()}-${dt.getMonth()}`;
+      if (loaded.has(k)) return;
+      loaded.add(k);
+      const md = await getMonthData(dt.getFullYear(), dt.getMonth());
+      days = { ...days, ...((md && md.days) || {}) };
+    };
+
+    let target = null;
     for (let i = 0; i < 45; i++) {
-      if (probe.getMonth() !== now.getMonth() && i > 0 && !target) {
-        const next = await getMonthData(probe.getFullYear(), probe.getMonth());
-        days = { ...days, ...((next && next.days) || {}) };
-      }
+      await ensureMonth(probe);
       if (days[dkey(probe)]) { target = new Date(probe); break; }
       probe.setDate(probe.getDate() + 1);
     }
     if (!target) { heroEl.hidden = true; return; }
 
-    if (dkey(target) !== dkey(now)) {
-      const t = new Date(now); t.setDate(t.getDate() + 1);
-      label = dkey(target) === dkey(t) ? "Tomorrow" : "Next school day";
-    }
+    const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
+    const label = dkey(target) === dkey(now) ? "Today"
+      : dkey(target) === dkey(t1) ? "Tomorrow"
+      : "Next school day";
 
     const info = days[dkey(target)];
     $("heroLabel").textContent = label;
     $("heroDate").textContent = fmtHero.format(target);
-    $("heroEmoji").textContent = emojiFor(info.entree || info.alternates[0] || "");
     $("heroName").textContent = info.entree || info.alternates[0] || "";
     $("heroSides").textContent = info.sides.length ? `with ${info.sides.join(" · ")}` : "";
     $("heroAlt").innerHTML = info.alternates.length
@@ -219,25 +202,16 @@
     // One-line teaser for the school day after the hero day.
     const teaser = $("heroTomorrow");
     teaser.hidden = true;
-    if (label === "Today") {
-      // The next school day may fall in the next month (e.g. Aug 31 → Sep 1).
-      const endProbe = new Date(target);
-      endProbe.setDate(endProbe.getDate() + 7);
-      if (endProbe.getMonth() !== target.getMonth()) {
-        const nx = await getMonthData(endProbe.getFullYear(), endProbe.getMonth());
-        days = { ...days, ...((nx && nx.days) || {}) };
-      }
-      const p2 = new Date(target);
-      for (let i = 0; i < 7; i++) {
-        p2.setDate(p2.getDate() + 1);
-        const nfo = days[dkey(p2)];
-        if (nfo) {
-          const t1 = new Date(target); t1.setDate(t1.getDate() + 1);
-          const word = dkey(p2) === dkey(t1) ? "Tomorrow" : fmtHero.format(p2).split(",")[0];
-          teaser.innerHTML = `${word}: <b>${esc(nfo.entree || nfo.alternates[0] || "")}</b> ${emojiFor(nfo.entree || "")}`;
-          teaser.hidden = false;
-          break;
-        }
+    const p2 = new Date(target);
+    for (let i = 0; i < 7; i++) {
+      p2.setDate(p2.getDate() + 1);
+      await ensureMonth(p2);
+      const nfo = days[dkey(p2)];
+      if (nfo) {
+        const word = dkey(p2) === dkey(t1) ? "Tomorrow" : fmtHero.format(p2).split(",")[0];
+        teaser.innerHTML = `${word}: <b>${esc(nfo.entree || nfo.alternates[0] || "")}</b>`;
+        teaser.hidden = false;
+        break;
       }
     }
     heroEl.hidden = false;
@@ -270,13 +244,11 @@
       statusEl.hidden = false;
       if (data && data.error) {
         statusEl.innerHTML = `
-          <div class="big">📡</div>
           <h2>Couldn&rsquo;t load the menu</h2>
           <p>Check your connection and try again. If you&rsquo;ve opened this month before, it would show from memory.</p>
           <button id="retryBtn">Try again</button>`;
       } else {
         statusEl.innerHTML = `
-          <div class="big">🍎</div>
           <h2>Menu not posted yet</h2>
           <p>The district hasn&rsquo;t published the ${MONTHS[month]} menu on LINQ Connect. Check back closer to the month.</p>
           <button id="retryBtn">Check again</button>`;
@@ -289,6 +261,11 @@
     calendarEl.hidden = false;
     weekdayRow.style.display = "";
 
+    // The phone list hides no-school days outside the in-session range
+    // (mid-session holidays like Labor Day still show).
+    const schoolDays = Object.keys(days).sort();
+    const firstSchool = schoolDays[0], lastSchool = schoolDays[schoolDays.length - 1];
+
     const lastDate = new Date(year, month + 1, 0).getDate();
     let started = false;
     for (let d = 1; d <= lastDate; d++) {
@@ -299,7 +276,9 @@
         started = true;
       }
       const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      calendarEl.appendChild(dayCell(d, key, days[key]));
+      const cell = dayCell(d, key, days[key]);
+      if (!days[key] && (key < firstSchool || key > lastSchool)) cell.classList.add("out-of-session");
+      calendarEl.appendChild(cell);
     }
     renderUpdated();
   }
@@ -310,21 +289,26 @@
     return el;
   }
 
+  const DOW_ABBR = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
+
   function dayCell(dayNum, key, info) {
     const { year, month } = view;
+    const dow = new Date(year, month, dayNum).getDay();
+    const top = `<span class="day-top"><span class="day-num">${dayNum}</span><span class="day-dow">${DOW_ABBR[dow]}</span></span>`;
     if (!info) {
       const el = document.createElement("div");
       el.className = "day-cell no-school" + (isToday(year, month, dayNum) ? " today" : "");
-      el.innerHTML = `<span class="day-top"><span class="day-num">${dayNum}</span></span><span class="day-note">No school</span>`;
+      el.dataset.dow = dow;
+      el.innerHTML = `${top}<span class="day-note">No school</span>`;
       return el;
     }
     const name = info.entree || info.alternates[0] || "";
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "day-cell" + (isToday(year, month, dayNum) ? " today" : "");
+    btn.dataset.dow = dow;
     btn.setAttribute("aria-label", `${fmtDay.format(new Date(year, month, dayNum))}: ${name}`);
-    btn.innerHTML = `<span class="day-top"><span class="day-num">${dayNum}</span><span class="day-emoji" aria-hidden="true"></span></span><span class="day-entree"></span>`;
-    btn.querySelector(".day-emoji").textContent = emojiFor(name);
+    btn.innerHTML = `${top}<span class="day-entree"></span>`;
     btn.querySelector(".day-entree").textContent = name;
     btn.addEventListener("click", () => openSheet(key, info));
     return btn;
@@ -354,7 +338,7 @@
     $("sheetDate").textContent = fmtDay.format(new Date(y, m - 1, d));
     const sections = [];
     if (info.entree) {
-      const items = [{ name: `${emojiFor(info.entree)}  ${info.entree}`, hero: true }, ...info.sides.map((s) => ({ name: s }))];
+      const items = [{ name: info.entree, hero: true }, ...info.sides.map((s) => ({ name: s }))];
       sections.push(section("Main Entrée", items));
     }
     if (info.alternates.length) sections.push(section("Or choose instead", info.alternates.map((n) => ({ name: n }))));
@@ -366,6 +350,7 @@
     sheet.hidden = false; backdrop.hidden = false;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       sheet.classList.add("show"); backdrop.classList.add("show");
+      $("sheetClose").focus({ preventScroll: true });
     }));
   }
 

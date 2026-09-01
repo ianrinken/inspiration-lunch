@@ -14,20 +14,13 @@ Installable web app (PWA) showing the lunch menu for **Inspiration Elementary**
 
 Official menu: https://linqconnect.com/public/menu/L36JZQ
 
-## Deploy (GitHub Pages — free, stable URL)
+## Hosting
 
-```
-cd ~/Downloads/inspiration-lunch
-gh repo create inspiration-lunch --public --source=. --push
-gh api repos/ianrinken/inspiration-lunch/pages -X POST \
-  -f "source[branch]=main" -f "source[path]=/"
-```
+Live at **https://inspiration-lunch.netlify.app** — a Netlify site connected to
+this repo (github.com/ianrinken/inspiration-lunch). Every push to `main`
+auto-deploys; there is no build step (Netlify publishes the repo root as-is).
 
-Wait ~1 minute, then the stable URL is:
-
-**https://ianrinken.github.io/inspiration-lunch/**
-
-To update later: commit and `git push` — Pages redeploys automatically.
+To update: edit, commit, `git push`. Netlify redeploys in ~30 seconds.
 
 ## Add to home screen
 

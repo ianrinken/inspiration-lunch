@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Inspiration Lunch</title>
+  <meta name="description" content="Lunch menu calendar for Inspiration Elementary, Brandon Valley School District">
+  <meta name="theme-color" content="#A8181A">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Inspiration Lunch">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-title">
+        <h1>Inspiration Lunch</h1>
+        <p class="header-sub">Inspiration Elementary &middot; Brandon Valley</p>
+      </div>
+    </div>
+    <nav class="month-nav" aria-label="Month navigation">
+      <button id="prevMonth" class="nav-btn" aria-label="Previous month">&#10094;</button>
+      <button id="monthLabel" class="month-label" aria-live="polite" title="Jump to today"></button>
+      <button id="nextMonth" class="nav-btn" aria-label="Next month">&#10095;</button>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="weekday-row" aria-hidden="true">
+      <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span>
+    </div>
+    <div id="calendar" class="calendar" role="grid"></div>
+    <div id="statusArea" class="status-area" hidden></div>
+    <p id="updatedNote" class="updated-note"></p>
+  </main>
+
+  <footer class="app-footer">
+    <p>Menu subject to change &middot; <a href="https://linqconnect.com/public/menu/L36JZQ" target="_blank" rel="noopener">Official menu on LINQ Connect</a></p>
+  </footer>
+
+  <!-- Day detail bottom sheet -->
+  <div id="sheetBackdrop" class="sheet-backdrop" hidden></div>
+  <div id="daySheet" class="day-sheet" role="dialog" aria-modal="true" aria-labelledby="sheetDate" hidden>
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <h2 id="sheetDate"></h2>
+      <button id="sheetClose" class="sheet-close" aria-label="Close">&times;</button>
+    </div>
+    <div id="sheetBody" class="sheet-body"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

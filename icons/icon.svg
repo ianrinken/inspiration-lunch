@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b71f21"/>
+      <stop offset="1" stop-color="#8a1315"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+
+  <!-- apple -->
+  <g fill="#fff">
+    <path d="M256 160c-14-34-52-46-84-32-44 19-64 74-49 132 14 55 52 100 92 100 12 0 20-5 28-5s16 5 28 5c40 0 78-45 92-100 15-58-5-113-49-132-32-14-70-2-84 32z" fill="#ffffff"/>
+    <!-- stem -->
+    <path d="M250 150c-2-26 8-48 30-62 6-4 14-2 17 4 3 7 0 14-6 18-14 9-20 22-19 40z"/>
+  </g>
+  <!-- leaf -->
+  <path d="M290 118c26-20 56-22 78-8-8 26-32 44-62 44-8 0-14-1-20-3 0-12 1-24 4-33z" fill="#f4c95d"/>
+
+  <!-- tray -->
+  <g>
+    <rect x="86" y="390" width="340" height="34" rx="17" fill="#ffffff"/>
+    <rect x="146" y="430" width="220" height="20" rx="10" fill="#f4c95d"/>
+  </g>
+</svg>

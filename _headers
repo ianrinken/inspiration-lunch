@@ -6,3 +6,7 @@
 
 /icons/*
   Cache-Control: public, max-age=604800
+
+# Lets the old netlify.app origin verify the custom domain is really live
+/manifest.webmanifest
+  Access-Control-Allow-Origin: *

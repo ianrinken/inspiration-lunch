@@ -38,7 +38,32 @@
 
   let schoolId = null;
   try { schoolId = localStorage.getItem(SCHOOL_KEY); } catch {}
+
+  // Domain migration: accept a school preference handed over via ?school=…
+  // (used when moving installs from bvlunch.netlify.app to the custom domain).
+  const urlSchool = new URLSearchParams(location.search).get("school");
+  if (urlSchool && SCHOOLS.some((s) => s.id === urlSchool)) {
+    schoolId = urlSchool;
+    try { localStorage.setItem(SCHOOL_KEY, urlSchool); } catch {}
+    history.replaceState(null, "", location.pathname);
+  }
+
   if (!SCHOOLS.some((s) => s.id === schoolId)) schoolId = DEFAULT_SCHOOL;
+
+  // Once brandonvalleylunch.com is live and serving this app, quietly move
+  // old netlify.app installs there, carrying the saved school along. The
+  // manifest check guarantees we never bounce anyone to a parking page.
+  const NEW_HOME = "https://brandonvalleylunch.com";
+  if (location.hostname === "bvlunch.netlify.app") {
+    fetch(`${NEW_HOME}/manifest.webmanifest`, { mode: "cors" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((m) => {
+        if (m && m.name === "Brandon Valley Lunch") {
+          location.replace(`${NEW_HOME}/?school=${schoolId}`);
+        }
+      })
+      .catch(() => { /* new domain not live yet — stay put */ });
+  }
 
   const today = new Date();
   let view = { year: today.getFullYear(), month: today.getMonth() }; // month is 0-based

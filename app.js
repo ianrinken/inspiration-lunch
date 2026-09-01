@@ -23,7 +23,7 @@
 
   const CACHE_PREFIX = "bvl-menu-v3:"; // v3: MS/HS alternate-line parsing
   const SCHOOL_KEY = "bvl-school";
-  const FRESH_MS = 12 * 60 * 60 * 1000;      // refetch menus older than 12h
+  const FRESH_MS = 6 * 60 * 60 * 1000;       // refetch menus older than 6h
   const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000; // recheck unposted months every 2h
 
   // Standing alternate entrées offered alongside the day's hot meal.

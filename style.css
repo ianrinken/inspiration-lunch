@@ -217,6 +217,8 @@ main { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: clamp(14
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 999px;
 }
+.day-cell.past { opacity: .45; box-shadow: none; }
+@media (hover: hover) { .day-cell.past:hover { opacity: .8; } }
 .day-cell.today { border-color: var(--today-ring); border-width: 2px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--today-ring) 22%, transparent), var(--shadow); }
 .day-cell.today .day-num { background: var(--bv-red); color: #fff; }
 .day-entree {

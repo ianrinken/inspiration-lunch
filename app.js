@@ -21,7 +21,7 @@
   ];
   const DEFAULT_SCHOOL = "0c65b2bc-908d-ec11-8df7-9566c4096294"; // Inspiration Elementary
 
-  const CACHE_PREFIX = "bvl-menu-v2:";
+  const CACHE_PREFIX = "bvl-menu-v3:"; // v3: MS/HS alternate-line parsing
   const SCHOOL_KEY = "bvl-school";
   const FRESH_MS = 12 * 60 * 60 * 1000;      // refetch menus older than 12h
   const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000; // recheck unposted months every 2h
@@ -92,13 +92,14 @@
             for (const r of cat.Recipes || []) {
               const recipe = cleanName(r.RecipeName || "");
               if (!recipe) continue;
-              if (isFirstMeal && catName.includes("entr")) {
-                if (ALTERNATE_RX.test(recipe)) {
-                  if (!d.alternates.includes(recipe)) d.alternates.push(recipe);
-                } else if (!d.entree) {
+              if (catName.includes("entr")) {
+                // First non-standing entrée on the hot line is the day's meal;
+                // everything else marked entrée (second hot choice, standing
+                // alternates, MS/HS "Cold Grab n' Go Line") is an alternate.
+                if (isFirstMeal && !d.entree && !ALTERNATE_RX.test(recipe)) {
                   d.entree = recipe;
-                } else {
-                  d.sides.push(recipe);
+                } else if (!d.alternates.includes(recipe)) {
+                  d.alternates.push(recipe);
                 }
               } else if (isFirstMeal) {
                 d.sides.push(recipe); // grain / soup that comes with the hot meal
@@ -291,13 +292,19 @@
 
   const DOW_ABBR = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
 
+  function isPast(y, m, d) {
+    const now = new Date();
+    return new Date(y, m, d) < new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
   function dayCell(dayNum, key, info) {
     const { year, month } = view;
     const dow = new Date(year, month, dayNum).getDay();
+    const state = isToday(year, month, dayNum) ? " today" : (isPast(year, month, dayNum) ? " past" : "");
     const top = `<span class="day-top"><span class="day-num">${dayNum}</span><span class="day-dow">${DOW_ABBR[dow]}</span></span>`;
     if (!info) {
       const el = document.createElement("div");
-      el.className = "day-cell no-school" + (isToday(year, month, dayNum) ? " today" : "");
+      el.className = "day-cell no-school" + state;
       el.dataset.dow = dow;
       el.innerHTML = `${top}<span class="day-note">No school</span>`;
       return el;
@@ -305,7 +312,7 @@
     const name = info.entree || info.alternates[0] || "";
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "day-cell" + (isToday(year, month, dayNum) ? " today" : "");
+    btn.className = "day-cell" + state;
     btn.dataset.dow = dow;
     btn.setAttribute("aria-label", `${fmtDay.format(new Date(year, month, dayNum))}: ${name}`);
     btn.innerHTML = `${top}<span class="day-entree"></span>`;

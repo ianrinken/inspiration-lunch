@@ -19,7 +19,7 @@ Official menu: https://linqconnect.com/public/menu/L36JZQ
 
 ## Hosting
 
-Live at **https://inspiration-lunch.netlify.app** — a Netlify site connected to
+Live at **https://bvlunch.netlify.app** — a Netlify site connected to
 this repo (github.com/ianrinken/inspiration-lunch). Every push to `main`
 auto-deploys; there is no build step (Netlify publishes the repo root as-is).
 

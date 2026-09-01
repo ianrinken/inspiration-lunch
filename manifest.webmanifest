@@ -1,7 +1,7 @@
 {
-  "name": "Inspiration Lunch",
-  "short_name": "Inspiration Lunch",
-  "description": "Lunch menu calendar for Inspiration Elementary, Brandon Valley School District",
+  "name": "Brandon Valley Lunch",
+  "short_name": "BV Lunch",
+  "description": "Daily school lunch menus for Brandon Valley School District, Brandon SD",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

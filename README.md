@@ -1,7 +1,10 @@
-# Inspiration Lunch
+# Brandon Valley Lunch
 
-Installable web app (PWA) showing the lunch menu for **Inspiration Elementary**
-(Brandon Valley School District, Brandon, SD) as a clickable Mon–Fri calendar.
+Installable web app (PWA) showing daily school lunch menus for the
+**Brandon Valley School District** (Brandon, SD): a Today card with the current
+hot entrée, plus a clickable Mon–Fri calendar. A school picker covers all 8
+buildings (default: Inspiration Elementary — most elementaries share a menu,
+but Brandon Elementary's rotation can differ, so menus stay per-school).
 
 - Live data from the LINQ Connect public API, fetched month-by-month straight
   from the browser (the API sends `Access-Control-Allow-Origin: *`, and the AWS

@@ -235,14 +235,95 @@
   const fmtHero = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" });
   const dkey = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 
-  async function renderHero() {
-    const heroEl = $("hero");
+  // Parents mostly check the night before: after lunchtime the hero looks
+  // ahead to the next school day instead of today.
+  function heroStart() {
     const now = new Date();
-
-    // Parents mostly check the night before: after lunchtime the hero
-    // looks ahead to the next school day instead of today.
     const probe = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (now.getHours() >= 13) probe.setDate(probe.getDate() + 1);
+    return probe;
+  }
+
+  function heroLabel(target) {
+    const now = new Date();
+    const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
+    return dkey(target) === dkey(now) ? "Today"
+      : dkey(target) === dkey(t1) ? "Tomorrow"
+      : "Next school day";
+  }
+
+  function renderHero() {
+    return tab === "events" ? renderEventsHero() : renderLunchHero();
+  }
+
+  async function renderEventsHero() {
+    const heroEl = $("hero");
+    const probe = heroStart();
+    let byDay = {};
+    const loaded = new Set();
+    const ensureMonth = async (dt) => {
+      const k = `${dt.getFullYear()}-${dt.getMonth()}`;
+      if (loaded.has(k)) return;
+      loaded.add(k);
+      const ed = await getEventsData(dt.getFullYear(), dt.getMonth());
+      byDay = { ...byDay, ...eventsByDay((ed && ed.events) || []) };
+    };
+
+    let target = null;
+    for (let i = 0; i < 45; i++) {
+      await ensureMonth(probe);
+      if ((byDay[dkey(probe)] || []).length) { target = new Date(probe); break; }
+      probe.setDate(probe.getDate() + 1);
+    }
+    if (!target) {
+      $("heroLabel").textContent = "Events";
+      $("heroDate").textContent = "";
+      $("heroName").textContent = "Nothing scheduled";
+      $("heroSides").textContent = "";
+      $("heroAlt").innerHTML = "";
+      $("heroEvents").textContent = "";
+      $("heroTomorrow").hidden = true;
+      $("heroCard").onclick = null;
+      heroEl.hidden = false;
+      return;
+    }
+
+    const key = dkey(target);
+    const evs = byDay[key];
+    $("heroLabel").textContent = heroLabel(target);
+    $("heroDate").textContent = fmtHero.format(target);
+    $("heroName").textContent = evs[0].t;
+    $("heroSides").textContent = evs[0].time || "";
+    $("heroAlt").innerHTML = evs.length > 1
+      ? `also: <b>${evs.slice(1, 4).map((ev) => esc(ev.t)).join("</b> · <b>")}</b>${evs.length > 4 ? ` +${evs.length - 4} more` : ""}`
+      : "";
+    $("heroEvents").textContent = "";
+    $("heroCard").onclick = () => openSheet(key, null, "events");
+
+    // Teaser: the next day after this one that has something on it.
+    const teaser = $("heroTomorrow");
+    teaser.hidden = true;
+    const now = new Date();
+    const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
+    const p2 = new Date(target);
+    for (let i = 0; i < 14; i++) {
+      p2.setDate(p2.getDate() + 1);
+      await ensureMonth(p2);
+      const next = byDay[dkey(p2)];
+      if (next && next.length) {
+        const word = dkey(p2) === dkey(t1) ? "Tomorrow" : fmtHero.format(p2).split(",")[0];
+        teaser.innerHTML = `${word}: <b>${esc(next[0].t)}</b>`;
+        teaser.hidden = false;
+        break;
+      }
+    }
+    heroEl.hidden = false;
+  }
+
+  async function renderLunchHero() {
+    const heroEl = $("hero");
+    const now = new Date();
+    const probe = heroStart();
 
     let days = {};
     const loaded = new Set();
@@ -263,29 +344,16 @@
     if (!target) { heroEl.hidden = true; return; }
 
     const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
-    const label = dkey(target) === dkey(now) ? "Today"
-      : dkey(target) === dkey(t1) ? "Tomorrow"
-      : "Next school day";
 
     const info = days[dkey(target)];
-    $("heroLabel").textContent = label;
+    $("heroLabel").textContent = heroLabel(target);
     $("heroDate").textContent = fmtHero.format(target);
     $("heroName").textContent = info.entree || info.alternates[0] || "";
     $("heroSides").textContent = info.sides.length ? `with ${info.sides.join(" · ")}` : "";
     $("heroAlt").innerHTML = info.alternates.length
       ? `or: <b>${info.alternates.map(esc).join("</b> · <b>")}</b>` : "";
-    $("heroCard").onclick = () => openSheet(dkey(target), info);
-
-    // Single-day school events for the hero day (spirit days, picture day…)
     $("heroEvents").textContent = "";
-    getEventsData(target.getFullYear(), target.getMonth()).then((evData) => {
-      const dayEvs = (eventsByDay((evData && evData.events) || [])[dkey(target)] || [])
-        .filter((ev) => !ev.multi);
-      if (dayEvs.length) {
-        $("heroEvents").textContent = dayEvs
-          .map((ev) => ev.t + (ev.time ? ` · ${ev.time}` : "")).join("  ·  ");
-      }
-    }).catch(() => {});
+    $("heroCard").onclick = () => openSheet(dkey(target), info);
 
     // One-line teaser for the school day after the hero day.
     const teaser = $("heroTomorrow");
@@ -593,6 +661,7 @@
       $(id).setAttribute("aria-selected", String(active));
     }
     render();
+    renderHero();
   }
   $("tabLunch").addEventListener("click", () => setTab("lunch"));
   $("tabEvents").addEventListener("click", () => setTab("events"));

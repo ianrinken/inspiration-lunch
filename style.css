@@ -462,3 +462,21 @@ button.day-cell.no-school { cursor: pointer; }
   text-align: center; text-decoration: none;
 }
 .sheet-action:active { transform: scale(.98); }
+
+/* Pick which events go to the calendar */
+.ev-pick {
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer; min-height: 26px;
+}
+.ev-check {
+  flex: none;
+  width: 22px; height: 22px;
+  accent-color: var(--bv-red);
+  cursor: pointer;
+}
+.menu-section li:has(.ev-pick) { padding: 11px 13px; }
+.sheet-action.disabled {
+  background: var(--surface-2);
+  color: var(--text-soft);
+  cursor: default;
+}

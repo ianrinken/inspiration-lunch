@@ -22,7 +22,7 @@
   const DEFAULT_SCHOOL = "0c65b2bc-908d-ec11-8df7-9566c4096294"; // Inspiration Elementary
 
   const CACHE_PREFIX = "bvl-menu-v4:"; // v4: + holidays from AcademicCalendars
-  const EVENTS_PREFIX = "bvl-events-v1:";
+  const EVENTS_PREFIX = "bvl-events-v2:"; // v2: per-event ids
   const EVENTS_API = "/.netlify/functions/events";
   const SCHOOL_KEY = "bvl-school";
   const FRESH_MS = 6 * 60 * 60 * 1000;       // refetch menus older than 6h
@@ -206,7 +206,7 @@
     for (const ev of events || []) {
       const multi = addDaysIso(ev.s, 1) < ev.e;
       for (let d = ev.s; d < ev.e; d = addDaysIso(d, 1)) {
-        (map[d] = map[d] || []).push({ t: ev.t, time: ev.time, multi });
+        (map[d] = map[d] || []).push({ t: ev.t, time: ev.time, id: ev.id, multi });
       }
     }
     return map;
@@ -562,9 +562,14 @@
     const sections = [];
     if (mode === "events") {
       const dayEvents = currentMonthEvents[key] || [];
-      sections.push(section("At school", dayEvents.map((ev) => ({
-        name: ev.t + (ev.time ? ` · ${ev.time}` : ""),
-      }))));
+      const rows = dayEvents.map((ev, i) => {
+        const label = esc(ev.t + (ev.time ? ` · ${ev.time}` : ""));
+        const id = ev.id || String(i);
+        return `<li><label class="ev-pick">` +
+          `<input type="checkbox" class="ev-check" value="${esc(id)}">` +
+          `<span>${label}</span></label></li>`;
+      }).join("");
+      sections.push(`<div class="menu-section"><h3>At school</h3><ul>${rows}</ul></div>`);
     }
     info = info || { entree: null, sides: [], alternates: [], vegetable: [], fruit: [], milk: [], condiments: [] };
     if (info.entree) {
@@ -581,9 +586,26 @@
       // A real link (not script) so iOS hands the file to the Calendar app.
       const a = document.createElement("a");
       a.className = "sheet-action";
-      a.href = `${EVENTS_API}?school=${schoolId}&start=${key}&end=${addDaysIso(key, 1)}&format=ics`;
-      a.textContent = "Add to my calendar";
-      a.addEventListener("click", dismissWhatsNew);
+      a.addEventListener("click", (e) => {
+        if (a.classList.contains("disabled")) { e.preventDefault(); return; }
+        dismissWhatsNew();
+      });
+      const boxes = [...$("sheetBody").querySelectorAll(".ev-check")];
+      const sync = () => {
+        const picked = boxes.filter((b) => b.checked).map((b) => b.value);
+        a.classList.toggle("disabled", !picked.length);
+        a.textContent = picked.length > 1
+          ? `Add ${picked.length} to my calendar`
+          : "Add to my calendar";
+        a.href = picked.length
+          ? `${EVENTS_API}?school=${schoolId}&start=${key}&end=${addDaysIso(key, 1)}` +
+            `&format=ics&ids=${picked.join(",")}`
+          : "#";
+      };
+      boxes.forEach((b) => b.addEventListener("change", sync));
+      // One event on the day: nothing to choose between, so pre-select it.
+      if (boxes.length === 1) boxes[0].checked = true;
+      sync();
       $("sheetBody").appendChild(a);
     }
     sheet.hidden = false; backdrop.hidden = false;

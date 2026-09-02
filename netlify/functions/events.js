@@ -128,7 +128,8 @@ function parseIcs(ics, rangeStart, rangeEnd, keep) {
     // Placeholder clock times: overnight stamps, and 7:00 AM — the activities
     // feed's default school-day start ("Labor Day - No School · 7:00 AM").
     if (time && (/^(?:12|[1-6]):\d\d AM$/.test(time) || time === "7:00 AM")) time = stamp = null;
-    events.push({ s, e, t: title, ...(time ? { time, stamp } : {}) });
+    const id = Math.abs(hash(`${s}|${title}`)).toString(36).slice(0, 7);
+    events.push({ s, e, t: title, id, ...(time ? { time, stamp } : {}) });
   }
   events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
   return events;
@@ -231,8 +232,14 @@ exports.handler = async (event) => {
       events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
     }
     // format=ics hands the range straight to the phone's calendar app.
+    // ids= limits it to the events the parent actually picked.
     if (q.format === "ics") {
       const name = SCHOOL_NAMES[q.school] || "School events";
+      const want = (q.ids || "").split(",").filter(Boolean);
+      const chosen = want.length ? events.filter((ev) => want.includes(ev.id)) : events;
+      if (!chosen.length) {
+        return { statusCode: 404, headers: { "Access-Control-Allow-Origin": "*" }, body: "no matching events" };
+      }
       return {
         statusCode: 200,
         headers: {
@@ -241,7 +248,7 @@ exports.handler = async (event) => {
           "Access-Control-Allow-Origin": "*",
           "Cache-Control": "public, max-age=900",
         },
-        body: buildIcs(events, name),
+        body: buildIcs(chosen, name),
       };
     }
 

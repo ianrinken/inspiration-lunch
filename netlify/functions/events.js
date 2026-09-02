@@ -59,7 +59,12 @@ const TZ = "America/Chicago";
 const DATE_RX = /^\d{4}-\d{2}-\d{2}$/;
 
 const unescapeIcs = (s) =>
-  s.replace(/\\n/gi, " ").replace(/\\([,;\\])/g, "$1").trim();
+  s.replace(/\\n/gi, " ").replace(/\\([,;\\\\])/g, "$1")
+    // Staff sometimes paste a link into the title: "Pigskin Classic (https://…)"
+    .replace(/\s*\(\s*https?:\/\/[^)]*\)/gi, "")
+    .replace(/\s*https?:\/\/\S+/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
 // UTC instant -> { date: "YYYY-MM-DD", time: "3:30 PM" } in Central time
 function toCentral(utc) {

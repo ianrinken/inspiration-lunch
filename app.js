@@ -22,7 +22,7 @@
   const DEFAULT_SCHOOL = "0c65b2bc-908d-ec11-8df7-9566c4096294"; // Inspiration Elementary
 
   const CACHE_PREFIX = "bvl-menu-v4:"; // v4: + holidays from AcademicCalendars
-  const EVENTS_PREFIX = "bvl-events-v2:"; // v2: per-event ids
+  const EVENTS_PREFIX = "bvl-events-v3:"; // v3: titles cleaned of URLs
   const EVENTS_API = "/.netlify/functions/events";
   const SCHOOL_KEY = "bvl-school";
   const FRESH_MS = 6 * 60 * 60 * 1000;       // refetch menus older than 6h
@@ -440,8 +440,10 @@
     const firstSchool = schoolDays[0], lastSchool = schoolDays[schoolDays.length - 1];
 
     eachWeekday(year, month, (d, key) => {
-      const cell = dayCell(d, key, days[key]);
-      if (!days[key] && (key < firstSchool || key > lastSchool)) cell.classList.add("out-of-session");
+      // Outside the published range we know nothing — never claim "no school".
+      const unpublished = !days[key] && (key < firstSchool || key > lastSchool);
+      const cell = dayCell(d, key, days[key], unpublished);
+      if (unpublished) cell.classList.add("out-of-session");
       return cell;
     });
     renderUpdated();
@@ -510,7 +512,7 @@
     return btn;
   }
 
-  function dayCell(dayNum, key, info) {
+  function dayCell(dayNum, key, info, unpublished) {
     const { year, month } = view;
     const dow = new Date(year, month, dayNum).getDay();
     const state = cellState(dayNum);
@@ -522,7 +524,9 @@
       el.className = "day-cell no-school" + state;
       el.dataset.dow = dow;
       el.innerHTML = `${top}<span class="day-note"></span>`;
-      el.querySelector(".day-note").textContent = holidays[key] || "No school";
+      el.querySelector(".day-note").textContent = unpublished
+        ? "Menu not posted"
+        : (holidays[key] || "No school");
       return el;
     }
     const name = info.entree || info.alternates[0] || "";

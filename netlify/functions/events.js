@@ -109,8 +109,9 @@ function parseIcs(ics, rangeStart, rangeEnd, keep) {
     }
 
     if (e <= rangeStart || s >= rangeEnd) continue;
-    // Pre-7 AM "times" are all-day events entered with a stray time — drop them.
-    if (time && / AM$/.test(time) && (parseInt(time, 10) === 12 || parseInt(time, 10) < 7)) time = null;
+    // Placeholder clock times: overnight stamps, and 7:00 AM — the activities
+    // feed's default school-day start ("Labor Day - No School · 7:00 AM").
+    if (time && (/^(?:12|[1-6]):\d\d AM$/.test(time) || time === "7:00 AM")) time = null;
     events.push({ s, e, t: title, ...(time ? { time } : {}) });
   }
   events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));

@@ -72,6 +72,10 @@
   let currentMonthData = null;   // parsed menu data for the viewed month
   let currentMonthEvents = {};   // per-day school events for the viewed month
 
+  const TAB_KEY = "bvl-tab";
+  let tab = "lunch";
+  try { if (localStorage.getItem(TAB_KEY) === "events") tab = "events"; } catch {}
+
   /* ---------------- data ---------------- */
 
   const monthKey = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
@@ -317,27 +321,52 @@
     calendarEl.innerHTML = "";
     statusEl.hidden = true;
     statusEl.innerHTML = "";
+    if (tab === "events") renderEventsView();
+    else renderLunchView();
+  }
 
+  function showStatus(html, retry) {
+    calendarEl.hidden = true;
+    weekdayRow.style.display = "none";
+    statusEl.hidden = false;
+    statusEl.innerHTML = html;
+    const btn = $("retryBtn");
+    if (btn) btn.addEventListener("click", retry);
+  }
+
+  // Walk the month's weekdays, appending one cell per Mon–Fri day.
+  function eachWeekday(year, month, makeCell) {
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    let started = false;
+    for (let d = 1; d <= lastDate; d++) {
+      const dow = new Date(year, month, d).getDay(); // 0=Sun
+      if (dow === 0 || dow === 6) continue;
+      if (!started) {
+        for (let i = 0; i < dow - 1; i++) calendarEl.appendChild(emptyCell());
+        started = true;
+      }
+      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      calendarEl.appendChild(makeCell(d, key, dow));
+    }
+  }
+
+  function renderLunchView() {
+    const { year, month } = view;
     const data = currentMonthData;
     const days = (data && data.days) || {};
-    const hasAny = Object.keys(days).length > 0;
 
-    if (!hasAny) {
-      calendarEl.hidden = true;
-      weekdayRow.style.display = "none";
-      statusEl.hidden = false;
+    if (!Object.keys(days).length) {
       if (data && data.error) {
-        statusEl.innerHTML = `
+        showStatus(`
           <h2>Couldn&rsquo;t load the menu</h2>
           <p>Check your connection and try again. If you&rsquo;ve opened this month before, it would show from memory.</p>
-          <button id="retryBtn">Try again</button>`;
+          <button id="retryBtn">Try again</button>`, () => loadMonth(true));
       } else {
-        statusEl.innerHTML = `
+        showStatus(`
           <h2>Menu not posted yet</h2>
           <p>The district hasn&rsquo;t published the ${MONTHS[month]} menu on LINQ Connect. Check back closer to the month.</p>
-          <button id="retryBtn">Check again</button>`;
+          <button id="retryBtn">Check again</button>`, () => loadMonth(true));
       }
-      $("retryBtn").addEventListener("click", () => loadMonth(true));
       renderUpdated();
       return;
     }
@@ -350,20 +379,29 @@
     const schoolDays = Object.keys(days).sort();
     const firstSchool = schoolDays[0], lastSchool = schoolDays[schoolDays.length - 1];
 
-    const lastDate = new Date(year, month + 1, 0).getDate();
-    let started = false;
-    for (let d = 1; d <= lastDate; d++) {
-      const dow = new Date(year, month, d).getDay(); // 0=Sun
-      if (dow === 0 || dow === 6) continue; // Mon–Fri grid
-      if (!started) {
-        for (let i = 0; i < dow - 1; i++) calendarEl.appendChild(emptyCell());
-        started = true;
-      }
-      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    eachWeekday(year, month, (d, key) => {
       const cell = dayCell(d, key, days[key]);
       if (!days[key] && (key < firstSchool || key > lastSchool)) cell.classList.add("out-of-session");
-      calendarEl.appendChild(cell);
+      return cell;
+    });
+    renderUpdated();
+  }
+
+  function renderEventsView() {
+    const { year, month } = view;
+    const hasAny = Object.keys(currentMonthEvents).length > 0;
+
+    if (!hasAny) {
+      showStatus(`
+        <h2>No events posted</h2>
+        <p>Nothing on the ${MONTHS[month]} school calendar yet. Events come straight from the school&rsquo;s official calendar.</p>
+        <button id="retryBtn">Check again</button>`, () => loadMonth(true));
+      return;
     }
+
+    calendarEl.hidden = false;
+    weekdayRow.style.display = "";
+    eachWeekday(year, month, (d, key) => eventCell(d, key));
     renderUpdated();
   }
 
@@ -380,13 +418,44 @@
     return new Date(y, m, d) < new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }
 
+  function cellState(dayNum) {
+    const { year, month } = view;
+    return isToday(year, month, dayNum) ? " today" : (isPast(year, month, dayNum) ? " past" : "");
+  }
+
+  function cellTop(dayNum, dow) {
+    return `<span class="day-top"><span class="day-num">${dayNum}</span><span class="day-dow">${DOW_ABBR[dow]}</span></span>`;
+  }
+
+  function eventCell(dayNum, key) {
+    const { year, month } = view;
+    const dow = new Date(year, month, dayNum).getDay();
+    const evs = currentMonthEvents[key] || [];
+    if (!evs.length) {
+      const el = document.createElement("div");
+      el.className = "day-cell ev-empty" + cellState(dayNum);
+      el.dataset.dow = dow;
+      el.innerHTML = cellTop(dayNum, dow);
+      return el;
+    }
+    const first = evs.find((ev) => !ev.multi) || evs[0];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "day-cell" + cellState(dayNum);
+    btn.dataset.dow = dow;
+    btn.setAttribute("aria-label", `${fmtDay.format(new Date(year, month, dayNum))}: ${first.t}`);
+    btn.innerHTML = `${cellTop(dayNum, dow)}<span class="day-entree"></span>${evs.length > 1 ? `<span class="day-more">+${evs.length - 1} more</span>` : ""}`;
+    btn.querySelector(".day-entree").textContent = first.t + (first.time ? ` · ${first.time}` : "");
+    btn.addEventListener("click", () => openSheet(key, ((currentMonthData && currentMonthData.days) || {})[key] || null));
+    return btn;
+  }
+
   function dayCell(dayNum, key, info) {
     const { year, month } = view;
     const dow = new Date(year, month, dayNum).getDay();
-    const state = isToday(year, month, dayNum) ? " today" : (isPast(year, month, dayNum) ? " past" : "");
+    const state = cellState(dayNum);
     const dayEvents = currentMonthEvents[key] || [];
-    const hasMark = dayEvents.some((ev) => !ev.multi); // single-day events earn the dot
-    const top = `<span class="day-top"><span class="day-num">${dayNum}</span><span class="day-dow">${DOW_ABBR[dow]}</span>${hasMark ? '<span class="day-dot" aria-hidden="true"></span>' : ""}</span>`;
+    const top = cellTop(dayNum, dow);
     const holidays = (currentMonthData && currentMonthData.holidays) || {};
 
     if (!info) {
@@ -520,6 +589,22 @@
     view = { year: view.year + Math.floor(m / 12), month: ((m % 12) + 12) % 12 };
     loadMonth();
   }
+
+  /* ---------------- tabs ---------------- */
+
+  function setTab(t) {
+    tab = t;
+    try { localStorage.setItem(TAB_KEY, t); } catch {}
+    for (const [id, name] of [["tabLunch", "lunch"], ["tabEvents", "events"]]) {
+      const active = name === t;
+      $(id).classList.toggle("active", active);
+      $(id).setAttribute("aria-selected", String(active));
+    }
+    render();
+  }
+  $("tabLunch").addEventListener("click", () => setTab("lunch"));
+  $("tabEvents").addEventListener("click", () => setTab("events"));
+  if (tab !== "lunch") setTab(tab); // restore persisted tab styling
 
   $("prevMonth").addEventListener("click", () => shiftMonth(-1));
   $("nextMonth").addEventListener("click", () => shiftMonth(1));

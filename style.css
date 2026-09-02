@@ -159,6 +159,29 @@ main { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: clamp(14
 }
 .hero-tomorrow b { color: var(--text); font-weight: 600; }
 
+/* ---------- Tabs ---------- */
+.tab-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+.tab-btn {
+  flex: 1;
+  min-height: 46px;
+  padding: 11px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(.95rem, 3vw, 1.05rem);
+  cursor: pointer;
+  transition: transform .1s ease;
+}
+.tab-btn:active { transform: scale(.97); }
+.tab-btn.active {
+  background: var(--bv-red);
+  border-color: var(--bv-red);
+  color: #fff;
+}
+
 /* ---------- Month nav ---------- */
 .month-nav {
   display: flex; align-items: center; justify-content: space-between;
@@ -235,13 +258,16 @@ main { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: clamp(14
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 999px;
 }
-.day-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--bv-gold);
-  flex: none;
-}
-.day-cell.no-school .day-dot { opacity: .9; }
 button.day-cell.no-school { cursor: pointer; }
+.day-cell.ev-empty {
+  background: none; box-shadow: none; cursor: default;
+  border-style: dashed; border-width: 1px;
+}
+.day-more {
+  font-size: clamp(.68rem, 1.9vw, .78rem);
+  font-weight: 600;
+  color: var(--text-soft);
+}
 .day-cell.past { opacity: .45; box-shadow: none; }
 @media (hover: hover) { .day-cell.past:hover { opacity: .8; } }
 .day-cell.today { border-color: var(--today-ring); border-width: 2px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--today-ring) 22%, transparent), var(--shadow); }
@@ -270,7 +296,8 @@ button.day-cell.no-school { cursor: pointer; }
     height: 56px;
     padding: 0 14px;
   }
-  .day-cell.empty, .day-cell.no-school.out-of-session { display: none; }
+  .day-cell.empty, .day-cell.no-school.out-of-session, .day-cell.ev-empty { display: none; }
+  .day-more { flex: none; }
   .day-cell[data-dow="5"]:not(:last-child) { margin-bottom: 14px; } /* week break after Friday */
   .day-top { display: flex; align-items: center; gap: 8px; width: 88px; flex: none; }
   .day-dow {

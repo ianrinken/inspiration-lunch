@@ -538,6 +538,7 @@
   }
 
   function renderUpdated() {
+    if (tab === "events") { updatedEl.textContent = ""; return; }
     const data = currentMonthData;
     if (!data || !data.fetchedAt) { updatedEl.textContent = ""; return; }
     const mins = Math.round((Date.now() - data.fetchedAt) / 60000);
@@ -554,6 +555,7 @@
 
   const sheet = $("daySheet");
   const backdrop = $("sheetBackdrop");
+  let sheetOpener = null;
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
   function openSheet(key, info, mode = "lunch") {
@@ -608,11 +610,14 @@
       sync();
       $("sheetBody").appendChild(a);
     }
+    sheetOpener = document.activeElement;
     sheet.hidden = false; backdrop.hidden = false;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       sheet.classList.add("show"); backdrop.classList.add("show");
-      $("sheetClose").focus({ preventScroll: true });
     }));
+    // Move the caret into the dialog so keyboard and screen-reader users
+    // land inside it rather than back on the page behind.
+    setTimeout(() => { try { $("sheetClose").focus({ preventScroll: true }); } catch {} }, 60);
   }
 
   function section(title, items) {
@@ -623,8 +628,24 @@
 
   function closeSheet() {
     sheet.classList.remove("show"); backdrop.classList.remove("show");
-    setTimeout(() => { sheet.hidden = true; backdrop.hidden = true; }, 280);
+    setTimeout(() => {
+      sheet.hidden = true; backdrop.hidden = true;
+      // Hand focus back to whatever opened the sheet.
+      try { if (sheetOpener && sheetOpener.isConnected) sheetOpener.focus({ preventScroll: true }); } catch {}
+      sheetOpener = null;
+    }, 280);
   }
+
+  // Keep Tab inside the dialog while it is open.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab" || sheet.hidden) return;
+    const focusable = sheet.querySelectorAll("button, a[href], input, [tabindex]:not([tabindex='-1'])");
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    else if (!sheet.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  });
   $("sheetClose").addEventListener("click", closeSheet);
   backdrop.addEventListener("click", closeSheet);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheet.hidden) closeSheet(); });

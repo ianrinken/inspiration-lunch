@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7d1012"/>
+      <stop offset="0.55" stop-color="#A8181A"/>
+      <stop offset="1" stop-color="#c22527"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.85" cy="0" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- apple + tray mark -->
+  <g transform="translate(96, 190) scale(0.62)">
+    <path d="M256 160c-14-34-52-46-84-32-44 19-64 74-49 132 14 55 52 100 92 100 12 0 20-5 28-5s16 5 28 5c40 0 78-45 92-100 15-58-5-113-49-132-32-14-70-2-84 32z" fill="#ffffff"/>
+    <path d="M250 150c-2-26 8-48 30-62 6-4 14-2 17 4 3 7 0 14-6 18-14 9-20 22-19 40z" fill="#ffffff"/>
+    <path d="M290 118c26-20 56-22 78-8-8 26-32 44-62 44-8 0-14-1-20-3 0-12 1-24 4-33z" fill="#f4c95d"/>
+    <rect x="86" y="390" width="340" height="34" rx="17" fill="#ffffff"/>
+    <rect x="146" y="430" width="220" height="20" rx="10" fill="#f4c95d"/>
+  </g>
+
+  <g font-family="Helvetica, Arial, sans-serif" fill="#ffffff">
+    <text x="400" y="268" font-size="82" font-weight="bold" letter-spacing="-1">Brandon Valley</text>
+    <text x="400" y="366" font-size="82" font-weight="bold" fill="#f4c95d" letter-spacing="-1">Lunch</text>
+    <text x="402" y="430" font-size="33" opacity="0.92">Daily lunch menus and school events</text>
+    <text x="402" y="478" font-size="33" opacity="0.72">for every Brandon Valley school</text>
+  </g>
+
+  <g font-family="Helvetica, Arial, sans-serif">
+    <rect x="400" y="520" width="330" height="58" rx="29" fill="#ffffff" fill-opacity="0.16"/>
+    <text x="430" y="558" font-size="28" font-weight="bold" fill="#ffffff">brandonvalleylunch.com</text>
+  </g>
+</svg>

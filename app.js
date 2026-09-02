@@ -654,22 +654,32 @@
   /* ---------------- what's new ---------------- */
 
   const WHATS_NEW_KEY = "bvl-whatsnew-cal";
+  let whatsNewEligible = false;
+  let whatsNewCounted = false;
+
+  try {
+    const seen = localStorage.getItem(WHATS_NEW_KEY);
+    // Nothing is "new" to a first-time visitor, and it retires after 3 views.
+    whatsNewEligible = isReturning && seen !== "done" && (parseInt(seen, 10) || 0) < 3;
+  } catch {}
 
   function dismissWhatsNew() {
+    whatsNewEligible = false;
     $("whatsNew").hidden = true;
     try { localStorage.setItem(WHATS_NEW_KEY, "done"); } catch {}
   }
 
-  (function maybeShowWhatsNew() {
-    if (!isReturning) return; // nothing is "new" to a first-time visitor
-    let seen = null;
-    try { seen = localStorage.getItem(WHATS_NEW_KEY); } catch {}
-    if (seen === "done") return;
-    const shown = (parseInt(seen, 10) || 0) + 1;
-    if (shown > 3) { dismissWhatsNew(); return; } // fades away on its own
-    try { localStorage.setItem(WHATS_NEW_KEY, String(shown)); } catch {}
+  // Only meaningful on the Events tab, where the feature lives.
+  function updateWhatsNew() {
+    if (!whatsNewEligible || tab !== "events") { $("whatsNew").hidden = true; return; }
+    if (!whatsNewCounted) {
+      whatsNewCounted = true;
+      let shown = 0;
+      try { shown = (parseInt(localStorage.getItem(WHATS_NEW_KEY), 10) || 0) + 1; } catch {}
+      try { localStorage.setItem(WHATS_NEW_KEY, String(shown)); } catch {}
+    }
     $("whatsNew").hidden = false;
-  })();
+  }
 
   $("whatsNewClose").addEventListener("click", dismissWhatsNew);
 
@@ -685,6 +695,7 @@
     }
     render();
     renderHero();
+    updateWhatsNew();
   }
   $("tabLunch").addEventListener("click", () => setTab("lunch"));
   $("tabEvents").addEventListener("click", () => setTab("events"));
@@ -741,4 +752,5 @@
 
   loadMonth();
   renderHero();
+  updateWhatsNew();
 })();

@@ -446,7 +446,7 @@
     btn.setAttribute("aria-label", `${fmtDay.format(new Date(year, month, dayNum))}: ${first.t}`);
     btn.innerHTML = `${cellTop(dayNum, dow)}<span class="day-entree"></span>${evs.length > 1 ? `<span class="day-more">+${evs.length - 1} more</span>` : ""}`;
     btn.querySelector(".day-entree").textContent = first.t + (first.time ? ` · ${first.time}` : "");
-    btn.addEventListener("click", () => openSheet(key, ((currentMonthData && currentMonthData.days) || {})[key] || null));
+    btn.addEventListener("click", () => openSheet(key, null, "events"));
     return btn;
   }
 
@@ -454,23 +454,15 @@
     const { year, month } = view;
     const dow = new Date(year, month, dayNum).getDay();
     const state = cellState(dayNum);
-    const dayEvents = currentMonthEvents[key] || [];
     const top = cellTop(dayNum, dow);
     const holidays = (currentMonthData && currentMonthData.holidays) || {};
 
     if (!info) {
-      const note = holidays[key] || "No school";
-      const clickable = dayEvents.length > 0;
-      const el = document.createElement(clickable ? "button" : "div");
-      if (clickable) {
-        el.type = "button";
-        el.addEventListener("click", () => openSheet(key, null));
-        el.setAttribute("aria-label", `${fmtDay.format(new Date(year, month, dayNum))}: ${note}, has events`);
-      }
+      const el = document.createElement("div");
       el.className = "day-cell no-school" + state;
       el.dataset.dow = dow;
       el.innerHTML = `${top}<span class="day-note"></span>`;
-      el.querySelector(".day-note").textContent = note;
+      el.querySelector(".day-note").textContent = holidays[key] || "No school";
       return el;
     }
     const name = info.entree || info.alternates[0] || "";
@@ -504,12 +496,12 @@
   const backdrop = $("sheetBackdrop");
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-  function openSheet(key, info) {
+  function openSheet(key, info, mode = "lunch") {
     const [y, m, d] = key.split("-").map(Number);
     $("sheetDate").textContent = fmtDay.format(new Date(y, m - 1, d));
     const sections = [];
-    const dayEvents = currentMonthEvents[key] || [];
-    if (dayEvents.length) {
+    if (mode === "events") {
+      const dayEvents = currentMonthEvents[key] || [];
       sections.push(section("At school", dayEvents.map((ev) => ({
         name: ev.t + (ev.time ? ` · ${ev.time}` : ""),
       }))));

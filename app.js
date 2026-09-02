@@ -394,15 +394,17 @@
     if (btn) btn.addEventListener("click", retry);
   }
 
-  // Walk the month's weekdays, appending one cell per Mon–Fri day.
-  function eachWeekday(year, month, makeCell) {
+  // Walk the month a day at a time. Lunch is a Mon–Fri affair; school events
+  // (games, ACT testing, tournaments) happen on weekends too.
+  function eachDay(year, month, makeCell, weekends) {
     const lastDate = new Date(year, month + 1, 0).getDate();
     let started = false;
     for (let d = 1; d <= lastDate; d++) {
       const dow = new Date(year, month, d).getDay(); // 0=Sun
-      if (dow === 0 || dow === 6) continue;
+      if (!weekends && (dow === 0 || dow === 6)) continue;
       if (!started) {
-        for (let i = 0; i < dow - 1; i++) calendarEl.appendChild(emptyCell());
+        const col = weekends ? (dow + 6) % 7 : dow - 1; // weeks start Monday
+        for (let i = 0; i < col; i++) calendarEl.appendChild(emptyCell());
         started = true;
       }
       const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -439,13 +441,15 @@
     const schoolDays = Object.keys(days).sort();
     const firstSchool = schoolDays[0], lastSchool = schoolDays[schoolDays.length - 1];
 
-    eachWeekday(year, month, (d, key) => {
+    calendarEl.classList.remove("week7");
+    weekdayRow.classList.remove("week7");
+    eachDay(year, month, (d, key) => {
       // Outside the published range we know nothing — never claim "no school".
       const unpublished = !days[key] && (key < firstSchool || key > lastSchool);
       const cell = dayCell(d, key, days[key], unpublished);
       if (unpublished) cell.classList.add("out-of-session");
       return cell;
-    });
+    }, false);
     renderUpdated();
   }
 
@@ -463,7 +467,9 @@
 
     calendarEl.hidden = false;
     weekdayRow.style.display = "";
-    eachWeekday(year, month, (d, key) => eventCell(d, key));
+    calendarEl.classList.add("week7");
+    weekdayRow.classList.add("week7");
+    eachDay(year, month, (d, key) => eventCell(d, key), true);
     renderUpdated();
   }
 
@@ -473,7 +479,7 @@
     return el;
   }
 
-  const DOW_ABBR = ["", "Mon", "Tue", "Wed", "Thu", "Fri"];
+  const DOW_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   function isPast(y, m, d) {
     const now = new Date();

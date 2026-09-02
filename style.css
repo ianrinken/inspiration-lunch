@@ -423,3 +423,42 @@ button.day-cell.no-school { cursor: pointer; }
 @media (hover: hover) {
   .hero-card.no-tap:hover { transform: none; box-shadow: var(--shadow); }
 }
+
+/* ---------- What's new notice ---------- */
+.whats-new[hidden] { display: none; }
+.whats-new {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--bv-gold) 55%, var(--border));
+  border-left: 5px solid var(--bv-gold);
+  border-radius: 14px;
+  padding: 13px 12px 13px 14px;
+  margin-bottom: clamp(14px, 2.5vw, 20px);
+  box-shadow: var(--shadow);
+}
+.whats-new p { font-size: clamp(.84rem, 2.9vw, .93rem); line-height: 1.45; flex: 1; }
+.whats-new b { font-weight: 700; }
+.wn-tag {
+  display: inline-block;
+  background: var(--bv-red); color: #fff;
+  font-size: .68rem; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px;
+  margin-right: 6px; vertical-align: 1px;
+}
+.wn-close {
+  flex: none; width: 40px; height: 40px; margin: -6px -4px 0 0;
+  background: none; border: none; color: var(--text-soft);
+  font-size: 1.5rem; line-height: 1; cursor: pointer;
+}
+
+/* Full-width action at the foot of the day sheet */
+.sheet-action {
+  display: block; width: 100%;
+  margin-top: 4px; padding: 15px;
+  background: var(--bv-red); color: #fff;
+  border-radius: 999px;
+  font-family: var(--display); font-weight: 600; font-size: 1rem;
+  text-align: center; text-decoration: none;
+}
+.sheet-action:active { transform: scale(.98); }

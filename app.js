@@ -67,6 +67,11 @@
       .catch(() => { /* new domain not live yet — stay put */ });
   }
 
+  // Captured before any of our own writes: a visitor with saved data has
+  // used the app before, so "new feature" notices are meaningful to them.
+  let isReturning = false;
+  try { isReturning = Object.keys(localStorage).some((k) => k.startsWith("bvl-")); } catch {}
+
   const today = new Date();
   let view = { year: today.getFullYear(), month: today.getMonth() }; // month is 0-based
   let currentMonthData = null;   // parsed menu data for the viewed month
@@ -572,6 +577,15 @@
     if (info.milk.length) sections.push(section("Milk", info.milk.map((n) => ({ name: n }))));
     if (info.condiments.length) sections.push(section("Condiments", info.condiments.map((n) => ({ name: n }))));
     $("sheetBody").innerHTML = sections.join("");
+    if (mode === "events" && (currentMonthEvents[key] || []).length) {
+      // A real link (not script) so iOS hands the file to the Calendar app.
+      const a = document.createElement("a");
+      a.className = "sheet-action";
+      a.href = `${EVENTS_API}?school=${schoolId}&start=${key}&end=${addDaysIso(key, 1)}&format=ics`;
+      a.textContent = "Add to my calendar";
+      a.addEventListener("click", dismissWhatsNew);
+      $("sheetBody").appendChild(a);
+    }
     sheet.hidden = false; backdrop.hidden = false;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       sheet.classList.add("show"); backdrop.classList.add("show");
@@ -636,6 +650,28 @@
     view = { year: view.year + Math.floor(m / 12), month: ((m % 12) + 12) % 12 };
     loadMonth();
   }
+
+  /* ---------------- what's new ---------------- */
+
+  const WHATS_NEW_KEY = "bvl-whatsnew-cal";
+
+  function dismissWhatsNew() {
+    $("whatsNew").hidden = true;
+    try { localStorage.setItem(WHATS_NEW_KEY, "done"); } catch {}
+  }
+
+  (function maybeShowWhatsNew() {
+    if (!isReturning) return; // nothing is "new" to a first-time visitor
+    let seen = null;
+    try { seen = localStorage.getItem(WHATS_NEW_KEY); } catch {}
+    if (seen === "done") return;
+    const shown = (parseInt(seen, 10) || 0) + 1;
+    if (shown > 3) { dismissWhatsNew(); return; } // fades away on its own
+    try { localStorage.setItem(WHATS_NEW_KEY, String(shown)); } catch {}
+    $("whatsNew").hidden = false;
+  })();
+
+  $("whatsNewClose").addEventListener("click", dismissWhatsNew);
 
   /* ---------------- tabs ---------------- */
 

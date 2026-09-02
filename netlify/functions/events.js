@@ -44,6 +44,17 @@ const SECONDARY = new Set([
   "ffc1d3ff-8e8d-ec11-8df7-c6813137b210",
 ]);
 
+const SCHOOL_NAMES = {
+  "041717d0-8f8d-ec11-8df7-eb7b319a32d1": "Brandon Elementary",
+  "d8f8bcbf-1b2a-f111-bb4f-02558335d9c7": "Burkman Valley Elementary",
+  "af61ff49-908d-ec11-8df7-9c80cb6a95ae": "Fred Assam Elementary",
+  "0c65b2bc-908d-ec11-8df7-9566c4096294": "Inspiration Elementary",
+  "ec90bc02-908d-ec11-8df7-eb7b319a32d1": "Robert Bennis Elementary",
+  "82b0714f-8f8d-ec11-8df7-d30e05c96286": "BV Intermediate School",
+  "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1": "BV Middle School",
+  "ffc1d3ff-8e8d-ec11-8df7-c6813137b210": "BV High School",
+};
+
 const TZ = "America/Chicago";
 const DATE_RX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -56,9 +67,13 @@ function toCentral(utc) {
     timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
     hour: "numeric", minute: "2-digit", hour12: true,
   }).formatToParts(utc).reduce((o, p) => ((o[p.type] = p.value), o), {});
+  const h24 = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(utc).reduce((o, p) => ((o[p.type] = p.value), o), {});
   return {
     date: `${parts.year}-${parts.month}-${parts.day}`,
     time: `${parts.hour}:${parts.minute} ${parts.dayPeriod}`,
+    stamp: `${h24.hour === "24" ? "00" : h24.hour}${h24.minute}${h24.second}`,
   };
 }
 
@@ -83,7 +98,7 @@ function parseIcs(ics, rangeStart, rangeEnd, keep) {
     const where = locM ? unescapeIcs(locM[1]) : "";
     if (keep && !keep(title, where)) continue;
 
-    let s, e, time = null;
+    let s, e, time = null, stamp = null;
     const allDay = body.match(/^DTSTART;VALUE=DATE:(\d{8})$/m);
     if (allDay) {
       const raw = allDay[1];
@@ -99,11 +114,12 @@ function parseIcs(ics, rangeStart, rangeEnd, keep) {
       const iso = `${d8.slice(0, 4)}-${d8.slice(4, 6)}-${d8.slice(6, 8)}T${t6.slice(0, 2)}:${t6.slice(2, 4)}:${t6.slice(4, 6)}${z ? "Z" : ""}`;
       if (z) {
         const c = toCentral(new Date(iso));
-        s = c.date; time = c.time;
+        s = c.date; time = c.time; stamp = c.stamp;
       } else {
         s = iso.slice(0, 10);
         const h = parseInt(t6.slice(0, 2), 10);
         time = `${((h + 11) % 12) + 1}:${t6.slice(2, 4)} ${h < 12 ? "AM" : "PM"}`;
+        stamp = t6;
       }
       e = addDays(s, 1);
     }
@@ -111,11 +127,59 @@ function parseIcs(ics, rangeStart, rangeEnd, keep) {
     if (e <= rangeStart || s >= rangeEnd) continue;
     // Placeholder clock times: overnight stamps, and 7:00 AM — the activities
     // feed's default school-day start ("Labor Day - No School · 7:00 AM").
-    if (time && (/^(?:12|[1-6]):\d\d AM$/.test(time) || time === "7:00 AM")) time = null;
-    events.push({ s, e, t: title, ...(time ? { time } : {}) });
+    if (time && (/^(?:12|[1-6]):\d\d AM$/.test(time) || time === "7:00 AM")) time = stamp = null;
+    events.push({ s, e, t: title, ...(time ? { time, stamp } : {}) });
   }
   events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
   return events;
+}
+
+
+/* ---- .ics export: hand a day's events to the phone's calendar app ---- */
+
+const escIcs = (t) => t.replace(/([\\;,])/g, "\\$1").replace(/\r?\n/g, "\\n");
+
+// RFC 5545 wants lines folded at 75 octets.
+function fold(line) {
+  if (line.length <= 74) return line;
+  const out = [line.slice(0, 74)];
+  let rest = line.slice(74);
+  while (rest.length > 73) { out.push(" " + rest.slice(0, 73)); rest = rest.slice(73); }
+  if (rest) out.push(" " + rest);
+  return out.join("\r\n");
+}
+
+const compact = (iso) => iso.replace(/-/g, "");
+
+function buildIcs(events, label) {
+  const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+  const lines = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "PRODID:-//Brandon Valley Lunch//brandonvalleylunch.com//EN",
+    `X-WR-CALNAME:${escIcs(label)}`,
+  ];
+  events.forEach((ev, i) => {
+    const uid = `${compact(ev.s)}-${i}-${Math.abs(hash(ev.t))}@brandonvalleylunch.com`;
+    lines.push("BEGIN:VEVENT", `UID:${uid}`, `DTSTAMP:${now}`);
+    if (ev.stamp) {
+      // Floating local time: shows at the right clock time on a phone here.
+      lines.push(`DTSTART:${compact(ev.s)}T${ev.stamp}`);
+      const endH = String((parseInt(ev.stamp.slice(0, 2), 10) + 1) % 24).padStart(2, "0");
+      lines.push(`DTEND:${compact(ev.s)}T${endH}${ev.stamp.slice(2)}`);
+    } else {
+      lines.push(`DTSTART;VALUE=DATE:${compact(ev.s)}`, `DTEND;VALUE=DATE:${compact(ev.e)}`);
+    }
+    lines.push(fold(`SUMMARY:${escIcs(ev.t)}`));
+    lines.push("END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n") + "\r\n";
+}
+
+function hash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return h;
 }
 
 exports.handler = async (event) => {
@@ -166,6 +230,21 @@ exports.handler = async (event) => {
       }
       events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
     }
+    // format=ics hands the range straight to the phone's calendar app.
+    if (q.format === "ics") {
+      const name = SCHOOL_NAMES[q.school] || "School events";
+      return {
+        statusCode: 200,
+        headers: {
+          "Content-Type": "text/calendar; charset=utf-8",
+          "Content-Disposition": `attachment; filename="school-events.ics"`,
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=900",
+        },
+        body: buildIcs(events, name),
+      };
+    }
+
     return {
       statusCode: 200,
       headers: {

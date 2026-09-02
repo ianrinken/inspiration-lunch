@@ -1,6 +1,6 @@
 /* Offline shell for Brandon Valley Lunch. Menu data is cached by the app in
  * localStorage; the service worker handles the static shell and fonts. */
-const CACHE = "bvl-shell-v3";
+const CACHE = "bvl-shell-v4";
 const FONT_CACHE = "bvl-fonts-v1";
 const SHELL = [
   "./",
@@ -46,8 +46,10 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Never intercept the menu API — the app manages its own data cache.
+  // Never intercept the menu API or the events function — the app manages
+  // its own data caches for both.
   if (url.origin !== location.origin) return;
+  if (url.pathname.startsWith("/.netlify/")) return;
 
   // Stale-while-revalidate for the shell.
   e.respondWith(

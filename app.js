@@ -21,7 +21,9 @@
   ];
   const DEFAULT_SCHOOL = "0c65b2bc-908d-ec11-8df7-9566c4096294"; // Inspiration Elementary
 
-  const CACHE_PREFIX = "bvl-menu-v3:"; // v3: MS/HS alternate-line parsing
+  const CACHE_PREFIX = "bvl-menu-v4:"; // v4: + holidays from AcademicCalendars
+  const EVENTS_PREFIX = "bvl-events-v1:";
+  const EVENTS_API = "/.netlify/functions/events";
   const SCHOOL_KEY = "bvl-school";
   const FRESH_MS = 6 * 60 * 60 * 1000;       // refetch menus older than 6h
   const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000; // recheck unposted months every 2h
@@ -67,7 +69,8 @@
 
   const today = new Date();
   let view = { year: today.getFullYear(), month: today.getMonth() }; // month is 0-based
-  let currentMonthData = null; // parsed data for the viewed month
+  let currentMonthData = null;   // parsed menu data for the viewed month
+  let currentMonthEvents = {};   // per-day school events for the viewed month
 
   /* ---------------- data ---------------- */
 
@@ -90,7 +93,14 @@
 
   // Reduce the (large) API payload to just what the app renders.
   function parseMenu(json) {
-    const out = { days: {}, empty: true };
+    const out = { days: {}, holidays: {}, empty: true };
+    for (const cal of (json && json.AcademicCalendars) || []) {
+      for (const day of cal.Days || []) {
+        if (!day.Date || !day.Note) continue;
+        const [mm, dd, yy] = day.Date.split("/").map(Number);
+        out.holidays[`${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`] = day.Note;
+      }
+    }
     const sessions = json && json.FamilyMenuSessions;
     if (!Array.isArray(sessions)) return out;
     const lunch = sessions.find((s) => s.ServingSession === "Lunch");
@@ -179,6 +189,43 @@
     catch { return cached; }
   }
 
+  /* ---------------- school events (public Google Calendars via relay) ---------------- */
+
+  // {'YYYY-MM-DD': [{t, time?, multi}]} for every day an event covers
+  function eventsByDay(events) {
+    const map = {};
+    for (const ev of events || []) {
+      const multi = addDaysIso(ev.s, 1) < ev.e;
+      for (let d = ev.s; d < ev.e; d = addDaysIso(d, 1)) {
+        (map[d] = map[d] || []).push({ t: ev.t, time: ev.time, multi });
+      }
+    }
+    return map;
+  }
+
+  function addDaysIso(iso, n) {
+    const d = new Date(`${iso}T12:00:00`);
+    d.setDate(d.getDate() + n);
+    return dkey(d);
+  }
+
+  async function getEventsData(y, m) {
+    const key = `${EVENTS_PREFIX}${schoolId}:${monthKey(y, m)}`;
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
+    if (cached && Date.now() - cached.fetchedAt < FRESH_MS) return cached;
+    try {
+      const last = new Date(y, m + 1, 0).getDate();
+      const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      const end = addDaysIso(`${y}-${String(m + 1).padStart(2, "0")}-${String(last).padStart(2, "0")}`, 1);
+      const res = await fetch(`${EVENTS_API}?school=${schoolId}&start=${start}&end=${end}`);
+      if (!res.ok) throw new Error(`events ${res.status}`);
+      const fresh = { fetchedAt: Date.now(), events: (await res.json()).events || [] };
+      try { localStorage.setItem(key, JSON.stringify(fresh)); } catch {}
+      return fresh;
+    } catch { return cached; } // menus never depend on events working
+  }
+
   /* ---------------- today hero ---------------- */
 
   const fmtHero = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -224,6 +271,17 @@
     $("heroAlt").innerHTML = info.alternates.length
       ? `or: <b>${info.alternates.map(esc).join("</b> · <b>")}</b>` : "";
     $("heroCard").onclick = () => openSheet(dkey(target), info);
+
+    // Single-day school events for the hero day (spirit days, picture day…)
+    $("heroEvents").textContent = "";
+    getEventsData(target.getFullYear(), target.getMonth()).then((evData) => {
+      const dayEvs = (eventsByDay((evData && evData.events) || [])[dkey(target)] || [])
+        .filter((ev) => !ev.multi);
+      if (dayEvs.length) {
+        $("heroEvents").textContent = dayEvs
+          .map((ev) => ev.t + (ev.time ? ` · ${ev.time}` : "")).join("  ·  ");
+      }
+    }).catch(() => {});
 
     // One-line teaser for the school day after the hero day.
     const teaser = $("heroTomorrow");
@@ -326,12 +384,24 @@
     const { year, month } = view;
     const dow = new Date(year, month, dayNum).getDay();
     const state = isToday(year, month, dayNum) ? " today" : (isPast(year, month, dayNum) ? " past" : "");
-    const top = `<span class="day-top"><span class="day-num">${dayNum}</span><span class="day-dow">${DOW_ABBR[dow]}</span></span>`;
+    const dayEvents = currentMonthEvents[key] || [];
+    const hasMark = dayEvents.some((ev) => !ev.multi); // single-day events earn the dot
+    const top = `<span class="day-top"><span class="day-num">${dayNum}</span><span class="day-dow">${DOW_ABBR[dow]}</span>${hasMark ? '<span class="day-dot" aria-hidden="true"></span>' : ""}</span>`;
+    const holidays = (currentMonthData && currentMonthData.holidays) || {};
+
     if (!info) {
-      const el = document.createElement("div");
+      const note = holidays[key] || "No school";
+      const clickable = dayEvents.length > 0;
+      const el = document.createElement(clickable ? "button" : "div");
+      if (clickable) {
+        el.type = "button";
+        el.addEventListener("click", () => openSheet(key, null));
+        el.setAttribute("aria-label", `${fmtDay.format(new Date(year, month, dayNum))}: ${note}, has events`);
+      }
       el.className = "day-cell no-school" + state;
       el.dataset.dow = dow;
-      el.innerHTML = `${top}<span class="day-note">No school</span>`;
+      el.innerHTML = `${top}<span class="day-note"></span>`;
+      el.querySelector(".day-note").textContent = note;
       return el;
     }
     const name = info.entree || info.alternates[0] || "";
@@ -369,6 +439,13 @@
     const [y, m, d] = key.split("-").map(Number);
     $("sheetDate").textContent = fmtDay.format(new Date(y, m - 1, d));
     const sections = [];
+    const dayEvents = currentMonthEvents[key] || [];
+    if (dayEvents.length) {
+      sections.push(section("At school", dayEvents.map((ev) => ({
+        name: ev.t + (ev.time ? ` · ${ev.time}` : ""),
+      }))));
+    }
+    info = info || { entree: null, sides: [], alternates: [], vegetable: [], fruit: [], milk: [], condiments: [] };
     if (info.entree) {
       const items = [{ name: info.entree, hero: true }, ...info.sides.map((s) => ({ name: s }))];
       sections.push(section("Main Entrée", items));
@@ -402,12 +479,21 @@
 
   /* ---------------- loading ---------------- */
 
+  async function refreshEvents(year, month) {
+    const data = await getEventsData(year, month);
+    if (view.year !== year || view.month !== month) return;
+    currentMonthEvents = eventsByDay((data && data.events) || []);
+    render();
+  }
+
   async function loadMonth(force = false) {
     const { year, month } = view;
+    currentMonthEvents = {};
     const cached = readCache(year, month);
     if (cached && !force) {
       currentMonthData = { ...cached, fromCache: true };
       render();
+      refreshEvents(year, month);
       const maxAge = cached.empty ? EMPTY_FRESH_MS : FRESH_MS;
       if (Date.now() - cached.fetchedAt < maxAge) return;
       try {
@@ -423,7 +509,10 @@
     } catch {
       currentMonthData = cached ? { ...cached, fromCache: true } : { days: {}, empty: true, error: true };
     }
-    if (view.year === year && view.month === month) render();
+    if (view.year === year && view.month === month) {
+      render();
+      refreshEvents(year, month);
+    }
   }
 
   function shiftMonth(delta) {

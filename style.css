@@ -416,3 +416,10 @@ button.day-cell.no-school { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* Events hero on a day with nothing scheduled: not a tap target */
+.hero-card.no-tap { cursor: default; }
+.hero-card.no-tap:active { transform: none; }
+@media (hover: hover) {
+  .hero-card.no-tap:hover { transform: none; box-shadow: var(--shadow); }
+}

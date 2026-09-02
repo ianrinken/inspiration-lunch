@@ -256,9 +256,15 @@
     return tab === "events" ? renderEventsHero() : renderLunchHero();
   }
 
+  // The next weekday on or after d — weekends never carry school events.
+  function nextWeekday(d) {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    while (x.getDay() === 0 || x.getDay() === 6) x.setDate(x.getDate() + 1);
+    return x;
+  }
+
   async function renderEventsHero() {
     const heroEl = $("hero");
-    const probe = heroStart();
     let byDay = {};
     const loaded = new Set();
     const ensureMonth = async (dt) => {
@@ -269,54 +275,35 @@
       byDay = { ...byDay, ...eventsByDay((ed && ed.events) || []) };
     };
 
-    let target = null;
-    for (let i = 0; i < 45; i++) {
-      await ensureMonth(probe);
-      if ((byDay[dkey(probe)] || []).length) { target = new Date(probe); break; }
-      probe.setDate(probe.getDate() + 1);
-    }
-    if (!target) {
-      $("heroLabel").textContent = "Events";
-      $("heroDate").textContent = "";
-      $("heroName").textContent = "Nothing scheduled";
-      $("heroSides").textContent = "";
-      $("heroAlt").innerHTML = "";
-      $("heroEvents").textContent = "";
-      $("heroTomorrow").hidden = true;
-      $("heroCard").onclick = null;
-      heroEl.hidden = false;
-      return;
-    }
-
+    // Always the next school day itself — never skip ahead to find one that
+    // happens to have events; an empty day honestly reads "No events".
+    const target = nextWeekday(heroStart());
+    await ensureMonth(target);
     const key = dkey(target);
-    const evs = byDay[key];
+    const evs = byDay[key] || [];
+
     $("heroLabel").textContent = heroLabel(target);
     $("heroDate").textContent = fmtHero.format(target);
-    $("heroName").textContent = evs[0].t;
-    $("heroSides").textContent = evs[0].time || "";
+    $("heroName").textContent = evs.length ? evs[0].t : "No events";
+    $("heroSides").textContent = evs.length ? (evs[0].time || "") : "";
     $("heroAlt").innerHTML = evs.length > 1
       ? `also: <b>${evs.slice(1, 4).map((ev) => esc(ev.t)).join("</b> · <b>")}</b>${evs.length > 4 ? ` +${evs.length - 4} more` : ""}`
       : "";
     $("heroEvents").textContent = "";
-    $("heroCard").onclick = () => openSheet(key, null, "events");
+    $("heroCard").classList.toggle("no-tap", !evs.length);
+    $("heroCard").onclick = evs.length ? () => openSheet(key, null, "events") : null;
 
-    // Teaser: the next day after this one that has something on it.
+    // Teaser: the following school day, empty or not.
     const teaser = $("heroTomorrow");
-    teaser.hidden = true;
+    const after = new Date(target.getFullYear(), target.getMonth(), target.getDate() + 1);
+    const p2 = nextWeekday(after);
+    await ensureMonth(p2);
+    const next = byDay[dkey(p2)] || [];
     const now = new Date();
     const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
-    const p2 = new Date(target);
-    for (let i = 0; i < 14; i++) {
-      p2.setDate(p2.getDate() + 1);
-      await ensureMonth(p2);
-      const next = byDay[dkey(p2)];
-      if (next && next.length) {
-        const word = dkey(p2) === dkey(t1) ? "Tomorrow" : fmtHero.format(p2).split(",")[0];
-        teaser.innerHTML = `${word}: <b>${esc(next[0].t)}</b>`;
-        teaser.hidden = false;
-        break;
-      }
-    }
+    const word = dkey(p2) === dkey(t1) ? "Tomorrow" : fmtHero.format(p2).split(",")[0];
+    teaser.innerHTML = `${word}: <b>${esc(next.length ? next[0].t : "No events")}</b>`;
+    teaser.hidden = false;
     heroEl.hidden = false;
   }
 

@@ -34,6 +34,9 @@ const SCHOOL_MATCHERS = {
   "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1": /Middle School|\bBVMS\b|\bMS |\((?:7th|8th)[^)]*\)/,
   "ffc1d3ff-8e8d-ec11-8df7-c6813137b210": /High School|\bBVHS\b|\bHS |\((?:Junior Varsity|Varsity|Sophomore|Freshman|9[AB])[^)]*\)|\b(?:Var|9th) /,
 };
+// Titles carrying a secondary grade level, wherever the event is played.
+const SECONDARY_EVENT = /\((?:7th|8th|9th|Junior Varsity|Varsity|Sophomore|Freshman|Middle School|9[AB])[^)]*\)|\bMS\b|\bHS\b|Middle School|High School/;
+
 // Elementary buildings shouldn't inherit secondary-school athletics.
 const SECONDARY = new Set([
   "82b0714f-8f8d-ec11-8df7-d30e05c96286",
@@ -137,6 +140,9 @@ exports.handler = async (event) => {
     // schools) if it's a district activity that no other level claims.
     const keepBound = (title, where) => {
       const t = `${title} ${where}`;
+      // Grade level beats venue: a 7th-grade game played on an elementary
+      // field is still a middle-school event.
+      if (!SECONDARY.has(q.school) && SECONDARY_EVENT.test(title)) return false;
       if (mine && mine.test(t)) return true;
       if (!SECONDARY.has(q.school)) return false;
       return !others.some((rx) => rx.test(t)) &&

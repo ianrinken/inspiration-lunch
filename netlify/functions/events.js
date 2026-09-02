@@ -17,6 +17,30 @@ const CALENDARS = {
   "ffc1d3ff-8e8d-ec11-8df7-c6813137b210": "c_8q83pnh5nj5nhtfuue53nvlmm0@group.calendar.google.com", // BV High
 };
 
+// District-wide activities calendar (Bound / gobound.com) — the live source
+// for athletics, clubs and activities. Several schools let their own Google
+// Calendar go stale, so events here are attributed per school and merged in.
+const BOUND_ICS = "https://www.gobound.com/sd/schools/brandonvalley/calendar/ical";
+
+// Case-sensitive on purpose: the abbreviations (BE, IES, MS, HS) would match
+// ordinary words otherwise.
+const SCHOOL_MATCHERS = {
+  "041717d0-8f8d-ec11-8df7-eb7b319a32d1": /Brandon Elementary|\bBE /,
+  "d8f8bcbf-1b2a-f111-bb4f-02558335d9c7": /Burkman/,
+  "af61ff49-908d-ec11-8df7-9c80cb6a95ae": /Fred Assam|\bFAE\b/,
+  "0c65b2bc-908d-ec11-8df7-9566c4096294": /Inspiration|\bIES\b|\bIE /,
+  "ec90bc02-908d-ec11-8df7-eb7b319a32d1": /Robert Bennis|\bRBE\b/,
+  "82b0714f-8f8d-ec11-8df7-d30e05c96286": /Intermediate|\bBVIS\b/,
+  "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1": /Middle School|\bBVMS\b|\bMS |\((?:7th|8th)[^)]*\)/,
+  "ffc1d3ff-8e8d-ec11-8df7-c6813137b210": /High School|\bBVHS\b|\bHS |\((?:Junior Varsity|Varsity|Sophomore|Freshman|9[AB])[^)]*\)|\b(?:Var|9th) /,
+};
+// Elementary buildings shouldn't inherit secondary-school athletics.
+const SECONDARY = new Set([
+  "82b0714f-8f8d-ec11-8df7-d30e05c96286",
+  "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1",
+  "ffc1d3ff-8e8d-ec11-8df7-c6813137b210",
+]);
+
 const TZ = "America/Chicago";
 const DATE_RX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -41,7 +65,7 @@ function addDays(iso, n) {
   return d.toISOString().slice(0, 10);
 }
 
-function parseIcs(ics, rangeStart, rangeEnd) {
+function parseIcs(ics, rangeStart, rangeEnd, keep) {
   const events = [];
   // Unfold wrapped lines (RFC 5545: continuation lines start with a space/tab)
   const text = ics.replace(/\r?\n[ \t]/g, "");
@@ -52,6 +76,9 @@ function parseIcs(ics, rangeStart, rangeEnd) {
     if (!summary) continue;
     const title = unescapeIcs(summary[1]);
     if (!title) continue;
+    const locM = body.match(/^LOCATION:(.*)$/m);
+    const where = locM ? unescapeIcs(locM[1]) : "";
+    if (keep && !keep(title, where)) continue;
 
     let s, e, time = null;
     const allDay = body.match(/^DTSTART;VALUE=DATE:(\d{8})$/m);
@@ -94,13 +121,44 @@ exports.handler = async (event) => {
   if (!cal || !DATE_RX.test(start || "") || !DATE_RX.test(end || "")) {
     return { statusCode: 400, body: JSON.stringify({ error: "bad params" }) };
   }
+  const ua = { "User-Agent": "brandonvalleylunch.com school app" };
+  const grab = async (url) => {
+    const r = await fetch(url, { headers: ua });
+    if (!r.ok) throw new Error(`upstream ${r.status}`);
+    return r.text();
+  };
+
   try {
-    const res = await fetch(
-      `https://calendar.google.com/calendar/ical/${encodeURIComponent(cal)}/public/basic.ics`,
-      { headers: { "User-Agent": "brandonvalleylunch.com menu app" } }
-    );
-    if (!res.ok) throw new Error(`upstream ${res.status}`);
-    const events = parseIcs(await res.text(), start, end);
+    const mine = SCHOOL_MATCHERS[q.school];
+    const others = Object.entries(SCHOOL_MATCHERS)
+      .filter(([id]) => id !== q.school && SECONDARY.has(id) !== SECONDARY.has(q.school))
+      .map(([, rx]) => rx);
+    // A Bound event belongs to this school if it names it, or (for secondary
+    // schools) if it's a district activity that no other level claims.
+    const keepBound = (title, where) => {
+      const t = `${title} ${where}`;
+      if (mine && mine.test(t)) return true;
+      if (!SECONDARY.has(q.school)) return false;
+      return !others.some((rx) => rx.test(t)) &&
+        !Object.entries(SCHOOL_MATCHERS).some(([id, rx]) => id !== q.school && rx.test(t));
+    };
+
+    const [googleIcs, boundIcs] = await Promise.all([
+      grab(`https://calendar.google.com/calendar/ical/${encodeURIComponent(cal)}/public/basic.ics`),
+      grab(BOUND_ICS).catch(() => null), // activities are a bonus, never fatal
+    ]);
+
+    const events = parseIcs(googleIcs, start, end);
+    if (boundIcs) {
+      const seen = new Set(events.map((e) => `${e.s}|${e.t.toLowerCase()}`));
+      for (const ev of parseIcs(boundIcs, start, end, keepBound)) {
+        const k = `${ev.s}|${ev.t.toLowerCase()}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        events.push(ev);
+      }
+      events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
+    }
     return {
       statusCode: 200,
       headers: {

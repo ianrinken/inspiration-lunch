@@ -85,11 +85,11 @@
   /* ---------------- data ---------------- */
 
   const monthKey = (y, m) => `${y}-${String(m + 1).padStart(2, "0")}`;
-  const cacheKey = (y, m) => `${CACHE_PREFIX}${schoolId}:${monthKey(y, m)}`;
+  const cacheKey = (y, m, school) => `${CACHE_PREFIX}${school}:${monthKey(y, m)}`;
 
-  function apiUrl(y, m) {
+  function apiUrl(y, m, school) {
     const last = new Date(y, m + 1, 0).getDate();
-    return `${API_BASE}?buildingId=${schoolId}&districtId=${DISTRICT_ID}` +
+    return `${API_BASE}?buildingId=${school}&districtId=${DISTRICT_ID}` +
       `&startDate=${m + 1}-1-${y}&endDate=${m + 1}-${last}-${y}`;
   }
 
@@ -170,32 +170,32 @@
     return out;
   }
 
-  function readCache(y, m) {
+  function readCache(y, m, school) {
     try {
-      const raw = localStorage.getItem(cacheKey(y, m));
+      const raw = localStorage.getItem(cacheKey(y, m, school));
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   }
 
-  function writeCache(y, m, parsed) {
+  function writeCache(y, m, parsed, school) {
     try {
-      localStorage.setItem(cacheKey(y, m), JSON.stringify({ fetchedAt: Date.now(), ...parsed }));
+      localStorage.setItem(cacheKey(y, m, school), JSON.stringify({ fetchedAt: Date.now(), ...parsed }));
     } catch { /* storage full/unavailable — app still works from network */ }
   }
 
-  async function fetchMonth(y, m) {
-    const res = await fetch(apiUrl(y, m), { headers: { Accept: "application/json" } });
+  async function fetchMonth(y, m, school = schoolId) {
+    const res = await fetch(apiUrl(y, m, school), { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error(`API ${res.status}`);
     const parsed = parseMenu(await res.json());
-    writeCache(y, m, parsed);
+    writeCache(y, m, parsed, school);
     return { fetchedAt: Date.now(), ...parsed };
   }
 
   // Cache-first month data for the hero (doesn't touch the calendar view).
-  async function getMonthData(y, m) {
-    const cached = readCache(y, m);
+  async function getMonthData(y, m, school = schoolId) {
+    const cached = readCache(y, m, school);
     if (cached && Date.now() - cached.fetchedAt < (cached.empty ? EMPTY_FRESH_MS : MENU_FRESH_MS)) return cached;
-    try { return await fetchMonth(y, m); }
+    try { return await fetchMonth(y, m, school); }
     catch { return cached; }
   }
 
@@ -271,6 +271,8 @@
 
   async function renderEventsHero() {
     const heroEl = $("hero");
+    const forSchool = schoolId, forTab = tab;
+    const stale = () => schoolId !== forSchool || tab !== forTab;
     let byDay = {};
     const loaded = new Set();
     const ensureMonth = async (dt) => {
@@ -285,6 +287,7 @@
     // happens to have events; an empty day honestly reads "No events".
     const target = nextWeekday(heroStart());
     await ensureMonth(target);
+    if (stale()) return;
     const key = dkey(target);
     const evs = byDay[key] || [];
 
@@ -309,6 +312,7 @@
     const after = new Date(target.getFullYear(), target.getMonth(), target.getDate() + 1);
     const p2 = nextWeekday(after);
     await ensureMonth(p2);
+    if (stale()) return;
     const next = byDay[dkey(p2)] || [];
     const now = new Date();
     const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
@@ -320,6 +324,11 @@
 
   async function renderLunchHero() {
     const heroEl = $("hero");
+    // A school (or tab) switch mid-fetch must never land as this hero's
+    // content — this ran with zero staleness guard before, and the hero is
+    // the most visible thing on the page.
+    const forSchool = schoolId, forTab = tab;
+    const stale = () => schoolId !== forSchool || tab !== forTab;
     const now = new Date();
     const probe = heroStart();
 
@@ -329,17 +338,18 @@
       const k = `${dt.getFullYear()}-${dt.getMonth()}`;
       if (loaded.has(k)) return;
       loaded.add(k);
-      const md = await getMonthData(dt.getFullYear(), dt.getMonth());
+      const md = await getMonthData(dt.getFullYear(), dt.getMonth(), forSchool);
       days = { ...days, ...((md && md.days) || {}) };
     };
 
     let target = null;
     for (let i = 0; i < 45; i++) {
       await ensureMonth(probe);
+      if (stale()) return;
       if (days[dkey(probe)]) { target = new Date(probe); break; }
       probe.setDate(probe.getDate() + 1);
     }
-    if (!target) { heroEl.hidden = true; return; }
+    if (!target) { if (!stale()) heroEl.hidden = true; return; }
 
     const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
 
@@ -360,6 +370,7 @@
     for (let i = 0; i < 7; i++) {
       p2.setDate(p2.getDate() + 1);
       await ensureMonth(p2);
+      if (stale()) return;
       const nfo = days[dkey(p2)];
       if (nfo) {
         const word = dkey(p2) === dkey(t1) ? "Tomorrow" : fmtHero.format(p2).split(",")[0];
@@ -368,6 +379,7 @@
         break;
       }
     }
+    if (stale()) return;
     heroEl.hidden = false;
   }
 
@@ -675,16 +687,20 @@
   /* ---------------- loading ---------------- */
 
   async function refreshEvents(year, month) {
+    const forSchool = schoolId;
     const data = await getEventsData(year, month);
-    if (view.year !== year || view.month !== month) return;
+    if (view.year !== year || view.month !== month || schoolId !== forSchool) return;
     currentMonthEvents = eventsByDay((data && data.events) || []);
     render();
   }
 
   async function loadMonth(force = false) {
     const { year, month } = view;
+    const forSchool = schoolId; // a school switch mid-fetch must not land as this view's data
+    const isCurrent = () => schoolId === forSchool && view.year === year && view.month === month;
+
     currentMonthEvents = {};
-    const cached = readCache(year, month);
+    const cached = readCache(year, month, forSchool);
     if (cached && !force) {
       currentMonthData = { ...cached, fromCache: true };
       render();
@@ -692,19 +708,21 @@
       const maxAge = cached.empty ? EMPTY_FRESH_MS : MENU_FRESH_MS;
       if (Date.now() - cached.fetchedAt < maxAge) return;
       try {
-        const fresh = await fetchMonth(year, month);
-        if (view.year === year && view.month === month) { currentMonthData = fresh; render(); }
+        const fresh = await fetchMonth(year, month, forSchool);
+        if (isCurrent()) { currentMonthData = fresh; render(); }
       } catch { /* keep showing cache */ }
       return;
     }
 
     updatedEl.textContent = "Loading…";
+    let fresh;
     try {
-      currentMonthData = await fetchMonth(year, month);
+      fresh = await fetchMonth(year, month, forSchool);
     } catch {
-      currentMonthData = cached ? { ...cached, fromCache: true } : { days: {}, empty: true, error: true };
+      fresh = cached ? { ...cached, fromCache: true } : { days: {}, empty: true, error: true };
     }
-    if (view.year === year && view.month === month) {
+    if (isCurrent()) {
+      currentMonthData = fresh;
       render();
       refreshEvents(year, month);
     }

@@ -21,8 +21,8 @@
   ];
   const DEFAULT_SCHOOL = "0c65b2bc-908d-ec11-8df7-9566c4096294"; // Inspiration Elementary
 
-  const CACHE_PREFIX = "bvl-menu-v4:"; // v4: + holidays from AcademicCalendars
-  const EVENTS_PREFIX = "bvl-events-v5:"; // v5: venue, home/away, "away at home" titles
+  const CACHE_PREFIX = "bvl-menu-v5:"; // v5: catch-all for unrecognized categories
+  const EVENTS_PREFIX = "bvl-events-v6:"; // v6: fixed cross-school attribution leaks
   const EVENTS_API = "/.netlify/functions/events";
   const SCHOOL_KEY = "bvl-school";
   const MENU_FRESH_MS = 30 * 60 * 1000;       // refetch menus older than 30min
@@ -155,6 +155,11 @@
               } else if (catName.includes("milk")) {
                 d.milk.push(recipe);
               } else if (catName.includes("condiment")) {
+                d.condiments.push(recipe);
+              } else {
+                // A category we don't otherwise recognize (none exist in
+                // current data, but LINQ's naming has drifted before) —
+                // surface it rather than silently dropping the item.
                 d.condiments.push(recipe);
               }
             }
@@ -844,12 +849,30 @@
     }
     loadMonth();
     renderHero();
+    // A screen that's simply left open (never fully closed and reopened)
+    // has no other reason to ever notice a new app version is available —
+    // the browser mainly checks for one on navigation. Ask explicitly on
+    // the same heartbeat that already refreshes data, so bug fixes reach a
+    // countertop tablet within minutes rather than staying stuck on
+    // whatever code was running when it was first opened.
+    if (swRegistration) swRegistration.update().catch(() => {});
   }
   document.addEventListener("visibilitychange", refreshIfVisible);
   setInterval(refreshIfVisible, 5 * 60 * 1000);
 
+  let swRegistration = null;
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    navigator.serviceWorker.register("sw.js").then((reg) => { swRegistration = reg; }).catch(() => {});
+    // Once a new worker actually takes control, the OLD one is still what's
+    // running in memory for this page — a new registration alone changes
+    // nothing until the page reloads. Do that once, automatically: there's
+    // no unsaved user input in this app worth protecting against a reload.
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
   }
 
   loadMonth();

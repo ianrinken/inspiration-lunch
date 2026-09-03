@@ -31,11 +31,28 @@ const SCHOOL_MATCHERS = {
   "0c65b2bc-908d-ec11-8df7-9566c4096294": /Inspiration|\bIES\b|\bIE /,
   "ec90bc02-908d-ec11-8df7-eb7b319a32d1": /Robert Bennis|\bRBE\b/,
   "82b0714f-8f8d-ec11-8df7-d30e05c96286": /Intermediate|\bBVIS\b/,
-  "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1": /Middle School|\bBVMS\b|\bMS |\((?:7th|8th)[^)]*\)/,
-  "ffc1d3ff-8e8d-ec11-8df7-c6813137b210": /High School|\bBVHS\b|\bHS |\((?:Junior Varsity|Varsity|Sophomore|Freshman|9[AB])[^)]*\)|\b(?:Var|9th) /,
+  // "Middle School"/"High School" alone are too generic for the venue half
+  // of the combined title+venue test below -- almost every opposing team's
+  // building is also named "___ Middle School" or "___ High School" (e.g.
+  // an away tennis match at "Luverne High School" would otherwise falsely
+  // match Brandon Valley High School). Require "Brandon Valley" so only
+  // our own campuses qualify; BVMS/BVHS and the title-only grade markers
+  // are already specific enough to leave alone.
+  "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1": /Brandon Valley Middle School|\bBVMS\b|\bMS |\((?:7th|8th)[^)]*\)/,
+  "ffc1d3ff-8e8d-ec11-8df7-c6813137b210": /Brandon Valley High School|\bBVHS\b|\bHS |\((?:Junior Varsity|Varsity|Sophomore|Freshman|9[AB])[^)]*\)|\b(?:Var|9th) /,
 };
 // Titles carrying a secondary grade level, wherever the event is played.
 const SECONDARY_EVENT = /\((?:7th|8th|9th|Junior Varsity|Varsity|Sophomore|Freshman|Middle School|9[AB])[^)]*\)|\bMS\b|\bHS\b|Middle School|High School/;
+// A level marker IN THE TITLE ITSELF is authoritative between Middle and
+// High School, overriding a same-named venue coincidence -- e.g. Girls
+// Tennis is a high-school program, but its courts are literally named
+// "Brandon Valley Middle School Tennis Courts", which otherwise matches
+// Middle School's own venue-based rule below and leaks JV/Varsity matches
+// onto the middle-school calendar.
+const MS_TITLE_LEVEL = /\((?:7th|8th|Middle School)[^)]*\)/i;
+const HS_TITLE_LEVEL = /\((?:Junior Varsity|Varsity|Sophomore|Freshman|9[AB]|High School)[^)]*\)/i;
+const MIDDLE_ID = "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1";
+const HIGH_ID = "ffc1d3ff-8e8d-ec11-8df7-c6813137b210";
 
 // Elementary buildings shouldn't inherit secondary-school athletics.
 const SECONDARY = new Set([
@@ -248,6 +265,13 @@ exports.handler = async (event) => {
       // Grade level beats venue: a 7th-grade game played on an elementary
       // field is still a middle-school event.
       if (!SECONDARY.has(q.school) && SECONDARY_EVENT.test(title)) return false;
+      // An explicit level marker in the TITLE is authoritative over both
+      // the venue AND the generic "no one else claims it" inheritance
+      // fallback below -- a "(Middle School)"-tagged match belongs only to
+      // Middle School, excluding every OTHER secondary building (High,
+      // Intermediate, and any added later), not just the MS/HS pair.
+      if (MS_TITLE_LEVEL.test(title) && q.school !== MIDDLE_ID) return false;
+      if (HS_TITLE_LEVEL.test(title) && q.school !== HIGH_ID) return false;
       if (mine && mine.test(t)) return true;
       if (!SECONDARY.has(q.school)) return false;
       return !others.some((rx) => rx.test(t)) &&

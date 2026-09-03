@@ -806,10 +806,17 @@
     renderHero();
   });
 
-  // Refresh when the PWA comes back to the foreground.
-  document.addEventListener("visibilitychange", () => {
+  // Refresh when the PWA comes back to the foreground, and periodically
+  // while it's left open — otherwise a screen that's never switched away
+  // from (a countertop tablet, a pinned tab) would never notice new data.
+  // loadMonth()/getEventsData() already skip the network call when the
+  // cache isn't actually stale, so this tick is cheap when it has nothing
+  // to do.
+  function refreshIfVisible() {
     if (!document.hidden) { loadMonth(); renderHero(); }
-  });
+  }
+  document.addEventListener("visibilitychange", refreshIfVisible);
+  setInterval(refreshIfVisible, 5 * 60 * 1000);
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});

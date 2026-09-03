@@ -25,7 +25,7 @@
   const EVENTS_PREFIX = "bvl-events-v5:"; // v5: venue, home/away, "away at home" titles
   const EVENTS_API = "/.netlify/functions/events";
   const SCHOOL_KEY = "bvl-school";
-  const MENU_FRESH_MS = 3 * 60 * 60 * 1000;   // refetch menus older than 3h
+  const MENU_FRESH_MS = 30 * 60 * 1000;       // refetch menus older than 30min
   const EVENTS_FRESH_MS = 30 * 60 * 1000;     // refetch events older than 30min
   const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000;  // recheck unposted months every 2h
 

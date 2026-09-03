@@ -299,8 +299,8 @@ exports.handler = async (event) => {
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=900",
-        "Netlify-CDN-Cache-Control": "public, s-maxage=10800, stale-while-revalidate=86400",
+        "Cache-Control": "public, max-age=300",
+        "Netlify-CDN-Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
       },
       body: JSON.stringify({ events }),
     };

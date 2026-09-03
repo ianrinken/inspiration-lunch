@@ -25,8 +25,9 @@
   const EVENTS_PREFIX = "bvl-events-v5:"; // v5: venue, home/away, "away at home" titles
   const EVENTS_API = "/.netlify/functions/events";
   const SCHOOL_KEY = "bvl-school";
-  const FRESH_MS = 6 * 60 * 60 * 1000;       // refetch menus older than 6h
-  const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000; // recheck unposted months every 2h
+  const MENU_FRESH_MS = 3 * 60 * 60 * 1000;   // refetch menus older than 3h
+  const EVENTS_FRESH_MS = 30 * 60 * 1000;     // refetch events older than 30min
+  const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000;  // recheck unposted months every 2h
 
   // Standing alternate entrées offered alongside the day's hot meal.
   const ALTERNATE_RX = /bagel bag|uncrustable|jammer/i;
@@ -193,7 +194,7 @@
   // Cache-first month data for the hero (doesn't touch the calendar view).
   async function getMonthData(y, m) {
     const cached = readCache(y, m);
-    if (cached && Date.now() - cached.fetchedAt < (cached.empty ? EMPTY_FRESH_MS : FRESH_MS)) return cached;
+    if (cached && Date.now() - cached.fetchedAt < (cached.empty ? EMPTY_FRESH_MS : MENU_FRESH_MS)) return cached;
     try { return await fetchMonth(y, m); }
     catch { return cached; }
   }
@@ -222,7 +223,7 @@
     const key = `${EVENTS_PREFIX}${schoolId}:${monthKey(y, m)}`;
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
-    if (cached && Date.now() - cached.fetchedAt < FRESH_MS) return cached;
+    if (cached && Date.now() - cached.fetchedAt < EVENTS_FRESH_MS) return cached;
     try {
       const last = new Date(y, m + 1, 0).getDate();
       const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
@@ -688,7 +689,7 @@
       currentMonthData = { ...cached, fromCache: true };
       render();
       refreshEvents(year, month);
-      const maxAge = cached.empty ? EMPTY_FRESH_MS : FRESH_MS;
+      const maxAge = cached.empty ? EMPTY_FRESH_MS : MENU_FRESH_MS;
       if (Date.now() - cached.fetchedAt < maxAge) return;
       try {
         const fresh = await fetchMonth(year, month);

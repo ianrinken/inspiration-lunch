@@ -55,6 +55,14 @@ const SCHOOL_NAMES = {
   "ffc1d3ff-8e8d-ec11-8df7-c6813137b210": "BV High School",
 };
 
+// Home venues. The title order is NOT a home/away signal — Bound lists
+// "Brandon Valley vs Yankton" for a game played at Yankton — so the venue
+// is the only reliable indicator. Aspen Park and McHardy Park are Brandon's
+// own fields (baseball/softball and cross country host there).
+const HOME_VENUE = /brandon valley|aspen park|mchardy park/i;
+// Only competitions get a home/away badge; meetings and picture day don't.
+const COMPETITION = /\svs\s|invite|invitational|tournament|jamboree|meet\b|classic|championship|scrimmage|quadrangular|triangular|dual\b/i;
+
 const TZ = "America/Chicago";
 const DATE_RX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -86,6 +94,23 @@ function addDays(iso, n) {
   const d = new Date(`${iso}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
+}
+
+
+// Bound writes matchups as "A vs B" in an order that does not indicate the
+// host — "Brandon Valley vs Yankton" is played at Yankton. Rewrite them the
+// way a team's own schedule reads: Brandon Valley first, "vs" when hosting
+// and "at" when travelling.
+function orientMatchup(title, home) {
+  if (home === undefined) return title;
+  const m = title.match(/^(.*?:\s*)?(.+?)\s+vs\.?\s+(.+?)(\s*\([^)]*\))?$/i);
+  if (!m) return title;
+  const prefix = m[1] || "", a = m[2].trim(), b = m[3].trim(), suffix = m[4] || "";
+  const aIsBV = /brandon valley/i.test(a), bIsBV = /brandon valley/i.test(b);
+  const joiner = home ? " vs " : " at ";
+  if (aIsBV === bIsBV) return title.replace(/\s+vs\.?\s+/i, joiner);
+  const bv = aIsBV ? a : b, other = aIsBV ? b : a;
+  return `${prefix}${bv}${joiner}${other}${suffix}`;
 }
 
 function parseIcs(ics, rangeStart, rangeEnd, keep) {
@@ -133,8 +158,16 @@ function parseIcs(ics, rangeStart, rangeEnd, keep) {
     // Placeholder clock times: overnight stamps, and 7:00 AM — the activities
     // feed's default school-day start ("Labor Day - No School · 7:00 AM").
     if (time && (/^(?:12|[1-6]):\d\d AM$/.test(time) || time === "7:00 AM")) time = stamp = null;
-    const id = Math.abs(hash(`${s}|${title}`)).toString(36).slice(0, 7);
-    events.push({ s, e, t: title, id, ...(time ? { time, stamp } : {}) });
+    const isGame = COMPETITION.test(title);
+    const home = isGame && where ? HOME_VENUE.test(where) : undefined;
+    const shown = orientMatchup(title, home);
+    const id = Math.abs(hash(`${s}|${shown}`)).toString(36).slice(0, 7);
+    events.push({
+      s, e, t: shown, id,
+      ...(time ? { time, stamp } : {}),
+      ...(where ? { where } : {}),
+      ...(home === undefined ? {} : { home }),
+    });
   }
   events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
   return events;
@@ -176,6 +209,7 @@ function buildIcs(events, label) {
       lines.push(`DTSTART;VALUE=DATE:${compact(ev.s)}`, `DTEND;VALUE=DATE:${compact(ev.e)}`);
     }
     lines.push(fold(`SUMMARY:${escIcs(ev.t)}`));
+    if (ev.where) lines.push(fold(`LOCATION:${escIcs(ev.where)}`));
     lines.push("END:VEVENT");
   });
   lines.push("END:VCALENDAR");
@@ -241,9 +275,12 @@ exports.handler = async (event) => {
     if (q.format === "ics") {
       const name = SCHOOL_NAMES[q.school] || "School events";
       const want = (q.ids || "").split(",").filter(Boolean);
-      const chosen = want.length ? events.filter((ev) => want.includes(ev.id)) : events;
+      const picked = want.length ? events.filter((ev) => want.includes(ev.id)) : events;
+      // Ids can go stale if a title changed since the page was loaded — hand
+      // back the whole day rather than a dead-end 404.
+      const chosen = picked.length ? picked : events;
       if (!chosen.length) {
-        return { statusCode: 404, headers: { "Access-Control-Allow-Origin": "*" }, body: "no matching events" };
+        return { statusCode: 204, headers: { "Access-Control-Allow-Origin": "*" }, body: "" };
       }
       return {
         statusCode: 200,

@@ -22,7 +22,7 @@
   const DEFAULT_SCHOOL = "0c65b2bc-908d-ec11-8df7-9566c4096294"; // Inspiration Elementary
 
   const CACHE_PREFIX = "bvl-menu-v4:"; // v4: + holidays from AcademicCalendars
-  const EVENTS_PREFIX = "bvl-events-v3:"; // v3: titles cleaned of URLs
+  const EVENTS_PREFIX = "bvl-events-v5:"; // v5: venue, home/away, "away at home" titles
   const EVENTS_API = "/.netlify/functions/events";
   const SCHOOL_KEY = "bvl-school";
   const FRESH_MS = 6 * 60 * 60 * 1000;       // refetch menus older than 6h
@@ -206,7 +206,7 @@
     for (const ev of events || []) {
       const multi = addDaysIso(ev.s, 1) < ev.e;
       for (let d = ev.s; d < ev.e; d = addDaysIso(d, 1)) {
-        (map[d] = map[d] || []).push({ t: ev.t, time: ev.time, id: ev.id, multi });
+        (map[d] = map[d] || []).push({ t: ev.t, time: ev.time, id: ev.id, where: ev.where, home: ev.home, multi });
       }
     }
     return map;
@@ -290,7 +290,12 @@
     $("heroLabel").textContent = heroLabel(target);
     $("heroDate").textContent = fmtHero.format(target);
     $("heroName").textContent = evs.length ? evs[0].t : "No events";
-    $("heroSides").textContent = evs.length ? (evs[0].time || "") : "";
+    const lead = evs[0] || null;
+    $("heroSides").textContent = !lead ? "" : [
+      lead.time,
+      lead.home === true ? "Home" : lead.home === false ? "Away" : null,
+      lead.where,
+    ].filter(Boolean).join(" · ");
     $("heroAlt").innerHTML = evs.length > 1
       ? `also: <b>${evs.slice(1, 4).map((ev) => esc(ev.t)).join("</b> · <b>")}</b>${evs.length > 4 ? ` +${evs.length - 4} more` : ""}`
       : "";
@@ -577,9 +582,15 @@
       const rows = dayEvents.map((ev, i) => {
         const label = esc(ev.t + (ev.time ? ` · ${ev.time}` : ""));
         const id = ev.id || String(i);
+        let sub = "";
+        if (ev.where) {
+          const badge = ev.home === true ? `<b class="at-home">Home</b> · `
+            : ev.home === false ? `<b class="at-away">Away</b> · ` : "";
+          sub = `<span class="ev-where">${badge}${esc(ev.where)}</span>`;
+        }
         return `<li><label class="ev-pick">` +
           `<input type="checkbox" class="ev-check" value="${esc(id)}">` +
-          `<span>${label}</span></label></li>`;
+          `<span>${label}${sub}</span></label></li>`;
       }).join("");
       sections.push(`<div class="menu-section"><h3>At school</h3><ul>${rows}</ul></div>`);
     }

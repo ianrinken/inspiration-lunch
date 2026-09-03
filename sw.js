@@ -1,6 +1,6 @@
 /* Offline shell for Brandon Valley Lunch. Menu data is cached by the app in
  * localStorage; the service worker handles the static shell and fonts. */
-const CACHE = "bvl-shell-v16";
+const CACHE = "bvl-shell-v18";
 const FONT_CACHE = "bvl-fonts-v1";
 const SHELL = [
   "./",
@@ -12,6 +12,7 @@ const SHELL = [
   "icons/icon-512.png",
   "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png",
+  "favicon.ico",
 ];
 
 self.addEventListener("install", (e) => {

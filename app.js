@@ -28,6 +28,7 @@
   const MENU_FRESH_MS = 30 * 60 * 1000;       // refetch menus older than 30min
   const EVENTS_FRESH_MS = 30 * 60 * 1000;     // refetch events older than 30min
   const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000;  // recheck unposted months every 2h
+  const SHEET_MAX_OPEN_MS = 5 * 60 * 1000;    // auto-close a day sheet left open this long
 
   // Standing alternate entrées offered alongside the day's hot meal.
   const ALTERNATE_RX = /bagel bag|uncrustable|jammer/i;
@@ -584,6 +585,7 @@
   const sheet = $("daySheet");
   const backdrop = $("sheetBackdrop");
   let sheetOpener = null;
+  let sheetOpenedAt = null;
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
   function openSheet(key, info, mode = "lunch") {
@@ -645,6 +647,7 @@
       $("sheetBody").appendChild(a);
     }
     sheetOpener = document.activeElement;
+    sheetOpenedAt = Date.now();
     sheet.hidden = false; backdrop.hidden = false;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       sheet.classList.add("show"); backdrop.classList.add("show");
@@ -667,6 +670,7 @@
       // Hand focus back to whatever opened the sheet.
       try { if (sheetOpener && sheetOpener.isConnected) sheetOpener.focus({ preventScroll: true }); } catch {}
       sheetOpener = null;
+      sheetOpenedAt = null;
     }, 280);
   }
 
@@ -831,7 +835,15 @@
   // cache isn't actually stale, so this tick is cheap when it has nothing
   // to do.
   function refreshIfVisible() {
-    if (!document.hidden) { loadMonth(); renderHero(); }
+    if (document.hidden) return;
+    // A day sheet left open long enough to have gone stale gets closed
+    // rather than silently shown with outdated content — reopening it
+    // picks up whatever's current.
+    if (!sheet.hidden && sheetOpenedAt && Date.now() - sheetOpenedAt >= SHEET_MAX_OPEN_MS) {
+      closeSheet();
+    }
+    loadMonth();
+    renderHero();
   }
   document.addEventListener("visibilitychange", refreshIfVisible);
   setInterval(refreshIfVisible, 5 * 60 * 1000);

@@ -482,6 +482,20 @@ button.day-cell.no-school { cursor: pointer; }
   cursor: default;
 }
 
+/* Same size/shape as the button above it, but visually its own thing so
+   it's never mistaken for the phone-calendar option. */
+.sheet-action-google {
+  margin-top: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+}
+.sheet-action-google.disabled {
+  opacity: .45;
+  cursor: default;
+}
+
 /* Events grid spans the full week (games and testing fall on weekends) */
 .wk-end { display: none; }
 .weekday-row.week7 { grid-template-columns: repeat(7, 1fr); }

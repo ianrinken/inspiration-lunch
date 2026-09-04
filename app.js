@@ -30,6 +30,15 @@
   const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000;  // recheck unposted months every 2h
   const SHEET_MAX_OPEN_MS = 5 * 60 * 1000;    // auto-close a day sheet left open this long
 
+  // Google's own four-color "G" mark, so the button is recognizable as
+  // going to Google Calendar at a glance, not just by reading the label.
+  const GOOGLE_G_ICON = `<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+    <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/>
+    <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.83.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 0 0 9 18z"/>
+    <path fill="#FBBC05" d="M3.95 10.7A5.41 5.41 0 0 1 3.68 9c0-.59.1-1.17.27-1.7V4.97H.98A9 9 0 0 0 0 9c0 1.45.35 2.83.98 4.03z"/>
+    <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .98 4.97L3.95 7.3C4.66 5.17 6.65 3.58 9 3.58z"/>
+  </svg>`;
+
   // Standing alternate entrées offered alongside the day's hot meal.
   const ALTERNATE_RX = /bagel bag|uncrustable|jammer/i;
 
@@ -213,7 +222,7 @@
     for (const ev of events || []) {
       const multi = addDaysIso(ev.s, 1) < ev.e;
       for (let d = ev.s; d < ev.e; d = addDaysIso(d, 1)) {
-        (map[d] = map[d] || []).push({ t: ev.t, time: ev.time, id: ev.id, where: ev.where, home: ev.home, multi });
+        (map[d] = map[d] || []).push({ t: ev.t, time: ev.time, stamp: ev.stamp, id: ev.id, where: ev.where, home: ev.home, multi });
       }
     }
     return map;
@@ -593,6 +602,26 @@
   let sheetOpenedAt = null;
   const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
+  // Google Calendar's public "quick add" URL -- no login/API key needed,
+  // opens a pre-filled new event for the person to review and save
+  // themselves. Only takes one event at a time (Google's own limitation),
+  // unlike the multi-select .ics export below.
+  function googleCalUrl(dayKey, ev) {
+    const datePart = dayKey.replace(/-/g, "");
+    let dates;
+    if (ev.stamp) {
+      const h = parseInt(ev.stamp.slice(0, 2), 10);
+      const endStamp = String((h + 1) % 24).padStart(2, "0") + ev.stamp.slice(2);
+      dates = `${datePart}T${ev.stamp}/${datePart}T${endStamp}`;
+    } else {
+      dates = `${datePart}/${addDaysIso(dayKey, 1).replace(/-/g, "")}`;
+    }
+    const params = new URLSearchParams({ action: "TEMPLATE", text: ev.t, dates });
+    if (ev.stamp) params.set("ctz", "America/Chicago");
+    if (ev.where) params.set("location", ev.where);
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
   function openSheet(key, info, mode = "lunch") {
     const [y, m, d] = key.split("-").map(Number);
     $("sheetDate").textContent = fmtDay.format(new Date(y, m - 1, d));
@@ -626,6 +655,7 @@
     if (info.condiments.length) sections.push(section("Condiments", info.condiments.map((n) => ({ name: n }))));
     $("sheetBody").innerHTML = sections.join("");
     if (mode === "events" && (currentMonthEvents[key] || []).length) {
+      const dayEvents = currentMonthEvents[key] || [];
       // A real link (not script) so iOS hands the file to the Calendar app.
       const a = document.createElement("a");
       a.className = "sheet-action";
@@ -633,6 +663,22 @@
         if (a.classList.contains("disabled")) { e.preventDefault(); return; }
         dismissWhatsNew();
       });
+
+      // Same footprint and behavior as the button above, but goes straight
+      // to Google Calendar specifically -- labeled plainly so it's never
+      // ambiguous which calendar it's headed to. Google's own quick-add
+      // link only takes one event at a time, so unlike the button above
+      // this one is only active when exactly one box is checked.
+      const g = document.createElement("a");
+      g.className = "sheet-action sheet-action-google";
+      g.target = "_blank";
+      g.rel = "noopener";
+      g.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
+      g.addEventListener("click", (e) => {
+        if (g.classList.contains("disabled")) { e.preventDefault(); return; }
+        dismissWhatsNew();
+      });
+
       const boxes = [...$("sheetBody").querySelectorAll(".ev-check")];
       const sync = () => {
         const picked = boxes.filter((b) => b.checked).map((b) => b.value);
@@ -644,12 +690,17 @@
           ? `${EVENTS_API}?school=${schoolId}&start=${key}&end=${addDaysIso(key, 1)}` +
             `&format=ics&ids=${picked.join(",")}`
           : "#";
+
+        const onlyPicked = picked.length === 1 ? dayEvents.find((ev) => ev.id === picked[0]) : null;
+        g.classList.toggle("disabled", !onlyPicked);
+        g.href = onlyPicked ? googleCalUrl(key, onlyPicked) : "#";
       };
       boxes.forEach((b) => b.addEventListener("change", sync));
       // One event on the day: nothing to choose between, so pre-select it.
       if (boxes.length === 1) boxes[0].checked = true;
       sync();
       $("sheetBody").appendChild(a);
+      $("sheetBody").appendChild(g);
     }
     sheetOpener = document.activeElement;
     sheetOpenedAt = Date.now();

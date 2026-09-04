@@ -83,6 +83,48 @@
   let isReturning = false;
   try { isReturning = Object.keys(localStorage).some((k) => k.startsWith("bvl-")); } catch {}
 
+  /* ---------------- install banner ---------------- */
+
+  const INSTALL_KEY = "bvl-install";
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  // iPadOS 13+ reports itself as a Mac, but a touch-capable "Mac" is an iPad.
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let deferredInstallPrompt = null;
+
+  function dismissInstallBanner() {
+    $("installBanner").hidden = true;
+    try { localStorage.setItem(INSTALL_KEY, "done"); } catch {}
+  }
+  $("installClose").addEventListener("click", dismissInstallBanner);
+  $("installBtn").addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+    const p = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    p.prompt();
+    await p.userChoice.catch(() => {});
+    dismissInstallBanner();
+  });
+  window.addEventListener("appinstalled", dismissInstallBanner);
+
+  let installDismissed = false;
+  try { installDismissed = localStorage.getItem(INSTALL_KEY) === "done"; } catch {}
+  if (!isStandalone && !installDismissed) {
+    if (isIOS) {
+      // iOS has no programmatic install prompt — only the share sheet.
+      $("installText").textContent = "Add this app to your home screen: tap the Share icon, then “Add to Home Screen.”";
+      $("installBanner").hidden = false;
+    } else {
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        $("installText").textContent = "Add this app to your home screen for one-tap access to menus and events.";
+        $("installBtn").hidden = false;
+        $("installBanner").hidden = false;
+      });
+    }
+  }
+
   const today = new Date();
   let view = { year: today.getFullYear(), month: today.getMonth() }; // month is 0-based
   let currentMonthData = null;   // parsed menu data for the viewed month

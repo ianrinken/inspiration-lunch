@@ -425,6 +425,33 @@ button.day-cell.no-school { cursor: pointer; }
   .hero-card.no-tap:hover { transform: none; box-shadow: var(--shadow); }
 }
 
+/* ---------- Install banner ---------- */
+.install-banner[hidden] { display: none; }
+.install-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--bv-red) 40%, var(--border));
+  border-left: 5px solid var(--bv-red);
+  border-radius: 14px;
+  padding: 13px 12px 13px 14px;
+  margin-bottom: clamp(14px, 2.5vw, 20px);
+  box-shadow: var(--shadow);
+}
+.install-banner p { font-size: clamp(.84rem, 2.9vw, .93rem); line-height: 1.45; flex: 1; }
+.install-btn {
+  flex: none; min-height: 40px;
+  background: var(--bv-red); color: #fff;
+  border: none; border-radius: 999px;
+  font-family: var(--display); font-weight: 600; font-size: .9rem;
+  padding: 0 18px; cursor: pointer;
+}
+.install-btn[hidden] { display: none; }
+.install-close {
+  flex: none; width: 40px; height: 40px; margin: 0 -4px 0 0;
+  background: none; border: none; color: var(--text-soft);
+  font-size: 1.5rem; line-height: 1; cursor: pointer;
+}
+
 /* ---------- What's new notice ---------- */
 .whats-new[hidden] { display: none; }
 .whats-new {

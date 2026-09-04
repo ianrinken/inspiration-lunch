@@ -700,6 +700,10 @@
       if (boxes.length === 1) boxes[0].checked = true;
       sync();
       $("sheetBody").appendChild(a);
+      const hint = document.createElement("p");
+      hint.className = "sheet-hint";
+      hint.textContent = "Google Calendar only adds one event at a time.";
+      $("sheetBody").appendChild(hint);
       $("sheetBody").appendChild(g);
     }
     sheetOpener = document.activeElement;

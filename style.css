@@ -482,10 +482,16 @@ button.day-cell.no-school { cursor: pointer; }
   cursor: default;
 }
 
+.sheet-hint {
+  margin: 10px 4px 8px;
+  font-size: .78rem;
+  color: var(--text-soft);
+  text-align: center;
+}
+
 /* Same size/shape as the button above it, but visually its own thing so
    it's never mistaken for the phone-calendar option. */
 .sheet-action-google {
-  margin-top: 10px;
   display: flex; align-items: center; justify-content: center; gap: 10px;
   background: var(--surface);
   color: var(--text);

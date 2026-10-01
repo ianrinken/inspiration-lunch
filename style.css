@@ -757,5 +757,8 @@ button.sheet-action { border: none; cursor: pointer; }
 
 /* ---------- In-app document viewer, clubs ---------- */
 .doc-img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border); background: #fff; margin-bottom: 14px; }
-.doc-frame { display: block; width: 100%; height: 62dvh; border: 1px solid var(--border); border-radius: 12px; background: #fff; margin-bottom: 14px; }
+.doc-pages { margin-bottom: 14px; }
+.doc-loading { text-align: center; padding: 24px 0; }
+.doc-page { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+.doc-page canvas { display: block; }
 .club-row { display: flex; flex-direction: column; min-height: 44px; justify-content: center; }

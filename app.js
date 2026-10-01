@@ -1651,7 +1651,7 @@
     const body = $("sheetBody");
     body.innerHTML = kind === "image"
       ? `<img class="doc-img" src="${esc(url)}" alt="${esc(label)}">`
-      : `<iframe class="doc-frame" src="${esc(url)}#toolbar=0&view=FitH" title="${esc(label)}"></iframe>`;
+      : `<div class="doc-pages" id="docPages"><p class="sheet-note doc-loading">Loading…</p></div>`;
     const open = document.createElement("a");
     open.className = "sheet-action"; open.href = url; open.target = "_blank"; open.rel = "noopener";
     open.textContent = kind === "image" ? "Open the original" : "Open the full document";
@@ -1660,6 +1660,66 @@
     hint.className = "sheet-hint"; hint.textContent = "From the school's website.";
     body.appendChild(hint);
     showSheet(null);
+    if (kind === "pdf") renderPdf(url, $("docPages"));
+  }
+
+  // Draw a PDF's pages fitted to the sheet's width, so a phone scrolls
+  // down through it instead of sideways. pdf.js loads on first use.
+  const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+  const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+  let pdfjsReady = null;
+  async function renderPdf(url, host) {
+    try {
+      pdfjsReady = pdfjsReady || import(PDFJS).then((m) => { m.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; return m; });
+      const pdfjs = await pdfjsReady;
+      const doc = await pdfjs.getDocument({ url: `${SCHOOL_API}?doc=${encodeURIComponent(url)}` }).promise;
+      if (!host.isConnected) return;
+      host.innerHTML = "";
+      const width = host.clientWidth || 320;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const total = Math.min(doc.numPages, 60);
+      const slots = [];
+      for (let n = 1; n <= total; n++) {
+        const slot = document.createElement("div");
+        slot.className = "doc-page";
+        host.appendChild(slot);
+        slots.push(slot);
+      }
+      const drawn = new Set();
+      const draw = async (n) => {
+        if (drawn.has(n)) return;
+        drawn.add(n);
+        const page = await doc.getPage(n);
+        const base = page.getViewport({ scale: 1 });
+        const scale = width / base.width;
+        const vp = page.getViewport({ scale: scale * dpr });
+        const canvas = document.createElement("canvas");
+        canvas.width = vp.width; canvas.height = vp.height;
+        canvas.style.width = "100%";
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+        if (!host.isConnected) return;
+        slots[n - 1].style.minHeight = "";
+        slots[n - 1].appendChild(canvas);
+      };
+      // Size every slot from page 1's shape so the scrollbar is honest,
+      // then draw pages as they come into view.
+      const first = await doc.getPage(1);
+      const ratio = first.getViewport({ scale: 1 }).height / first.getViewport({ scale: 1 }).width;
+      slots.forEach((s) => { s.style.minHeight = `${Math.round(width * ratio)}px`; });
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => { if (e.isIntersecting) draw(slots.indexOf(e.target) + 1); });
+      }, { root: $("sheetBody"), rootMargin: "600px 0px" });
+      slots.forEach((s) => io.observe(s));
+      await draw(1);
+      if (doc.numPages > total) {
+        const more = document.createElement("p");
+        more.className = "sheet-note"; more.textContent = `Showing the first ${total} of ${doc.numPages} pages.`;
+        host.appendChild(more);
+      }
+    } catch (err) {
+      if (!host.isConnected) return;
+      host.innerHTML = `<p class="sheet-note">Couldn't show the pages here. Use the button below to open it.</p>`;
+    }
   }
   const viewable = (l) => (l.view ? "image" : l.doc ? "pdf" : null);
 

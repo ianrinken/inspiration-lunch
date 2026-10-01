@@ -73,8 +73,35 @@ function contact(footer) {
   return { email, phone, fax, address: addr.trim() };
 }
 
+// ?doc=<url>: pass one of the district's own PDFs through with CORS
+// headers, so the app can draw its pages fitted to the phone's width
+// (the district's server sends no CORS headers itself). District domain
+// only, PDFs only, capped well under the function response limit.
+const DOC_MAX = 5 * 1024 * 1024;
+async function passDoc(url) {
+  let u;
+  try { u = new URL(url); } catch { return { statusCode: 400, body: "bad url" }; }
+  if (u.origin !== SITE || !/\.pdf$/i.test(u.pathname)) return { statusCode: 403, body: "district documents only" };
+  const r = await fetch(u.href, { headers: { "User-Agent": "brandonvalleylunch.com school app" } });
+  if (!r.ok) return { statusCode: 502, body: "document unavailable" };
+  const buf = Buffer.from(await r.arrayBuffer());
+  if (buf.length > DOC_MAX) return { statusCode: 413, body: "too large" };
+  return {
+    statusCode: 200,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "public, max-age=3600",
+      "Netlify-CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+    },
+    isBase64Encoded: true,
+    body: buf.toString("base64"),
+  };
+}
+
 exports.handler = async (event) => {
   const q = event.queryStringParameters || {};
+  if (q.doc) return passDoc(q.doc);
   const slug = SLUGS[q.school];
   if (!slug) return { statusCode: 400, body: JSON.stringify({ error: "bad params" }) };
   const base = `${SITE}/${slug}/`;

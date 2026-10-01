@@ -33,5 +33,5 @@
 # /feed/<school>/<grade or all>/<activities or all>/calendar.ics
 [[redirects]]
   from = "/feed/:school/:grade/:acts/calendar.ics"
-  to = "/.netlify/functions/events?school=:school&feed=1&grade=:grade&acts=:acts"
+  to = "/.netlify/functions/events"
   status = 200

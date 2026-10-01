@@ -405,7 +405,12 @@ async function eventsFor(school, start, end) {
 }
 
 exports.handler = async (event) => {
-  const q = event.queryStringParameters || {};
+  const q = { ...(event.queryStringParameters || {}) };
+  // The clean feed address (/feed/<school>/<grade>/<acts>/calendar.ics)
+  // is rewritten here by netlify.toml, but only the request's own query
+  // string travels with it, so read the pieces off the original path.
+  const m = String(event.rawUrl || event.path || "").match(/\/feed\/([^/?]+)\/([^/?]+)\/([^/?]+)\/calendar\.ics/);
+  if (m) { q.school = m[1]; q.feed = "1"; q.grade = m[2]; q.acts = m[3]; }
   // One school for the calendar; the .ics export may span several
   // (a family's "all my kids" day), as school=a,b.
   const schools = String(q.school || "").split(",").filter(Boolean);

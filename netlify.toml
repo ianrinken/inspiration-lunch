@@ -12,15 +12,19 @@
   from = "/package.json"
   to = "/index.html"
   status = 404
+  force = true
 [[redirects]]
   from = "/package-lock.json"
   to = "/index.html"
   status = 404
+  force = true
 [[redirects]]
   from = "/netlify.toml"
   to = "/index.html"
   status = 404
+  force = true
 [[redirects]]
   from = "/netlify/*"
   to = "/index.html"
   status = 404
+  force = true

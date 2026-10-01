@@ -1379,10 +1379,12 @@
         `<p class="sheet-note">The Google Calendar app can't add a calendar by link, so this goes through Google's website once. About a minute.</p>` +
         `<ol>` +
         `<li><span>Copy the calendar link.</span><div class="step-act" id="stepCopy"></div></li>` +
-        `<li><span>Open Google Calendar's settings page.</span><div class="step-act" id="stepOpen"></div></li>` +
+        `<li><span>Open Google Calendar's settings page. ${isIOS
+          ? "If it opens in a small browser window inside this app, tap the <b>compass</b> icon at the bottom right to open it in Safari."
+          : "If it opens in a small browser window inside this app, tap the <b>three dots</b>, then <b>Open in Chrome</b>."}</span><div class="step-act" id="stepOpen"></div></li>` +
         `<li><span>${isIOS
-          ? "If it shows a phone-sized page or the Google Calendar app opens, come back to Safari, tap the <b>aA</b> at the left of the address bar, then <b>Request Desktop Website</b>."
-          : "If it shows a phone-sized page or the Google Calendar app opens, come back to Chrome, tap the <b>three dots</b> at the top right, then turn on <b>Desktop site</b>."}</span></li>` +
+          ? "Google shows its phone page first. Tap the <b>aA</b> at the left of Safari's address bar, then <b>Request Desktop Website</b>. The page reloads with the settings."
+          : "Google shows its phone page first. Tap the <b>three dots</b> at the top right of Chrome, then turn on <b>Desktop site</b>. The page reloads with the settings."}</span></li>` +
         `<li><span>Sign in if asked. In the <b>URL of calendar</b> box, paste the link, then tap <b>Add calendar</b>.</span></li>` +
         `<li><span>Done. It appears in the Google Calendar app on your phone within a few minutes and updates itself from then on.</span></li>` +
         `</ol>`;
@@ -1392,7 +1394,10 @@
       g1.addEventListener("click", async () => { await copy(); g1.textContent = "Copied"; });
       steps.querySelector("#stepCopy").appendChild(g1);
       const g2 = document.createElement("a");
-      g2.className = "chip on"; g2.href = "https://calendar.google.com/calendar/u/0/r/settings/addbyurl";
+      // Through www.google.com: a calendar.google.com link gets grabbed by
+      // the Google Calendar app on iPhones, which has no settings page.
+      // Google's own redirect keeps this one in the browser.
+      g2.className = "chip on"; g2.href = "https://www.google.com/calendar/u/0/r/settings/addbyurl";
       g2.target = "_blank"; g2.rel = "noopener"; g2.textContent = "Open Google Calendar settings";
       steps.querySelector("#stepOpen").appendChild(g2);
       const g3 = document.createElement("a");

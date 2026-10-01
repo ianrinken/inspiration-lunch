@@ -43,16 +43,33 @@ const SCHOOL_MATCHERS = {
 };
 // Titles carrying a secondary grade level, wherever the event is played.
 const SECONDARY_EVENT = /\((?:7th|8th|9th|Junior Varsity|Varsity|Sophomore|Freshman|Middle School|9[AB])[^)]*\)|\bMS\b|\bHS\b|Middle School|High School/;
-// A level marker IN THE TITLE ITSELF is authoritative between Middle and
-// High School, overriding a same-named venue coincidence -- e.g. Girls
-// Tennis is a high-school program, but its courts are literally named
-// "Brandon Valley Middle School Tennis Courts", which otherwise matches
-// Middle School's own venue-based rule below and leaks JV/Varsity matches
-// onto the middle-school calendar.
-const MS_TITLE_LEVEL = /\((?:7th|8th|Middle School)[^)]*\)/i;
-const HS_TITLE_LEVEL = /\((?:Junior Varsity|Varsity|Sophomore|Freshman|9[AB]|High School)[^)]*\)/i;
-const MIDDLE_ID = "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1";
-const HIGH_ID = "ffc1d3ff-8e8d-ec11-8df7-c6813137b210";
+// Grade wording IN THE TITLE ITSELF is authoritative, overriding a
+// same-named venue coincidence -- e.g. Girls Tennis is a high-school
+// program, but its courts are literally named "Brandon Valley Middle School
+// Tennis Courts", which otherwise matches Middle School's own venue-based
+// rule below and leaks JV/Varsity matches onto the middle-school calendar.
+// gradesFor reads every form the feed uses ("(Girls Varsity)", "(FR/SO
+// Red)", "(Grades 9-12)", "(Seniors)", unlabeled baseball), shared with the
+// app so a child's view agrees with the calendar.
+const { gradesFor, fitsSchool, activityName, isActivity } = require("../../grades.js");
+
+// Bound's building tags -> the schools they mean.
+const ELEMENTARY = [
+  "041717d0-8f8d-ec11-8df7-eb7b319a32d1", "d8f8bcbf-1b2a-f111-bb4f-02558335d9c7",
+  "af61ff49-908d-ec11-8df7-9c80cb6a95ae", "0c65b2bc-908d-ec11-8df7-9566c4096294",
+  "ec90bc02-908d-ec11-8df7-eb7b319a32d1",
+];
+const TAG_SCHOOLS = {
+  "Brandon Elementary": ["041717d0-8f8d-ec11-8df7-eb7b319a32d1"],
+  "Burkman Valley Elementary": ["d8f8bcbf-1b2a-f111-bb4f-02558335d9c7"],
+  "Fred Assam Elementary": ["af61ff49-908d-ec11-8df7-9c80cb6a95ae"],
+  "Inspiration Elementary": ["0c65b2bc-908d-ec11-8df7-9566c4096294"],
+  "Robert Bennis Elementary": ["ec90bc02-908d-ec11-8df7-eb7b319a32d1"],
+  "Elementary Events": ELEMENTARY,
+  "Intermediate School Events": ["82b0714f-8f8d-ec11-8df7-d30e05c96286"],
+  "Middle School Events": ["2e94e37a-8f8d-ec11-8df7-eb7b319a32d1"],
+  "High School Events": ["ffc1d3ff-8e8d-ec11-8df7-c6813137b210"],
+};
 
 // Elementary buildings shouldn't inherit secondary-school athletics.
 const SECONDARY = new Set([
@@ -130,20 +147,57 @@ function orientMatchup(title, home) {
   return `${prefix}${bv}${joiner}${other}${suffix}`;
 }
 
+// Bound's own fields on each event: the program it belongs to, the team
+// level, and tags naming the building(s) and class(es) it is for. Far more
+// reliable than reading the title, when present (Google Calendar events
+// have none of this).
+function boundFields(body) {
+  const f = (k) => { const m = body.match(new RegExp(`^${k}:(.*)$`, "m")); return m ? unescapeIcs(m[1]).trim() : ""; };
+  const tags = f("X-BND-TAGS").split(",").map((t) => t.trim()).filter(Boolean);
+  // Raw, not unescaped: the title cleaner strips links on purpose.
+  const url = ((body.match(/^URL:(.*)$/m) || [])[1] || "").trim();
+  return {
+    act: normalizeActivity(f("X-BND-ACTIVITYNAME")),
+    level: f("X-BND-ACTIVITYLEVEL"),
+    tags,
+    url: /^https:\/\/(?:www\.)?gobound\.com\//.test(url) ? url : "",
+  };
+}
+
+// Bound names the same program more than one way ("Volleyball, Girls",
+// "Boys Golf (Fall)"); fold them so a pick catches every entry.
+function normalizeActivity(name) {
+  return name
+    .replace(/^(.+),\s*(Boys|Girls)$/, "$2 $1")
+    .replace(/^Girls Volleyball$/, "Volleyball")
+    .replace(/^Boys Football$/, "Football")
+    .replace(/\s*\((?:Fall|Spring|Winter)\)$/, "")
+    .trim();
+}
+
+// "CANCELLED - Girls Basketball: ..." -> state + clean title.
+function cancellation(title, body) {
+  const m = title.match(/^(CANCEL+ED|POSTPONED)\s*[-:]\s*/i);
+  if (m) return { x: m[1].toLowerCase().startsWith("post") ? "postponed" : "cancelled", title: title.slice(m[0].length) };
+  if (/^STATUS:CANCELLED$/m.test(body)) return { x: "cancelled", title };
+  return { x: null, title };
+}
+
 function parseIcs(ics, rangeStart, rangeEnd, keep) {
   const events = [];
   // Unfold wrapped lines (RFC 5545: continuation lines start with a space/tab)
   const text = ics.replace(/\r?\n[ \t]/g, "");
   for (const block of text.split("BEGIN:VEVENT").slice(1)) {
     const body = block.split("END:VEVENT")[0];
-    if (/^STATUS:CANCELLED$/m.test(body)) continue;
     const summary = body.match(/^SUMMARY:(.*)$/m);
     if (!summary) continue;
-    const title = unescapeIcs(summary[1]);
-    if (!title) continue;
+    const raw = unescapeIcs(summary[1]);
+    if (!raw) continue;
+    const fields = boundFields(body);
+    const { x, title } = cancellation(raw, body);
     const locM = body.match(/^LOCATION:(.*)$/m);
     const where = locM ? unescapeIcs(locM[1]) : "";
-    if (keep && !keep(title, where)) continue;
+    if (keep && !keep(title, where, fields)) continue;
 
     let s, e, time = null, stamp = null;
     const allDay = body.match(/^DTSTART;VALUE=DATE:(\d{8})$/m);
@@ -170,20 +224,37 @@ function parseIcs(ics, rangeStart, rangeEnd, keep) {
       }
       e = addDays(s, 1);
     }
+    // A real same-day end time (Bound gives one on most events).
+    let end = null;
+    const endM = body.match(/^DTEND(?:;TZID=[^:]+)?:(\d{8})T(\d{6})(Z?)$/m);
+    if (stamp && endM) {
+      const endIso = `${endM[1].slice(0, 4)}-${endM[1].slice(4, 6)}-${endM[1].slice(6, 8)}`;
+      const endStamp = endM[3] ? toCentral(new Date(`${endIso}T${endM[2].slice(0, 2)}:${endM[2].slice(2, 4)}:${endM[2].slice(4, 6)}Z`)) : { date: endIso, stamp: endM[2] };
+      if (endStamp.date === s && endStamp.stamp > stamp) end = endStamp.stamp;
+    }
 
     if (e <= rangeStart || s >= rangeEnd) continue;
     // Placeholder clock times: overnight stamps, and 7:00 AM — the activities
     // feed's default school-day start ("Labor Day - No School · 7:00 AM").
-    if (time && (/^(?:12|[1-6]):\d\d AM$/.test(time) || time === "7:00 AM")) time = stamp = null;
+    if (time && (/^(?:12|[1-6]):\d\d AM$/.test(time) || time === "7:00 AM")) time = stamp = end = null;
     const isGame = COMPETITION.test(title);
     const home = isGame && where ? HOME_VENUE.test(where) : undefined;
     const shown = orientMatchup(title, home);
     const id = Math.abs(hash(`${s}|${shown}`)).toString(36).slice(0, 7);
+    // A multi-sport meeting is tagged with one program by the feed; it is
+    // really for everyone.
+    const act = /\bSports Meeting\b/i.test(title) ? "" : fields.act;
+    const grades = gradesFor(shown, fields.level, fields.tags);
     events.push({
       s, e, t: shown, id,
       ...(time ? { time, stamp } : {}),
+      ...(end ? { end } : {}),
       ...(where ? { where } : {}),
       ...(home === undefined ? {} : { home }),
+      ...(act ? { act } : {}),
+      ...(grades ? { g: grades } : {}),
+      ...(fields.url ? { url: fields.url } : {}),
+      ...(x ? { x } : {}),
     });
   }
   events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
@@ -207,25 +278,29 @@ function fold(line) {
 
 const compact = (iso) => iso.replace(/-/g, "");
 
-function buildIcs(events, label) {
+function buildIcs(events, label, feed = false) {
   const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
   const lines = [
     "BEGIN:VCALENDAR", "VERSION:2.0", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     "PRODID:-//Brandon Valley Lunch//brandonvalleylunch.com//EN",
     `X-WR-CALNAME:${escIcs(label)}`,
+    ...(feed ? ["REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H"] : []),
   ];
-  events.forEach((ev, i) => {
-    const uid = `${compact(ev.s)}-${i}-${Math.abs(hash(ev.t))}@brandonvalleylunch.com`;
+  events.forEach((ev) => {
+    // Stable per event, so a subscription updates in place rather than
+    // piling up duplicates as the window rolls.
+    const uid = `${compact(ev.s)}-${ev.id}@brandonvalleylunch.com`;
     lines.push("BEGIN:VEVENT", `UID:${uid}`, `DTSTAMP:${now}`);
     if (ev.stamp) {
       // Floating local time: shows at the right clock time on a phone here.
       lines.push(`DTSTART:${compact(ev.s)}T${ev.stamp}`);
       const endH = String((parseInt(ev.stamp.slice(0, 2), 10) + 1) % 24).padStart(2, "0");
-      lines.push(`DTEND:${compact(ev.s)}T${endH}${ev.stamp.slice(2)}`);
+      lines.push(`DTEND:${compact(ev.s)}T${ev.end || endH + ev.stamp.slice(2)}`);
     } else {
       lines.push(`DTSTART;VALUE=DATE:${compact(ev.s)}`, `DTEND;VALUE=DATE:${compact(ev.e)}`);
     }
-    lines.push(fold(`SUMMARY:${escIcs(ev.t)}`));
+    lines.push(fold(`SUMMARY:${escIcs((ev.x ? `${ev.x === "postponed" ? "Postponed" : "Cancelled"}: ` : "") + ev.t)}`));
+    if (ev.url) lines.push(fold(`URL:${ev.url}`));
     if (ev.where) lines.push(fold(`LOCATION:${escIcs(ev.where)}`));
     lines.push("END:VEVENT");
   });
@@ -239,82 +314,175 @@ function hash(str) {
   return h;
 }
 
+const UA = { "User-Agent": "brandonvalleylunch.com school app" };
+const grab = async (url) => {
+  const r = await fetch(url, { headers: UA });
+  if (!r.ok) throw new Error(`upstream ${r.status}`);
+  return r.text();
+};
+
+// A Bound event belongs to this school if it names it, or (for secondary
+// schools) if it's a district activity that no other level claims.
+function makeKeep(school) {
+  const mine = SCHOOL_MATCHERS[school];
+  const others = Object.entries(SCHOOL_MATCHERS)
+    .filter(([id]) => id !== school && SECONDARY.has(id) !== SECONDARY.has(school))
+    .map(([, rx]) => rx);
+  return (title, where, fields) => {
+    const t = `${title} ${where}`;
+    const tags = (fields && fields.tags) || [];
+    if (tags.includes("Staff Only Events")) return false;
+    // Grade wording (title, team level, class tags) is authoritative over
+    // the venue AND the "no one else claims it" inheritance fallback
+    // below -- a "(Middle School)" match belongs only to a building with
+    // grades 7-8, excluding every other one.
+    if (!fitsSchool(gradesFor(title, fields && fields.level, tags), school)) return false;
+    // The feed's own building tags settle it when present. A named
+    // elementary tag is more specific than the blanket "Elementary
+    // Events" tag that usually rides along with it, so the named ones
+    // win when any are present.
+    const tagged = tags.filter((tag) => TAG_SCHOOLS[tag]);
+    if (tagged.length) {
+      const named = tagged.filter((tag) => tag !== "Elementary Events");
+      if (named.length) return named.some((tag) => TAG_SCHOOLS[tag].includes(school));
+      // Only the blanket tag: a school named in the title ("BE 3rd Grade
+      // Concert") still narrows it to that school.
+      const inTitle = Object.entries(SCHOOL_MATCHERS).filter(([id, rx]) => ELEMENTARY.includes(id) && rx.test(title));
+      if (inTitle.length) return inTitle.some(([id]) => id === school);
+      return ELEMENTARY.includes(school);
+    }
+    // Grade level beats venue: a 7th-grade game played on an elementary
+    // field is still a middle-school event.
+    if (!SECONDARY.has(school) && SECONDARY_EVENT.test(title)) return false;
+    if (mine && mine.test(t)) return true;
+    if (!SECONDARY.has(school)) return false;
+    return !others.some((rx) => rx.test(t)) &&
+      !Object.entries(SCHOOL_MATCHERS).some(([id, rx]) => id !== school && rx.test(t));
+  };
+}
+
+// A child's rule, same as the app's: grade wording excludes other grades;
+// picked activities narrow activity events; everything else stays.
+function allowsFor(ev, grade, acts) {
+  const g = ev.g || gradesFor(ev.t);
+  if (grade !== null && grade !== undefined && g && !g.includes(grade)) return false;
+  if (acts && acts.length) {
+    const act = ev.act || (isActivity(ev.t) ? activityName(ev.t) : null);
+    if (act) return acts.includes(act);
+  }
+  return true;
+}
+
+// One school's merged calendar for a date range.
+async function eventsFor(school, start, end) {
+  const [googleIcs, boundIcs] = await Promise.all([
+    grab(`https://calendar.google.com/calendar/ical/${encodeURIComponent(CALENDARS[school])}/public/basic.ics`),
+    grab(BOUND_ICS).catch(() => null), // activities are a bonus, never fatal
+  ]);
+  let events = parseIcs(googleIcs, start, end);
+  if (boundIcs) {
+    const seen = new Set(events.map((e) => `${e.s}|${e.t.toLowerCase()}`));
+    for (const ev of parseIcs(boundIcs, start, end, makeKeep(school))) {
+      const k = `${ev.s}|${ev.t.toLowerCase()}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      events.push(ev);
+    }
+    events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
+  }
+  // A day off often appears in both sources with different wording
+  // ("NO SCHOOL" and "Labor Day - No School"); keep the more specific one.
+  const offByDay = {};
+  for (const ev of events) if (/\bno school\b/i.test(ev.t)) (offByDay[ev.s] = offByDay[ev.s] || []).push(ev);
+  const dropOff = new Set();
+  for (const list of Object.values(offByDay)) {
+    if (list.length < 2) continue;
+    const keep = list.reduce((a, b) => (b.t.length > a.t.length ? b : a));
+    for (const ev of list) if (ev !== keep) dropOff.add(ev);
+  }
+  if (dropOff.size) events = events.filter((ev) => !dropOff.has(ev));
+  return events;
+}
+
 exports.handler = async (event) => {
   const q = event.queryStringParameters || {};
-  const cal = CALENDARS[q.school];
-  const { start, end } = q;
-  if (!cal || !DATE_RX.test(start || "") || !DATE_RX.test(end || "")) {
+  // One school for the calendar; the .ics export may span several
+  // (a family's "all my kids" day), as school=a,b.
+  const schools = String(q.school || "").split(",").filter(Boolean);
+  const listing = q.list === "activities";
+  // feed=1: a calendar subscription. Rolling window, so the phone's
+  // calendar app keeps itself current without the parent doing anything.
+  const feed = q.feed === "1";
+  if (feed) q.format = "ics";
+  const today = toCentral(new Date()).date;
+  const start = feed ? addDays(today, -14) : q.start;
+  const end = feed ? addDays(today, 400) : q.end;
+  const multi = q.format === "ics" && schools.length > 1;
+  if (!schools.length || (!multi && schools.length !== 1) || !schools.every((s) => CALENDARS[s]) ||
+      (!listing && (!DATE_RX.test(start || "") || !DATE_RX.test(end || "")))) {
     return { statusCode: 400, body: JSON.stringify({ error: "bad params" }) };
   }
-  const ua = { "User-Agent": "brandonvalleylunch.com school app" };
-  const grab = async (url) => {
-    const r = await fetch(url, { headers: ua });
-    if (!r.ok) throw new Error(`upstream ${r.status}`);
-    return r.text();
-  };
 
   try {
-    const mine = SCHOOL_MATCHERS[q.school];
-    const others = Object.entries(SCHOOL_MATCHERS)
-      .filter(([id]) => id !== q.school && SECONDARY.has(id) !== SECONDARY.has(q.school))
-      .map(([, rx]) => rx);
-    // A Bound event belongs to this school if it names it, or (for secondary
-    // schools) if it's a district activity that no other level claims.
-    const keepBound = (title, where) => {
-      const t = `${title} ${where}`;
-      // Grade level beats venue: a 7th-grade game played on an elementary
-      // field is still a middle-school event.
-      if (!SECONDARY.has(q.school) && SECONDARY_EVENT.test(title)) return false;
-      // An explicit level marker in the TITLE is authoritative over both
-      // the venue AND the generic "no one else claims it" inheritance
-      // fallback below -- a "(Middle School)"-tagged match belongs only to
-      // Middle School, excluding every OTHER secondary building (High,
-      // Intermediate, and any added later), not just the MS/HS pair.
-      if (MS_TITLE_LEVEL.test(title) && q.school !== MIDDLE_ID) return false;
-      if (HS_TITLE_LEVEL.test(title) && q.school !== HIGH_ID) return false;
-      if (mine && mine.test(t)) return true;
-      if (!SECONDARY.has(q.school)) return false;
-      return !others.some((rx) => rx.test(t)) &&
-        !Object.entries(SCHOOL_MATCHERS).some(([id, rx]) => id !== q.school && rx.test(t));
-    };
-
-    const [googleIcs, boundIcs] = await Promise.all([
-      grab(`https://calendar.google.com/calendar/ical/${encodeURIComponent(cal)}/public/basic.ics`),
-      grab(BOUND_ICS).catch(() => null), // activities are a bonus, never fatal
-    ]);
-
-    const events = parseIcs(googleIcs, start, end);
-    if (boundIcs) {
-      const seen = new Set(events.map((e) => `${e.s}|${e.t.toLowerCase()}`));
-      for (const ev of parseIcs(boundIcs, start, end, keepBound)) {
-        const k = `${ev.s}|${ev.t.toLowerCase()}`;
-        if (seen.has(k)) continue;
-        seen.add(k);
-        events.push(ev);
+    // list=activities: everything a student at this school could be signed
+    // up for, drawn from the whole activities feed (every season, not just
+    // the month on screen), so a parent setting up a child picks from what
+    // actually exists. Attribution is the same keep as the calendar.
+    if (listing) {
+      const counts = {};
+      for (const ev of parseIcs(await grab(BOUND_ICS), "0000-01-01", "9999-12-31", makeKeep(schools[0]))) {
+        const name = ev.act || (isActivity(ev.t) ? activityName(ev.t) : null);
+        if (name) counts[name] = (counts[name] || 0) + 1;
       }
-      events.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : 0));
+      // A one-off title is more likely a typo than a program.
+      const activities = Object.keys(counts).filter((n) => counts[n] >= 2).sort();
+      return {
+        statusCode: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "public, max-age=3600",
+          "Netlify-CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+        },
+        body: JSON.stringify({ activities }),
+      };
     }
+
+    const events = (await Promise.all(schools.map((s) => eventsFor(s, start, end)))).flat();
     // format=ics hands the range straight to the phone's calendar app.
     // ids= limits it to the events the parent actually picked.
     if (q.format === "ics") {
-      const name = SCHOOL_NAMES[q.school] || "School events";
+      let name = schools.length > 1 ? "School events" : (SCHOOL_NAMES[schools[0]] || "School events");
       const want = (q.ids || "").split(",").filter(Boolean);
-      const picked = want.length ? events.filter((ev) => want.includes(ev.id)) : events;
+      let picked = want.length ? events.filter((ev) => want.includes(ev.id)) : events;
+      // A child's feed: their grade and activities, same rule as the app.
+      const grade = /^-?\d{1,2}$/.test(q.grade || "") ? parseInt(q.grade, 10) : null;
+      const acts = (q.acts || "").split(",").filter(Boolean);
+      if (grade !== null || acts.length) {
+        picked = picked.filter((ev) => allowsFor(ev, grade, acts));
+        if (grade !== null && schools.length === 1) {
+          const label = grade === -1 ? "Junior kindergarten" : grade === 0 ? "Kindergarten" : `${grade}${["th", "st", "nd", "rd"][(grade % 100 > 10 && grade % 100 < 14) || grade % 10 > 3 ? 0 : grade % 10]} grade`;
+          name = `${label} · ${SCHOOL_NAMES[schools[0]]}`;
+        }
+      }
       // Ids can go stale if a title changed since the page was loaded — hand
       // back the whole day rather than a dead-end 404.
-      const chosen = picked.length ? picked : events;
-      if (!chosen.length) {
+      const chosen = picked.length || feed ? picked : events;
+      if (!chosen.length && !feed) {
         return { statusCode: 204, headers: { "Access-Control-Allow-Origin": "*" }, body: "" };
       }
       return {
         statusCode: 200,
         headers: {
           "Content-Type": "text/calendar; charset=utf-8",
-          "Content-Disposition": `attachment; filename="school-events.ics"`,
+          // A download for the one-day export; a subscription is fetched
+          // by the calendar app itself and must not be an attachment.
+          ...(feed ? {} : { "Content-Disposition": `attachment; filename="school-events.ics"` }),
           "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "public, max-age=900",
+          "Cache-Control": feed ? "public, max-age=1800" : "public, max-age=900",
+          ...(feed ? { "Netlify-CDN-Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400" } : {}),
         },
-        body: buildIcs(chosen, name),
+        body: buildIcs(chosen, name, feed),
       };
     }
 
@@ -336,3 +504,10 @@ exports.handler = async (event) => {
     };
   }
 };
+
+// Shared with the notification sender.
+exports.eventsFor = eventsFor;
+exports.allowsFor = allowsFor;
+exports.SCHOOL_NAMES = SCHOOL_NAMES;
+exports.toCentral = toCentral;
+exports.addDays = addDays;

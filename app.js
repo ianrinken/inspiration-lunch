@@ -22,13 +22,16 @@
   const DEFAULT_SCHOOL = "0c65b2bc-908d-ec11-8df7-9566c4096294"; // Inspiration Elementary
 
   const CACHE_PREFIX = "bvl-menu-v5:"; // v5: catch-all for unrecognized categories
-  const EVENTS_PREFIX = "bvl-events-v6:"; // v6: fixed cross-school attribution leaks
+  const EVENTS_PREFIX = "bvl-events-v7:"; // v7: Bound fields (program, grades, end, url, cancellations)
   const EVENTS_API = "/.netlify/functions/events";
   const SCHOOL_KEY = "bvl-school";
   const MENU_FRESH_MS = 30 * 60 * 1000;       // refetch menus older than 30min
   const EVENTS_FRESH_MS = 30 * 60 * 1000;     // refetch events older than 30min
   const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000;  // recheck unposted months every 2h
   const SHEET_MAX_OPEN_MS = 5 * 60 * 1000;    // auto-close a day sheet left open this long
+  const PUSH_API = "/.netlify/functions/push";
+  const PUSH_KEY = "bvl-push"; // "1" once this device asked for the evening heads-up
+  const PUSH_PUBLIC = "BPwNi91GO_Q3BvtYJodMYYajTDU3b_opYxbzXLS7r4TDpdPaMqX4NWx-TSVW-trBTi8GZV-ob8TqKKuQELU1SI8";
 
   // Google's own four-color "G" mark, so the button is recognizable as
   // going to Google Calendar at a glance, not just by reading the label.
@@ -62,6 +65,106 @@
   }
 
   if (!SCHOOLS.some((s) => s.id === schoolId)) schoolId = DEFAULT_SCHOOL;
+
+  /* ---------------- my kids (this device only, no names) ---------------- */
+
+  // A child is a school, a grade and the activities they're in. Parents
+  // switch between one child, all of them, or everything at a school. It
+  // lives only in this browser's storage -- no account, no name, nothing
+  // sent anywhere.
+  const KIDS_KEY = "bvl-kids";
+  const MODE_KEY = "bvl-mode"; // "all" | "kids" | a child's id
+  const ACTIVITIES_PREFIX = "bvl-activities-v2:";
+  const ACTIVITIES_FRESH_MS = 24 * 60 * 60 * 1000;
+  const SHORT = {
+    "041717d0-8f8d-ec11-8df7-eb7b319a32d1": "Brandon Elem",
+    "d8f8bcbf-1b2a-f111-bb4f-02558335d9c7": "Burkman",
+    "af61ff49-908d-ec11-8df7-9c80cb6a95ae": "Fred Assam",
+    "0c65b2bc-908d-ec11-8df7-9566c4096294": "Inspiration",
+    "ec90bc02-908d-ec11-8df7-eb7b319a32d1": "Bennis",
+    "82b0714f-8f8d-ec11-8df7-d30e05c96286": "Intermediate",
+    "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1": "Middle",
+    "ffc1d3ff-8e8d-ec11-8df7-c6813137b210": "High",
+  };
+  let kids = [];
+  try { kids = JSON.parse(localStorage.getItem(KIDS_KEY) || "[]"); } catch {}
+  kids = (Array.isArray(kids) ? kids : []).filter((k) =>
+    k && typeof k.id === "string" && SCHOOLS.some((x) => x.id === k.school) && Number.isInteger(k.grade) && Array.isArray(k.acts));
+  let mode = "all";
+  try { mode = localStorage.getItem(MODE_KEY) || "all"; } catch {}
+
+  // ?setup=… carries a family's kids (school, grade, activities; never a
+  // name) from one device to another: texted to the other parent, or
+  // opened in the installed app after setting up in Safari.
+  const packSetup = (list) => btoa(JSON.stringify(list.map((k) =>
+    [SCHOOLS.findIndex((x) => x.id === k.school), k.grade, k.acts]))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  let imported = 0;
+  const setupParam = new URLSearchParams(location.search).get("setup");
+  if (setupParam) {
+    try {
+      const list = JSON.parse(atob(setupParam.replace(/-/g, "+").replace(/_/g, "/")));
+      for (const row of Array.isArray(list) ? list : []) {
+        const [si, grade, acts] = row;
+        const sch = SCHOOLS[si];
+        if (!sch || !Number.isInteger(grade) || !Array.isArray(acts)) continue;
+        const clean = { id: `${Date.now().toString(36)}${imported}`, school: sch.id, grade, acts: acts.filter((a) => typeof a === "string").sort() };
+        const dup = kids.some((k) => k.school === clean.school && k.grade === clean.grade && k.acts.join("|") === clean.acts.join("|"));
+        if (!dup) { kids.push(clean); imported++; }
+      }
+      if (imported) {
+        mode = kids.length > 1 ? "kids" : kids[0].id;
+        try { localStorage.setItem(KIDS_KEY, JSON.stringify(kids)); localStorage.setItem(MODE_KEY, mode); } catch {}
+      }
+    } catch {}
+    history.replaceState(null, "", location.pathname);
+  }
+  if (mode === "kids" ? kids.length < 2 : mode !== "all" && !kids.some((k) => k.id === mode)) mode = kids.length === 1 ? kids[0].id : "all";
+  const activeKids = () => (mode === "kids" ? kids : kids.filter((k) => k.id === mode));
+  // The schools in play: a child's, every child's, or just the one picked.
+  const activeSchools = () => {
+    const ks = activeKids();
+    return ks.length ? [...new Set(ks.map((k) => k.school))] : [schoolId];
+  };
+  if (activeKids().length) schoolId = activeKids()[0].school;
+
+  function saveKids() {
+    try {
+      localStorage.setItem(KIDS_KEY, JSON.stringify(kids));
+      localStorage.setItem(MODE_KEY, mode);
+    } catch {}
+    syncPush(); // the evening heads-up follows whatever the kids are now
+  }
+
+  const schoolName = (id) => (SCHOOLS.find((s) => s.id === id) || {}).name || "";
+  const ordinal = (n) => `${n}${["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`;
+  const gradeShort = (g) => (g === -1 ? "Jr. K" : g === 0 ? "K" : ordinal(g));
+  const gradeName = (g) => (g === -1 ? "Junior kindergarten" : g === 0 ? "Kindergarten" : `${ordinal(g)} grade`);
+  const kidLabel = (k) => `${gradeShort(k.grade)} · ${SHORT[k.school]}`;
+
+  // The relay already worked out grades (g) and the program (act) from the
+  // feed's own fields; the title rules are the fallback for events that
+  // come from a school's Google Calendar instead.
+  const eventGrades = (ev) => ev.g || BVGrades.gradesFor(ev.t);
+  const eventActivity = (ev) => ev.act || (BVGrades.isActivity(ev.t) ? BVGrades.activityName(ev.t) : null);
+
+  // Is this event one of this child's? Anything that says nothing about
+  // grade or activity is for everyone and stays -- hiding too much is
+  // worse than showing a little extra.
+  function kidAllows(ev, k) {
+    const grades = eventGrades(ev);
+    if (grades && !grades.includes(k.grade)) return false;
+    if (k.acts.length) {
+      const act = eventActivity(ev);
+      if (act) return k.acts.includes(act);
+    }
+    return true;
+  }
+  // "Everything" shows a school whole; otherwise an event stays if any of
+  // the selected children at that school would see it.
+  function allowedFor(ev, school) {
+    const ks = activeKids().filter((k) => k.school === school);
+    return !ks.length || ks.some((k) => kidAllows(ev, k));
+  }
 
   // Once brandonvalleylunch.com is live and serving this app, quietly move
   // old netlify.app installs there, carrying the saved school along. The
@@ -264,11 +367,48 @@
     for (const ev of events || []) {
       const multi = addDaysIso(ev.s, 1) < ev.e;
       for (let d = ev.s; d < ev.e; d = addDaysIso(d, 1)) {
-        (map[d] = map[d] || []).push({ t: ev.t, time: ev.time, stamp: ev.stamp, id: ev.id, where: ev.where, home: ev.home, multi });
+        (map[d] = map[d] || []).push({
+          t: ev.t, time: ev.time, stamp: ev.stamp, end: ev.end, id: ev.id, where: ev.where, home: ev.home,
+          act: ev.act, g: ev.g, url: ev.url, x: ev.x, sch: ev.sch, multi,
+        });
       }
     }
     return map;
   }
+
+  // Display form of a title: "Volleyball: Brandon Valley vs Marshall
+  // (Varsity)" -> { title: "Volleyball vs Marshall", level: "Varsity" }.
+  // Brandon Valley is implied everywhere in this app, and the level is
+  // better shown beside the title than buried inside it.
+  function compact(t) {
+    let title = t, level = "";
+    const m = t.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+    if (m && BVGrades.levelShort(m[2])) { title = m[1]; level = BVGrades.levelShort(m[2]); }
+    title = title
+      .replace(/\s*\((?:Fall|Spring|Winter)\)/, "") // "Boys Golf (Fall)" is just Boys Golf here
+      .replace(/^([^:]+):\s*Brandon Valley\s+(vs|at)\s+/, "$1 $2 ");
+    return { title, level };
+  }
+
+  // Youngest to oldest, so a row reads "7th A, 8th A" or "9th, Soph, JV, Varsity".
+  const LEVEL_ORDER = ["7th", "8th", "MS", "9th", "9A", "9B", "FR/SO", "Soph", "JV", "Varsity", "HS"];
+  const levelRank = (l) => { const i = LEVEL_ORDER.findIndex((p) => l.startsWith(p)); return i < 0 ? 99 : i; };
+
+  // One line per program-and-opponent: the day's three Marshall volleyball
+  // matches (JV, Soph, Varsity) read as a single row with all three levels.
+  function summarize(evs) {
+    const groups = [];
+    for (const ev of evs) {
+      const { title, level } = compact(ev.t);
+      let g = groups.find((x) => x.title === title && !!x.x === !!ev.x);
+      if (!g) { g = { title, levels: [], time: ev.time, stamp: ev.stamp, where: ev.where, home: ev.home, x: ev.x, sch: ev.sch, n: 0 }; groups.push(g); }
+      if (level && !g.levels.includes(level)) { g.levels.push(level); g.levels.sort((a, b) => levelRank(a) - levelRank(b) || a.localeCompare(b)); }
+      if (ev.stamp && (!g.stamp || ev.stamp < g.stamp)) { g.stamp = ev.stamp; g.time = ev.time; }
+      g.n++;
+    }
+    return groups;
+  }
+  const groupLine = (g) => [g.title, g.levels.join(", "), g.time].filter(Boolean).join(" · ");
 
   function addDaysIso(iso, n) {
     const d = new Date(`${iso}T12:00:00`);
@@ -276,8 +416,8 @@
     return dkey(d);
   }
 
-  async function getEventsData(y, m) {
-    const key = `${EVENTS_PREFIX}${schoolId}:${monthKey(y, m)}`;
+  async function getEventsData(y, m, school) {
+    const key = `${EVENTS_PREFIX}${school}:${monthKey(y, m)}`;
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
     if (cached && Date.now() - cached.fetchedAt < EVENTS_FRESH_MS) return cached;
@@ -285,7 +425,7 @@
       const last = new Date(y, m + 1, 0).getDate();
       const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
       const end = addDaysIso(`${y}-${String(m + 1).padStart(2, "0")}-${String(last).padStart(2, "0")}`, 1);
-      const res = await fetch(`${EVENTS_API}?school=${schoolId}&start=${start}&end=${end}`);
+      const res = await fetch(`${EVENTS_API}?school=${school}&start=${start}&end=${end}`);
       if (!res.ok) throw new Error(`events ${res.status}`);
       const fresh = { fetchedAt: Date.now(), events: (await res.json()).events || [] };
       try { localStorage.setItem(key, JSON.stringify(fresh)); } catch {}
@@ -293,9 +433,30 @@
     } catch { return cached; } // menus never depend on events working
   }
 
+  // The month's events for whoever is selected: one school, or every
+  // school the chosen children attend, each filtered to those children
+  // and (when more than one school) tagged with the school.
+  async function monthEvents(y, m) {
+    const schools = activeSchools();
+    const parts = await Promise.all(schools.map((sch) => getEventsData(y, m, sch)));
+    const all = [];
+    parts.forEach((d, i) => {
+      const sch = schools[i];
+      for (const ev of (d && d.events) || []) {
+        if (!allowedFor(ev, sch)) continue;
+        all.push(schools.length > 1 ? { ...ev, sch } : ev);
+      }
+    });
+    if (schools.length > 1) {
+      all.sort((a, b) => (a.s < b.s ? -1 : a.s > b.s ? 1 : (a.stamp || "") < (b.stamp || "") ? -1 : (a.stamp || "") > (b.stamp || "") ? 1 : 0));
+    }
+    return eventsByDay(all);
+  }
+
   /* ---------------- today hero ---------------- */
 
   const fmtHero = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" });
+  const fmtShort = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" });
   const dkey = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 
   // Parents mostly check the night before: after lunchtime the hero looks
@@ -315,8 +476,27 @@
       : "Next school day";
   }
 
+  // Each render supersedes the last: a school, child or tab switch while
+  // a fetch is in flight must never paint into the hero.
+  let heroToken = 0;
   function renderHero() {
-    return tab === "events" ? renderEventsHero() : renderLunchHero();
+    const token = ++heroToken;
+    const stale = () => token !== heroToken;
+    return tab === "events" ? renderEventsHero(stale) : renderLunchHero(stale);
+  }
+
+  function heroCard() {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "hero-card";
+    b.innerHTML = `<p class="hero-kicker"></p><p class="hero-entree"></p><p class="hero-sides"></p><p class="hero-alt"></p>`;
+    return b;
+  }
+  function showCards(cards) {
+    const wrap = $("heroCards");
+    wrap.innerHTML = "";
+    cards.forEach((c) => wrap.appendChild(c));
+    $("hero").hidden = !cards.length;
   }
 
   // The next weekday on or after d — weekends never carry school events.
@@ -326,18 +506,19 @@
     return x;
   }
 
-  async function renderEventsHero() {
-    const heroEl = $("hero");
-    const forSchool = schoolId, forTab = tab;
-    const stale = () => schoolId !== forSchool || tab !== forTab;
+  const rowLine = (g) =>
+    `<span class="hero-row"><b>${esc(g.title)}</b>${g.levels.length ? ` · ${esc(g.levels.join(", "))}` : ""}` +
+    `${g.time ? ` · ${esc(g.time)}` : ""}${g.sch ? ` · ${esc(SHORT[g.sch])}` : ""}` +
+    `${g.x ? ` · <i>${g.x === "postponed" ? "Postponed" : "Cancelled"}</i>` : ""}</span>`;
+
+  async function renderEventsHero(stale) {
     let byDay = {};
     const loaded = new Set();
     const ensureMonth = async (dt) => {
       const k = `${dt.getFullYear()}-${dt.getMonth()}`;
       if (loaded.has(k)) return;
       loaded.add(k);
-      const ed = await getEventsData(dt.getFullYear(), dt.getMonth());
-      byDay = { ...byDay, ...eventsByDay((ed && ed.events) || []) };
+      byDay = { ...byDay, ...(await monthEvents(dt.getFullYear(), dt.getMonth())) };
     };
 
     // Always the next school day itself — never skip ahead to find one that
@@ -348,96 +529,128 @@
     const key = dkey(target);
     const evs = byDay[key] || [];
 
-    $("heroLabel").textContent = heroLabel(target);
-    $("heroDate").textContent = fmtHero.format(target);
-    $("heroName").textContent = evs.length ? evs[0].t : "No events";
-    const lead = evs[0] || null;
-    $("heroSides").textContent = !lead ? "" : [
+    const card = heroCard();
+    card.querySelector(".hero-kicker").innerHTML = `<span>${esc(heroLabel(target))}</span> · <span>${esc(fmtHero.format(target))}</span>`;
+    const groups = summarize(evs);
+    const lead = groups[0] || null;
+    card.querySelector(".hero-entree").textContent = !lead ? "No events"
+      : `${lead.x ? (lead.x === "postponed" ? "Postponed: " : "Cancelled: ") : ""}${lead.title}`;
+    card.querySelector(".hero-sides").textContent = !lead ? "" : [
+      lead.sch ? SHORT[lead.sch] : null,
+      lead.levels.join(", "),
       lead.time,
       lead.home === true ? "Home" : lead.home === false ? "Away" : null,
       lead.where,
     ].filter(Boolean).join(" · ");
-    $("heroAlt").innerHTML = evs.length > 1
-      ? `also: <b>${evs.slice(1, 4).map((ev) => esc(ev.t)).join("</b> · <b>")}</b>${evs.length > 4 ? ` +${evs.length - 4} more` : ""}`
-      : "";
-    $("heroEvents").textContent = "";
-    $("heroCard").classList.toggle("no-tap", !evs.length);
-    $("heroCard").onclick = evs.length ? () => openSheet(key, null, "events") : null;
+    const rest = groups.slice(1);
+    card.querySelector(".hero-alt").innerHTML = rest.slice(0, 3).map(rowLine).join("") +
+      (rest.length > 3 ? `<span class="hero-row">+${rest.length - 3} more</span>` : "");
+    card.classList.toggle("no-tap", !evs.length);
+    card.onclick = evs.length ? () => { showMonthOf(target); openSheet(key, null, "events", evs); } : null;
+    showCards([card]);
 
-    // Teaser: the following school day, empty or not.
-    const teaser = $("heroTomorrow");
-    const after = new Date(target.getFullYear(), target.getMonth(), target.getDate() + 1);
-    const p2 = nextWeekday(after);
-    await ensureMonth(p2);
-    if (stale()) return;
-    const next = byDay[dkey(p2)] || [];
-    const now = new Date();
-    const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
-    const word = dkey(p2) === dkey(t1) ? "Tomorrow" : fmtHero.format(p2).split(",")[0];
-    teaser.innerHTML = `${word}: <b>${esc(next.length ? next[0].t : "No events")}</b>`;
-    teaser.hidden = false;
-    heroEl.hidden = false;
+    // Coming up: the next few things after the hero day, across the next
+    // two weeks, so the tab answers "what's this week" at a glance.
+    $("heroTomorrow").hidden = true;
+    const up = $("heroUpcoming");
+    const rows = [];
+    const d = new Date(target);
+    for (let i = 0; i < 14 && rows.length < 5; i++) {
+      d.setDate(d.getDate() + 1);
+      await ensureMonth(d);
+      if (stale()) return;
+      const k = dkey(d);
+      for (const g of summarize(byDay[k] || [])) {
+        if (rows.length >= 5) break;
+        rows.push({ k, day: new Date(d), g });
+      }
+    }
+    up.innerHTML = rows.length ? `<p class="up-title">Coming up</p>` + rows.map((r) =>
+      `<button type="button" class="up-row" data-key="${r.k}"><span class="up-day">${esc(fmtShort.format(r.day))}</span>` +
+      `<span class="up-what"><b>${esc(r.g.title)}</b>${r.g.levels.length ? ` · ${esc(r.g.levels.join(", "))}` : ""}` +
+      `${r.g.time ? ` · ${esc(r.g.time)}` : ""}${r.g.sch ? ` · ${esc(SHORT[r.g.sch])}` : ""}` +
+      `${r.g.x ? ` · <i>${r.g.x === "postponed" ? "Postponed" : "Cancelled"}</i>` : ""}</span></button>`
+    ).join("") : "";
+    up.querySelectorAll(".up-row").forEach((b) => b.addEventListener("click", () => {
+      const k = b.dataset.key;
+      const [y, m, dd] = k.split("-").map(Number);
+      showMonthOf(new Date(y, m - 1, dd));
+      openSheet(k, null, "events", byDay[k] || []);
+    }));
+    up.hidden = !rows.length;
   }
 
-  async function renderLunchHero() {
-    const heroEl = $("hero");
-    // A school (or tab) switch mid-fetch must never land as this hero's
-    // content — this ran with zero staleness guard before, and the hero is
-    // the most visible thing on the page.
-    const forSchool = schoolId, forTab = tab;
-    const stale = () => schoolId !== forSchool || tab !== forTab;
-    const now = new Date();
+  // The next published lunch at one school, plus the one after it.
+  async function nextLunch(school, stale) {
     const probe = heroStart();
-
     let days = {};
     const loaded = new Set();
     const ensureMonth = async (dt) => {
       const k = `${dt.getFullYear()}-${dt.getMonth()}`;
       if (loaded.has(k)) return;
       loaded.add(k);
-      const md = await getMonthData(dt.getFullYear(), dt.getMonth(), forSchool);
+      const md = await getMonthData(dt.getFullYear(), dt.getMonth(), school);
       days = { ...days, ...((md && md.days) || {}) };
     };
-
     let target = null;
     for (let i = 0; i < 45; i++) {
       await ensureMonth(probe);
-      if (stale()) return;
+      if (stale()) return null;
       if (days[dkey(probe)]) { target = new Date(probe); break; }
       probe.setDate(probe.getDate() + 1);
     }
-    if (!target) { if (!stale()) heroEl.hidden = true; return; }
-
-    const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
-
+    if (!target) return null;
     const info = days[dkey(target)];
-    $("heroLabel").textContent = heroLabel(target);
-    $("heroDate").textContent = fmtHero.format(target);
-    $("heroName").textContent = info.entree || info.alternates[0] || "";
-    $("heroSides").textContent = info.sides.length ? `with ${info.sides.join(" · ")}` : "";
-    $("heroAlt").innerHTML = info.alternates.length
-      ? `or: <b>${info.alternates.map(esc).join("</b> · <b>")}</b>` : "";
-    $("heroEvents").textContent = "";
-    $("heroCard").onclick = () => openSheet(dkey(target), info);
-
-    // One-line teaser for the school day after the hero day.
-    const teaser = $("heroTomorrow");
-    teaser.hidden = true;
+    let after = null;
     const p2 = new Date(target);
     for (let i = 0; i < 7; i++) {
       p2.setDate(p2.getDate() + 1);
       await ensureMonth(p2);
-      if (stale()) return;
-      const nfo = days[dkey(p2)];
-      if (nfo) {
-        const word = dkey(p2) === dkey(t1) ? "Tomorrow" : fmtHero.format(p2).split(",")[0];
-        teaser.innerHTML = `${word}: <b>${esc(nfo.entree || nfo.alternates[0] || "")}</b>`;
-        teaser.hidden = false;
-        break;
-      }
+      if (stale()) return null;
+      if (days[dkey(p2)]) { after = { date: new Date(p2), info: days[dkey(p2)] }; break; }
     }
+    return { target, info, after };
+  }
+
+  async function renderLunchHero(stale) {
+    // "All my kids" across two buildings: one card per school, so the
+    // night-before glance still answers for every child.
+    const schools = activeSchools();
+    const found = await Promise.all(schools.map((sch) => nextLunch(sch, stale)));
     if (stale()) return;
-    heroEl.hidden = false;
+    const now = new Date();
+    const t1 = new Date(now); t1.setDate(t1.getDate() + 1);
+    const cards = [];
+    found.forEach((r, i) => {
+      if (!r) return;
+      const sch = schools[i];
+      const card = heroCard();
+      card.querySelector(".hero-kicker").innerHTML = schools.length > 1
+        ? `<span>${esc(SHORT[sch])}</span> · <span>${esc(heroLabel(r.target))}</span>`
+        : `<span>${esc(heroLabel(r.target))}</span> · <span>${esc(fmtHero.format(r.target))}</span>`;
+      card.querySelector(".hero-entree").textContent = r.info.entree || r.info.alternates[0] || "";
+      card.querySelector(".hero-sides").textContent = r.info.sides.length ? `with ${r.info.sides.join(" · ")}` : "";
+      card.querySelector(".hero-alt").innerHTML = r.info.alternates.length
+        ? `or: <b>${r.info.alternates.map(esc).join("</b> · <b>")}</b>` : "";
+      card.onclick = () => {
+        if (schoolId !== sch) { mode = kids.find((k) => k.school === sch) ? mode : "all"; schoolId = sch; syncPicker(); }
+        showMonthOf(r.target);
+        openSheet(dkey(r.target), r.info);
+      };
+      cards.push(card);
+    });
+    showCards(cards);
+
+    // One-line teaser for the school day after the hero day (single school).
+    $("heroUpcoming").hidden = true;
+    const teaser = $("heroTomorrow");
+    teaser.hidden = true;
+    const one = schools.length === 1 && found[0] && found[0].after;
+    if (one) {
+      const word = dkey(one.date) === dkey(t1) ? "Tomorrow" : fmtHero.format(one.date).split(",")[0];
+      teaser.innerHTML = `${word}: <b>${esc(one.info.entree || one.info.alternates[0] || "")}</b>`;
+      teaser.hidden = false;
+    }
   }
 
   /* ---------------- calendar ---------------- */
@@ -581,14 +794,15 @@
       el.innerHTML = cellTop(dayNum, dow);
       return el;
     }
-    const first = evs.find((ev) => !ev.multi) || evs[0];
+    const groups = summarize([...evs.filter((ev) => !ev.multi), ...evs.filter((ev) => ev.multi)]);
+    const first = groups[0];
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "day-cell" + cellState(dayNum);
     btn.dataset.dow = dow;
-    btn.setAttribute("aria-label", `${fmtDay.format(new Date(year, month, dayNum))}: ${first.t}`);
-    btn.innerHTML = `${cellTop(dayNum, dow)}<span class="day-entree"></span>${evs.length > 1 ? `<span class="day-more">+${evs.length - 1} more</span>` : ""}`;
-    btn.querySelector(".day-entree").textContent = first.t + (first.time ? ` · ${first.time}` : "");
+    btn.setAttribute("aria-label", `${fmtDay.format(new Date(year, month, dayNum))}: ${groupLine(first)}`);
+    btn.innerHTML = `${cellTop(dayNum, dow)}<span class="day-entree"></span>${groups.length > 1 ? `<span class="day-more">+${groups.length - 1} more</span>` : ""}`;
+    btn.querySelector(".day-entree").textContent = groupLine(first);
     btn.addEventListener("click", () => openSheet(key, null, "events"));
     return btn;
   }
@@ -632,7 +846,8 @@
     else if (mins < 60) when = `${mins} min ago`;
     else if (mins < 36 * 60) when = `${Math.round(mins / 60)}h ago`;
     else when = new Date(data.fetchedAt).toLocaleDateString();
-    updatedEl.textContent = data.fromCache ? `Showing saved menu · updated ${when}` : `Updated ${when}`;
+    const which = activeSchools().length > 1 ? `${schoolName(schoolId)} menu · ` : "";
+    updatedEl.textContent = which + (data.fromCache ? `Showing saved menu · updated ${when}` : `Updated ${when}`);
     updatedEl.classList.toggle("stale", !!data.fromCache && mins > 36 * 60);
   }
 
@@ -648,12 +863,18 @@
   // opens a pre-filled new event for the person to review and save
   // themselves. Only takes one event at a time (Google's own limitation),
   // unlike the multi-select .ics export below.
+  // "HHMMSS" -> "6:30 PM"
+  function fmtStamp(stamp) {
+    const h = parseInt(stamp.slice(0, 2), 10);
+    return `${((h + 11) % 12) + 1}:${stamp.slice(2, 4)} ${h < 12 ? "AM" : "PM"}`;
+  }
+
   function googleCalUrl(dayKey, ev) {
     const datePart = dayKey.replace(/-/g, "");
     let dates;
     if (ev.stamp) {
       const h = parseInt(ev.stamp.slice(0, 2), 10);
-      const endStamp = String((h + 1) % 24).padStart(2, "0") + ev.stamp.slice(2);
+      const endStamp = ev.end || String((h + 1) % 24).padStart(2, "0") + ev.stamp.slice(2);
       dates = `${datePart}T${ev.stamp}/${datePart}T${endStamp}`;
     } else {
       dates = `${datePart}/${addDaysIso(dayKey, 1).replace(/-/g, "")}`;
@@ -664,21 +885,31 @@
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
   }
 
-  function openSheet(key, info, mode = "lunch") {
+  // The hero can point at a day in the month after the one on screen (the
+  // night of the 30th), so it hands over that day's events itself rather
+  // than relying on the viewed month's data.
+  function openSheet(key, info, mode = "lunch", events = null) {
     const [y, m, d] = key.split("-").map(Number);
     $("sheetDate").textContent = fmtDay.format(new Date(y, m - 1, d));
+    const dayEvents = events || currentMonthEvents[key] || [];
     const sections = [];
     if (mode === "events") {
-      const dayEvents = currentMonthEvents[key] || [];
       const rows = dayEvents.map((ev, i) => {
-        const label = esc(ev.t + (ev.time ? ` · ${ev.time}` : ""));
+        const when = ev.time ? ` · ${ev.time}${ev.end ? ` to ${fmtStamp(ev.end)}` : ""}` : "";
+        const { title, level } = compact(ev.t);
+        const label = `<span class="ev-title${ev.x === "cancelled" ? " ev-off" : ""}">${esc(title)}</span>${level ? ` · ${esc(level)}` : ""}${esc(when)}`;
         const id = ev.id || String(i);
-        let sub = "";
+        const bits = [];
+        if (ev.sch) bits.push(`<b class="ev-sch">${esc(SHORT[ev.sch])}</b>`);
+        if (ev.x) bits.push(`<b class="ev-x">${ev.x === "postponed" ? "Postponed" : "Cancelled"}</b>`);
         if (ev.where) {
           const badge = ev.home === true ? `<b class="at-home">Home</b> · `
             : ev.home === false ? `<b class="at-away">Away</b> · ` : "";
-          sub = `<span class="ev-where">${badge}${esc(ev.where)}</span>`;
+          bits.push(`${badge}${esc(ev.where)}`);
         }
+        // Bound's page for the event: tickets, directions, changes.
+        if (ev.url) bits.push(`<a class="ev-link" href="${esc(ev.url)}" target="_blank" rel="noopener">Details</a>`);
+        const sub = bits.length ? `<span class="ev-where">${bits.join(" · ")}</span>` : "";
         return `<li><label class="ev-pick">` +
           `<input type="checkbox" class="ev-check" value="${esc(id)}">` +
           `<span>${label}${sub}</span></label></li>`;
@@ -696,14 +927,12 @@
     if (info.milk.length) sections.push(section("Milk", info.milk.map((n) => ({ name: n }))));
     if (info.condiments.length) sections.push(section("Condiments", info.condiments.map((n) => ({ name: n }))));
     $("sheetBody").innerHTML = sections.join("");
-    if (mode === "events" && (currentMonthEvents[key] || []).length) {
-      const dayEvents = currentMonthEvents[key] || [];
+    if (mode === "events" && dayEvents.length) {
       // A real link (not script) so iOS hands the file to the Calendar app.
       const a = document.createElement("a");
       a.className = "sheet-action";
       a.addEventListener("click", (e) => {
-        if (a.classList.contains("disabled")) { e.preventDefault(); return; }
-        dismissWhatsNew();
+        if (a.classList.contains("disabled")) e.preventDefault();
       });
 
       // Same footprint and behavior as the button above, but goes straight
@@ -717,8 +946,7 @@
       g.rel = "noopener";
       g.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
       g.addEventListener("click", (e) => {
-        if (g.classList.contains("disabled")) { e.preventDefault(); return; }
-        dismissWhatsNew();
+        if (g.classList.contains("disabled")) e.preventDefault();
       });
 
       const boxes = [...$("sheetBody").querySelectorAll(".ev-check")];
@@ -728,8 +956,10 @@
         a.textContent = picked.length > 1
           ? `Add ${picked.length} to my calendar`
           : "Add to my calendar";
+        // Picked events may come from more than one school ("all my kids").
+        const schools = [...new Set(picked.map((id) => (dayEvents.find((ev) => ev.id === id) || {}).sch || schoolId))];
         a.href = picked.length
-          ? `${EVENTS_API}?school=${schoolId}&start=${key}&end=${addDaysIso(key, 1)}` +
+          ? `${EVENTS_API}?school=${schools.join(",")}&start=${key}&end=${addDaysIso(key, 1)}` +
             `&format=ics&ids=${picked.join(",")}`
           : "#";
 
@@ -748,15 +978,7 @@
       $("sheetBody").appendChild(hint);
       $("sheetBody").appendChild(g);
     }
-    sheetOpener = document.activeElement;
-    sheetOpenedAt = Date.now();
-    sheet.hidden = false; backdrop.hidden = false;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      sheet.classList.add("show"); backdrop.classList.add("show");
-    }));
-    // Move the caret into the dialog so keyboard and screen-reader users
-    // land inside it rather than back on the page behind.
-    setTimeout(() => { try { $("sheetClose").focus({ preventScroll: true }); } catch {} }, 60);
+    showSheet(Date.now());
   }
 
   function section(title, items) {
@@ -790,13 +1012,473 @@
   backdrop.addEventListener("click", closeSheet);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheet.hidden) closeSheet(); });
 
+  // openedAt feeds the stale-sheet auto-close; null means never auto-close
+  // (a parent mid-way through setting up a view shouldn't lose it).
+  function showSheet(openedAt) {
+    sheetOpener = document.activeElement;
+    sheetOpenedAt = openedAt;
+    sheet.hidden = false; backdrop.hidden = false;
+    sheet.scrollTop = 0; $("sheetBody").scrollTop = 0;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      sheet.classList.add("show"); backdrop.classList.add("show");
+    }));
+    // Move the caret into the dialog so keyboard and screen-reader users
+    // land inside it rather than back on the page behind.
+    setTimeout(() => { try { $("sheetClose").focus({ preventScroll: true }); } catch {} }, 60);
+  }
+
+  /* ---------------- view editor ---------------- */
+
+  async function getActivities(school) {
+    const key = `${ACTIVITIES_PREFIX}${school}`;
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
+    if (cached && Date.now() - cached.fetchedAt < ACTIVITIES_FRESH_MS) return cached.activities;
+    try {
+      const res = await fetch(`${EVENTS_API}?school=${school}&list=activities`);
+      if (!res.ok) throw new Error(`activities ${res.status}`);
+      const activities = (await res.json()).activities || [];
+      try { localStorage.setItem(key, JSON.stringify({ fetchedAt: Date.now(), activities })); } catch {}
+      return activities;
+    } catch { return cached ? cached.activities : null; }
+  }
+
+  const chip = (label, on, onClick) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip" + (on ? " on" : "");
+    b.setAttribute("aria-pressed", String(on));
+    b.textContent = label;
+    b.addEventListener("click", onClick);
+    return b;
+  };
+  const fill = (el, nodes) => { el.innerHTML = ""; nodes.forEach((n) => el.appendChild(n)); };
+  const toggleIn = (list, x) => (list.includes(x) ? list.filter((y) => y !== x) : [...list, x]);
+
+  // The list of children, or straight to the form when there are none yet.
+  function openKidsSheet() {
+    if (!kids.length) return openKidForm(null);
+    $("sheetDate").textContent = "My kids";
+    const body = $("sheetBody");
+    body.innerHTML = `<div class="menu-section"><ul id="kidList"></ul></div>`;
+    const list = $("kidList");
+    for (const k of kids) {
+      const li = document.createElement("li");
+      li.className = "kid-row";
+      li.innerHTML = `<span><span class="info-label">${esc(gradeName(k.grade))} · ${esc(schoolName(k.school))}</span>` +
+        `<span class="info-sub">${esc(k.acts.length ? k.acts.join(", ") : "All activities")}</span></span>`;
+      const actions = document.createElement("span");
+      actions.className = "kid-actions";
+      const sub = document.createElement("button");
+      sub.type = "button"; sub.className = "link-btn"; sub.textContent = "Subscribe";
+      sub.addEventListener("click", () => openSubscribeSheet(k));
+      const edit = document.createElement("button");
+      edit.type = "button"; edit.className = "link-btn"; edit.textContent = "Edit";
+      edit.addEventListener("click", () => openKidForm(k));
+      actions.appendChild(sub); actions.appendChild(edit);
+      li.appendChild(actions);
+      list.appendChild(li);
+    }
+    const add = document.createElement("button");
+    add.type = "button"; add.className = "sheet-action"; add.textContent = "Add another child";
+    add.addEventListener("click", () => openKidForm(null));
+    body.appendChild(add);
+    const share = document.createElement("button");
+    share.type = "button"; share.className = "sheet-action sheet-action-quiet"; share.textContent = "Share my setup";
+    share.addEventListener("click", shareSetup);
+    body.appendChild(share);
+    const hint = document.createElement("p");
+    hint.className = "sheet-hint";
+    hint.textContent = "Share sends a link that sets up the same kids on another phone, or in the installed app. No names, no account.";
+    body.appendChild(hint);
+    body.appendChild(notificationsSection());
+    showSheet(null);
+  }
+
+  // A calendar subscription: the phone's calendar app fetches this feed
+  // itself, so games, changes and cancellations keep flowing with nothing
+  // to tap. One child, or a whole school.
+  function feedUrl(kid, school) {
+    const p = new URLSearchParams({ school: kid ? kid.school : school, feed: "1" });
+    if (kid) { p.set("grade", String(kid.grade)); if (kid.acts.length) p.set("acts", kid.acts.join(",")); }
+    return `${location.origin}${EVENTS_API}?${p.toString()}`;
+  }
+
+  function openSubscribeSheet(kid, school) {
+    const what = kid ? `${gradeName(kid.grade)} · ${schoolName(kid.school)}` : schoolName(school);
+    const url = feedUrl(kid, school);
+    $("sheetDate").textContent = "Subscribe";
+    const body = $("sheetBody");
+    body.innerHTML =
+      `<p class="sheet-intro"><b>${esc(what)}</b><br>Your calendar app checks this feed on its own, so new games, ` +
+      `time changes and cancellations show up without opening this app again.</p>`;
+    const apple = document.createElement("a");
+    apple.className = "sheet-action";
+    apple.href = url.replace(/^https?:\/\//, "webcal://");
+    apple.textContent = "Add to iPhone or Mac calendar";
+    body.appendChild(apple);
+    const google = document.createElement("button");
+    google.type = "button"; google.className = "sheet-action sheet-action-quiet";
+    google.textContent = "Copy link for Google Calendar";
+    google.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(url); toast("Link copied"); }
+      catch { prompt("Copy this link:", url); }
+    });
+    body.appendChild(google);
+    const hint = document.createElement("p");
+    hint.className = "sheet-hint";
+    hint.textContent = "Google Calendar: on a computer, open Other calendars, choose From URL, and paste the link. It then syncs to your phone.";
+    body.appendChild(hint);
+    showSheet(null);
+  }
+
+  /* ---------------- evening heads-up (push) ---------------- */
+
+  const pushSupported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+
+  function urlB64(b64) {
+    const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  }
+  const pushWanted = () => { try { return localStorage.getItem(PUSH_KEY) === "1"; } catch { return false; } };
+
+  async function pushSubscription() {
+    if (!pushSupported) return null;
+    const reg = await navigator.serviceWorker.ready;
+    return reg.pushManager.getSubscription();
+  }
+
+  async function postPush(payload) {
+    const res = await fetch(PUSH_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error(`push ${res.status}`);
+    return res.json();
+  }
+
+  // What the server should know: the kids (no names), or the picked school.
+  const pushConfig = () => ({ kids: kids.map((k) => ({ school: k.school, grade: k.grade, acts: k.acts })), school: schoolId });
+
+  let syncTimer = null;
+  function syncPush() {
+    if (!pushWanted()) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(async () => {
+      try {
+        const sub = await pushSubscription();
+        if (sub) await postPush({ action: "subscribe", sub: sub.toJSON(), ...pushConfig() });
+      } catch { /* next change will try again */ }
+    }, 800);
+  }
+
+  async function enablePush() {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") throw new Error("denied");
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) ||
+      (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64(PUSH_PUBLIC) }));
+    await postPush({ action: "subscribe", sub: sub.toJSON(), ...pushConfig() });
+    try { localStorage.setItem(PUSH_KEY, "1"); } catch {}
+  }
+
+  async function disablePush() {
+    const sub = await pushSubscription();
+    if (sub) {
+      try { await postPush({ action: "unsubscribe", endpoint: sub.endpoint }); } catch {}
+      try { await sub.unsubscribe(); } catch {}
+    }
+    try { localStorage.setItem(PUSH_KEY, "0"); } catch {}
+  }
+
+  function notificationsSection() {
+    const wrap = document.createElement("div");
+    wrap.className = "menu-section notify";
+    wrap.innerHTML = `<h3>Evening heads-up</h3>`;
+    const row = document.createElement("label");
+    row.className = "notify-row";
+    row.innerHTML = `<span><span class="info-label">Tomorrow's lunch and events, 7 pm</span>` +
+      `<span class="info-sub" id="notifySub"></span></span><input type="checkbox" id="notifyToggle">`;
+    wrap.appendChild(row);
+    const box = row.querySelector("#notifyToggle");
+    const sub = row.querySelector("#notifySub");
+    const test = document.createElement("button");
+    test.type = "button"; test.className = "link-btn notify-test"; test.textContent = "Send me one now";
+    test.hidden = true;
+    wrap.appendChild(test);
+
+    const state = async () => {
+      if (!pushSupported || (isIOS && !isStandalone)) {
+        box.disabled = true;
+        sub.textContent = isIOS && !isStandalone
+          ? "On iPhone, add the app to your home screen first (Share, then Add to Home Screen), then turn this on from there."
+          : "Not available in this browser.";
+        return;
+      }
+      if (Notification.permission === "denied") {
+        box.disabled = true;
+        sub.textContent = "Notifications are blocked for this site in your phone's settings.";
+        return;
+      }
+      const s = await pushSubscription();
+      box.checked = !!s && pushWanted();
+      test.hidden = !box.checked;
+      sub.textContent = box.checked
+        ? (kids.length ? "One notification a night, for each child." : `One notification a night, for ${schoolName(schoolId)}.`)
+        : "A single notification the evening before each school day. Nothing else, ever.";
+    };
+    box.addEventListener("change", async () => {
+      box.disabled = true;
+      try {
+        if (box.checked) { await enablePush(); toast("You'll hear from us at 7 pm"); }
+        else { await disablePush(); toast("Evening heads-up turned off"); }
+      } catch (err) {
+        box.checked = !box.checked;
+        toast(err && err.message === "denied" ? "Notifications weren't allowed" : "Couldn't set that up right now");
+      }
+      box.disabled = false;
+      state();
+    });
+    test.addEventListener("click", async () => {
+      test.disabled = true;
+      try {
+        const s = await pushSubscription();
+        await postPush({ action: "test", endpoint: s.endpoint });
+        toast("Sent. It should show up in a moment.");
+      } catch { toast("Couldn't send a test right now"); }
+      test.disabled = false;
+    });
+    state();
+    return wrap;
+  }
+
+  async function shareSetup() {
+    const url = `${location.origin}${location.pathname}?setup=${packSetup(kids)}`;
+    const text = "Our kids' schools, grades and activities for Brandon Valley Lunch";
+    if (navigator.share) {
+      try { await navigator.share({ title: "Brandon Valley Lunch", text, url }); return; } catch { /* cancelled: fall through to copy */ }
+    }
+    try { await navigator.clipboard.writeText(url); toast("Link copied"); }
+    catch { prompt("Copy this link:", url); }
+  }
+
+  function openKidForm(existing) {
+    const draft = existing
+      ? { ...existing, acts: [...existing.acts] }
+      : { id: null, school: schoolId, grade: null, acts: [] };
+    $("sheetDate").textContent = existing ? "Edit child" : (kids.length ? "Add a child" : "Set up my kids");
+    const body = $("sheetBody");
+    body.innerHTML =
+      `<p class="sheet-intro">Pick the school, grade and activities. Events then shows what's theirs; ` +
+      `school-wide events always stay. This stays on your phone &mdash; no name, no account.</p>` +
+      `<div class="menu-section"><h3>School</h3><div class="chips grid" id="kSchool"></div></div>` +
+      `<div class="menu-section"><h3>Grade</h3><div class="chips" id="kGrade"></div></div>` +
+      `<div class="menu-section" id="kActsWrap" hidden><h3>Activities</h3>` +
+      `<p class="sheet-note" id="kActsNote"></p><div class="chips" id="kActs"></div></div>`;
+    const save = document.createElement("button");
+    save.type = "button"; save.className = "sheet-action";
+    save.textContent = existing ? "Save" : "Add";
+    body.appendChild(save);
+    let remove = null;
+    if (existing) {
+      remove = document.createElement("button");
+      remove.type = "button"; remove.className = "sheet-remove"; remove.textContent = "Remove this child";
+      body.appendChild(remove);
+    }
+
+    function paint() {
+      fill($("kSchool"), SCHOOLS.map((sch) => chip(sch.name, draft.school === sch.id, () => {
+        if (draft.school === sch.id) return;
+        draft.school = sch.id; draft.grade = null; draft.acts = [];
+        paint(); loadActs();
+      })));
+      const [lo, hi] = BVGrades.SPAN[draft.school];
+      fill($("kGrade"), BVGrades.range(lo, hi).map((g) => chip(gradeShort(g), draft.grade === g, () => {
+        draft.grade = g; paint();
+      })));
+      save.classList.toggle("disabled", draft.grade === null);
+    }
+    let actsList = [];
+    function paintActs() {
+      const names = [...new Set([...actsList, ...draft.acts])].sort();
+      fill($("kActs"), names.map((n) => chip(n, draft.acts.includes(n), () => {
+        draft.acts = toggleIn(draft.acts, n); paintActs();
+      })));
+    }
+    async function loadActs() {
+      const forSchool = draft.school;
+      const wrap = $("kActsWrap"), note = $("kActsNote");
+      wrap.hidden = false; note.textContent = "Loading activities…"; fill($("kActs"), []);
+      const list = await getActivities(forSchool);
+      if (draft.school !== forSchool || !document.body.contains(wrap)) return;
+      actsList = list || [];
+      if (list === null) {
+        note.textContent = "Activities couldn't load right now. Save anyway and add them later.";
+      } else if (!list.length && !draft.acts.length) {
+        wrap.hidden = true; // elementary: nothing to pick from
+        return;
+      } else {
+        note.textContent = "Optional. Leave all off to keep every activity.";
+      }
+      paintActs();
+    }
+
+    save.addEventListener("click", () => {
+      if (save.classList.contains("disabled")) return;
+      draft.acts = [...draft.acts].sort();
+      if (draft.id) {
+        kids = kids.map((k) => (k.id === draft.id ? draft : k));
+      } else {
+        draft.id = Date.now().toString(36);
+        kids.push(draft);
+      }
+      dismissWhatsNew();
+      closeSheet();
+      setMode(draft.id);
+    });
+    if (remove) {
+      remove.addEventListener("click", () => {
+        const was = existing, at = kids.findIndex((k) => k.id === existing.id);
+        kids = kids.filter((k) => k.id !== existing.id);
+        closeSheet();
+        setMode(mode === existing.id ? "all" : mode);
+        toast("Child removed", () => {
+          kids.splice(Math.min(at, kids.length), 0, was);
+          setMode(was.id);
+        });
+      });
+    }
+
+    paint();
+    loadActs();
+    showSheet(null);
+  }
+
+  /* ---------------- school info sheet ---------------- */
+
+  const SCHOOL_API = "/.netlify/functions/school";
+  const SCHOOL_INFO_PREFIX = "bvl-school-v1:";
+  const SCHOOL_INFO_FRESH_MS = 24 * 60 * 60 * 1000;
+
+  async function getSchoolInfo(school) {
+    const key = `${SCHOOL_INFO_PREFIX}${school}`;
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
+    if (cached && Date.now() - cached.fetchedAt < SCHOOL_INFO_FRESH_MS) return cached.info;
+    try {
+      const res = await fetch(`${SCHOOL_API}?school=${school}`);
+      if (!res.ok) throw new Error(`school ${res.status}`);
+      const info = await res.json();
+      try { localStorage.setItem(key, JSON.stringify({ fetchedAt: Date.now(), info })); } catch {}
+      return info;
+    } catch { return cached ? cached.info : null; }
+  }
+
+  // Office contact and the school's own parent links, read live from the
+  // school website, so nothing here can go stale on our side.
+  async function openSchoolSheet() {
+    const forSchool = schoolId;
+    $("sheetDate").textContent = schoolName(forSchool);
+    const body = $("sheetBody");
+    body.innerHTML = `<p class="sheet-intro">Loading…</p>`;
+    showSheet(null);
+    const info = await getSchoolInfo(forSchool);
+    if (sheet.hidden || schoolId !== forSchool || $("sheetDate").textContent !== schoolName(forSchool)) return;
+    if (!info) {
+      body.innerHTML = `<p class="sheet-intro">The school website isn't reachable right now. Try again in a bit.</p>`;
+      return;
+    }
+    const row = (href, label, sub, external) =>
+      `<li><a class="info-row" href="${esc(href)}"${external ? ' target="_blank" rel="noopener"' : ""}>` +
+      `<span><span class="info-label">${esc(label)}</span>${sub ? `<span class="info-sub">${esc(sub)}</span>` : ""}</span></a></li>`;
+    const contact = [];
+    if (info.phone) contact.push(row(`tel:${info.phone.replace(/\D/g, "")}`, "Call the office", info.phone));
+    if (info.email) contact.push(row(`mailto:${info.email}`, "Email the office", info.email));
+    if (info.address) contact.push(row(`https://maps.apple.com/?q=${encodeURIComponent(info.address)}`, "Address", info.address, true));
+    const sections = [];
+    sections.push(`<div class="menu-section"><h3>Calendar</h3><ul>` +
+      `<li><button type="button" class="info-row info-btn" id="schoolSubscribe"><span><span class="info-label">Subscribe to all school events</span>` +
+      `<span class="info-sub">Keeps your phone's calendar up to date on its own</span></span></button></li></ul></div>`);
+    if (contact.length) sections.push(`<div class="menu-section"><h3>Office</h3><ul>${contact.join("")}</ul></div>`);
+    for (const title of ["Parents", "Students", "Activities", "District"]) {
+      const links = (info.links || []).filter((l) => l.section === title);
+      if (!links.length) continue;
+      sections.push(`<div class="menu-section"><h3>${esc(title)}</h3><ul>` +
+        links.map((l) => row(l.href, l.label, l.group ? l.group.replace(/\s*\|\s*/g, " · ") : "", !l.href.startsWith("mailto:"))).join("") +
+        `</ul></div>`);
+    }
+    sections.push(`<p class="sheet-hint">From the school's website, checked daily. ` +
+      `<a href="${esc(info.site)}" target="_blank" rel="noopener">Open the full site</a></p>`);
+    body.innerHTML = sections.join("");
+    $("schoolSubscribe").addEventListener("click", () => openSubscribeSheet(null, forSchool));
+  }
+
+  function renderSchoolLink() {
+    $("schoolInfoBtn").textContent = `${schoolName(schoolId)} office and links`;
+  }
+
+  // Chips under the header, on every tab: one child, all of them, or the
+  // whole school. Before anything is set up, just the invitation.
+  function renderKidBar() {
+    const bar = $("kidBar");
+    if (!kids.length) {
+      bar.innerHTML = "";
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip kid-add"; b.textContent = "Set up my kids";
+      b.addEventListener("click", openKidsSheet);
+      bar.appendChild(b);
+      return;
+    }
+    const nodes = [chip("Everything", mode === "all", () => setMode("all"))];
+    for (const k of kids) nodes.push(chip(kidLabel(k), mode === k.id, () => setMode(k.id)));
+    if (kids.length > 1) nodes.push(chip("All my kids", mode === "kids", () => setMode("kids")));
+    const edit = document.createElement("button");
+    edit.type = "button"; edit.className = "link-btn kid-edit"; edit.textContent = "Edit";
+    edit.addEventListener("click", openKidsSheet);
+    nodes.push(edit);
+    fill(bar, nodes);
+  }
+
+  // One line at the bottom, with Undo when the action is reversible.
+  let toastTimer = null;
+  function toast(text, undo) {
+    const el = $("toast"), btn = $("toastUndo");
+    $("toastText").textContent = text;
+    btn.hidden = !undo;
+    btn.onclick = undo ? () => { hideToast(); undo(); } : null;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 6000);
+  }
+  function hideToast() { clearTimeout(toastTimer); $("toast").hidden = true; }
+
+  function syncPicker() {
+    select.value = schoolId;
+    $("schoolLabel").textContent = mode === "kids" && activeSchools().length > 1 ? "All my kids" : schoolName(schoolId);
+    renderSchoolLink();
+  }
+
+  function setMode(m) {
+    mode = m;
+    if (mode === "kids" && kids.length < 2) mode = kids.length ? kids[0].id : "all";
+    if (mode !== "all" && mode !== "kids" && !kids.some((k) => k.id === mode)) mode = "all";
+    const ks = activeKids();
+    if (ks.length) schoolId = ks[0].school;
+    try { localStorage.setItem(SCHOOL_KEY, schoolId); } catch {}
+    saveKids();
+    syncPicker();
+    renderKidBar();
+    currentMonthData = null;
+    loadMonth();
+    renderHero();
+  }
+
   /* ---------------- loading ---------------- */
 
+  const stateKey = () => `${mode}|${schoolId}`;
   async function refreshEvents(year, month) {
-    const forSchool = schoolId;
-    const data = await getEventsData(year, month);
-    if (view.year !== year || view.month !== month || schoolId !== forSchool) return;
-    currentMonthEvents = eventsByDay((data && data.events) || []);
+    const forState = stateKey();
+    const byDay = await monthEvents(year, month);
+    if (view.year !== year || view.month !== month || stateKey() !== forState) return;
+    currentMonthEvents = byDay;
     render();
   }
 
@@ -834,6 +1516,14 @@
     }
   }
 
+  // Tapping the hero on the last day of a month: the calendar behind the
+  // sheet moves to the month the hero is talking about.
+  function showMonthOf(dt) {
+    if (view.year === dt.getFullYear() && view.month === dt.getMonth()) return;
+    view = { year: dt.getFullYear(), month: dt.getMonth() };
+    loadMonth();
+  }
+
   function shiftMonth(delta) {
     const m = view.month + delta;
     view = { year: view.year + Math.floor(m / 12), month: ((m % 12) + 12) % 12 };
@@ -842,14 +1532,14 @@
 
   /* ---------------- what's new ---------------- */
 
-  const WHATS_NEW_KEY = "bvl-whatsnew-cal";
+  const WHATS_NEW_KEY = "bvl-whatsnew-views";
   let whatsNewEligible = false;
   let whatsNewCounted = false;
 
   try {
     const seen = localStorage.getItem(WHATS_NEW_KEY);
     // Nothing is "new" to a first-time visitor, and it retires after 3 views.
-    whatsNewEligible = isReturning && seen !== "done" && (parseInt(seen, 10) || 0) < 3;
+    whatsNewEligible = isReturning && !kids.length && seen !== "done" && (parseInt(seen, 10) || 0) < 3;
   } catch {}
 
   function dismissWhatsNew() {
@@ -871,6 +1561,7 @@
   }
 
   $("whatsNewClose").addEventListener("click", dismissWhatsNew);
+  $("whatsNewGo").addEventListener("click", openKidsSheet);
 
   /* ---------------- tabs ---------------- */
 
@@ -914,21 +1605,16 @@
   /* ---------------- school picker ---------------- */
 
   const select = $("schoolSelect");
-  for (const s of SCHOOLS) {
-    const opt = document.createElement("option");
-    opt.value = s.id; opt.textContent = s.name;
-    select.appendChild(opt);
-  }
-  select.value = schoolId;
-  $("schoolLabel").textContent = SCHOOLS.find((s) => s.id === schoolId).name;
+
+  for (const sch of SCHOOLS) select.appendChild(new Option(sch.name, sch.id));
   select.addEventListener("change", () => {
+    // Picking a school by hand means "everything at that school".
     schoolId = select.value;
-    try { localStorage.setItem(SCHOOL_KEY, schoolId); } catch {}
-    $("schoolLabel").textContent = SCHOOLS.find((s) => s.id === schoolId).name;
-    currentMonthData = null;
-    loadMonth();
-    renderHero();
+    setMode("all");
   });
+  $("schoolInfoBtn").addEventListener("click", openSchoolSheet);
+  syncPicker();
+  renderKidBar();
 
   // Refresh when the PWA comes back to the foreground, and periodically
   // while it's left open — otherwise a screen that's never switched away
@@ -975,4 +1661,5 @@
   loadMonth();
   renderHero();
   updateWhatsNew();
+  if (imported) toast(imported === 1 ? "1 child added from the link" : `${imported} kids added from the link`);
 })();

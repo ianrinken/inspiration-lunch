@@ -1,12 +1,13 @@
 /* Offline shell for Brandon Valley Lunch. Menu data is cached by the app in
  * localStorage; the service worker handles the static shell and fonts. */
-const CACHE = "bvl-shell-v27";
+const CACHE = "bvl-shell-v31";
 const FONT_CACHE = "bvl-fonts-v1";
 const SHELL = [
   "./",
   "index.html",
   "style.css",
   "app.js",
+  "grades.js",
   "manifest.webmanifest",
   "icons/icon-192.png",
   "icons/icon-512.png",
@@ -67,4 +68,26 @@ self.addEventListener("fetch", (e) => {
       return cached || network;
     })
   );
+});
+
+// Evening heads-up: the server sends {title, body, url}.
+self.addEventListener("push", (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch { data = { body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(data.title || "Brandon Valley Lunch", {
+    body: data.body || "",
+    icon: "icons/icon-192.png",
+    badge: "icons/icon-192.png",
+    tag: "bvl-digest",
+    data: { url: data.url || "./" },
+  }));
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const target = new URL(e.notification.data && e.notification.data.url || "./", self.location.href).href;
+  e.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    const open = list.find((c) => c.url.startsWith(self.registration.scope));
+    return open ? open.focus() : clients.openWindow(target);
+  }));
 });

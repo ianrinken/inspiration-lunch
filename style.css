@@ -136,6 +136,8 @@ main { flex: 1; width: 100%; max-width: 960px; margin: 0 auto; padding: clamp(14
 .hero-sides:empty, .hero-alt:empty { display: none; }
 .hero-alt { margin-top: 4px; font-size: clamp(.8rem, 2.8vw, .9rem); color: var(--text-soft); }
 .hero-alt b { color: var(--text); font-weight: 600; }
+.hero-alt .hero-row { display: block; margin-top: 3px; }
+.hero-alt i { font-style: normal; color: var(--bv-red); font-weight: 700; }
 .hero-events {
   margin-top: 10px;
   padding-top: 10px;
@@ -516,6 +518,53 @@ button.day-cell.no-school { cursor: pointer; }
   text-align: center;
 }
 
+/* ---------- My kids bar ---------- */
+.kid-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
+  margin-bottom: clamp(12px, 2.5vw, 18px);
+}
+.kid-bar:empty { display: none; }
+.kid-bar .chip { font-size: .88rem; padding: 9px 15px; min-height: 42px; }
+.kid-bar .kid-add { background: var(--bv-red); border-color: var(--bv-red); color: #fff; }
+.kid-bar .kid-edit { font-size: .85rem; font-family: inherit; padding: 8px 10px; }
+.link-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--bv-red); font-weight: 700; font-size: inherit; font-family: inherit;
+  padding: 8px 6px; min-height: 44px;
+}
+.chips.grid { display: grid; grid-template-columns: 1fr 1fr; }
+.chips.grid .chip { text-align: center; padding-left: 10px; padding-right: 10px; }
+.kid-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 13px;
+}
+.kid-row > span { display: flex; flex-direction: column; min-width: 0; }
+.ev-sch { color: var(--text); font-weight: 700; }
+.hero-card + .hero-card { margin-top: 10px; }
+.wn-link {
+  background: none; border: none; cursor: pointer; padding: 0;
+  color: var(--bv-red); font-weight: 700; font-size: inherit; font-family: inherit;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.sheet-intro { font-size: .9rem; line-height: 1.5; color: var(--text-soft); margin-bottom: 18px; }
+.sheet-note { font-size: .78rem; color: var(--text-soft); margin: -4px 0 10px; line-height: 1.4; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  min-height: 44px; padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--surface); color: var(--text);
+  border: 1.5px solid var(--border);
+  font-family: var(--display); font-weight: 600; font-size: .92rem;
+  cursor: pointer;
+}
+.chip.on { background: var(--bv-red); border-color: var(--bv-red); color: #fff; }
+button.sheet-action { border: none; cursor: pointer; }
+.sheet-remove {
+  display: block; width: 100%; margin-top: 8px; padding: 13px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-soft); font-size: .9rem; font-weight: 600; min-height: 44px;
+}
+
 /* Same size/shape as the button above it, but visually its own thing so
    it's never mistaken for the phone-calendar option. */
 .sheet-action-google {
@@ -554,3 +603,83 @@ button.day-cell.no-school { cursor: pointer; }
 }
 .ev-where .at-home { color: var(--bv-red); }
 .ev-where .at-away { color: var(--text-soft); }
+
+/* ---------- Event extras: cancellations, details link ---------- */
+.ev-off { text-decoration: line-through; color: var(--text-soft); }
+.ev-x { color: var(--bv-red); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: .72rem; }
+.ev-link { color: var(--bv-red); font-weight: 700; text-decoration: none; padding: 8px 2px; margin: -8px 0; }
+
+/* ---------- Toast ---------- */
+.toast[hidden] { display: none; }
+.toast {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px;
+  max-width: calc(100% - 32px);
+  padding: 12px 18px; border-radius: 999px;
+  background: var(--text); color: var(--bg);
+  font-size: .9rem; font-weight: 600; white-space: nowrap;
+  box-shadow: var(--shadow-lift);
+  z-index: 60;
+}
+.toast-undo {
+  background: none; border: none; cursor: pointer;
+  color: var(--bv-gold); font-weight: 800; font-size: inherit; font-family: inherit;
+  padding: 8px 2px; margin: -8px 0;
+}
+.toast-undo[hidden] { display: none; }
+
+/* ---------- School info sheet ---------- */
+.footer-school { margin-top: 2px; }
+.footer-school .link-btn {
+  font-weight: 600; font-size: inherit; padding: 14px 4px; text-decoration: underline;
+}
+.info-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 44px; padding: 4px 0;
+  color: var(--text); text-decoration: none;
+}
+.info-row::after {
+  content: ""; flex: none; width: 7px; height: 7px; margin-right: 4px;
+  border-right: 2px solid var(--text-soft); border-bottom: 2px solid var(--text-soft);
+  transform: rotate(-45deg); opacity: .7;
+}
+.info-row > span { display: flex; flex-direction: column; min-width: 0; }
+.info-label { font-weight: 600; }
+.info-sub { font-size: .8rem; color: var(--text-soft); overflow-wrap: anywhere; }
+.sheet-hint a { color: var(--bv-red); font-weight: 600; }
+
+/* ---------- Coming up (Events hero) ---------- */
+.upcoming[hidden] { display: none; }
+.upcoming { margin-top: 10px; }
+.up-title {
+  font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-soft); margin: 0 4px 4px;
+}
+.up-row {
+  display: flex; align-items: baseline; gap: 10px; width: 100%;
+  min-height: 44px; padding: 8px 4px;
+  background: none; border: none; border-top: 1px solid var(--border);
+  text-align: left; cursor: pointer; font-size: clamp(.84rem, 2.9vw, .93rem); line-height: 1.35;
+}
+.up-row:first-of-type { border-top: none; }
+.up-day { flex: none; width: 6.2em; color: var(--text-soft); font-weight: 600; }
+.up-what { flex: 1; min-width: 0; color: var(--text-soft); }
+.up-what b { color: var(--text); font-weight: 600; }
+.up-what i { font-style: normal; color: var(--bv-red); font-weight: 700; }
+
+.sheet-action-quiet { margin-top: 8px; background: var(--surface-2); color: var(--text); }
+
+.kid-row > .kid-actions { display: flex; flex-direction: row; flex: none; gap: 2px; }
+.info-btn { width: 100%; background: none; border: none; font: inherit; text-align: left; cursor: pointer; }
+.menu-section li:has(.info-row) { padding: 6px 13px; }
+
+/* ---------- Evening heads-up ---------- */
+.notify { margin-top: 18px; }
+.notify-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 44px; cursor: pointer;
+}
+.notify-row > span { display: flex; flex-direction: column; min-width: 0; }
+.notify-row input { flex: none; width: 24px; height: 24px; accent-color: var(--bv-red); cursor: pointer; margin: 0; }
+.notify-test { padding-left: 0; }
+.notify-test[hidden] { display: none; }

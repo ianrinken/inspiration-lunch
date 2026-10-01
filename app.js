@@ -1006,6 +1006,51 @@
     }, 280);
   }
 
+  // Swipe down to close: the sheet follows the finger when the drag starts
+  // on the handle or header, or on content that's scrolled to the top, and
+  // lets go past a third of its height (or a quick flick).
+  (() => {
+    const sheetBody = $("sheetBody");
+    let startY = null, startT = 0, dy = 0, dragging = false;
+    const reset = () => {
+      sheet.style.transition = ""; sheet.style.transform = "";
+      backdrop.style.transition = ""; backdrop.style.opacity = "";
+    };
+    sheet.addEventListener("touchstart", (e) => {
+      if (sheet.hidden || e.touches.length !== 1) return;
+      const inBody = sheetBody.contains(e.target);
+      if (inBody && sheetBody.scrollTop > 0) return; // let the content scroll
+      startY = e.touches[0].clientY; startT = Date.now(); dy = 0; dragging = false;
+    }, { passive: true });
+    sheet.addEventListener("touchmove", (e) => {
+      if (startY === null) return;
+      dy = e.touches[0].clientY - startY;
+      if (!dragging) {
+        if (dy < 8) { if (dy < -8) startY = null; return; } // upward: not a dismiss
+        dragging = true;
+        sheet.style.transition = "none"; backdrop.style.transition = "none";
+      }
+      if (e.cancelable) e.preventDefault(); // we own this gesture now
+      sheet.style.transform = `translateY(${Math.max(0, dy)}px)`;
+      backdrop.style.opacity = String(Math.max(0, 1 - dy / sheet.offsetHeight));
+    }, { passive: false });
+    const end = () => {
+      if (startY === null) return;
+      const quick = Date.now() - startT < 300 && dy > 40;
+      const far = dy > Math.min(140, sheet.offsetHeight / 3);
+      startY = null;
+      if (dragging && (quick || far)) {
+        reset();
+        closeSheet();
+      } else {
+        reset(); // snaps back through the normal transition
+      }
+      dragging = false;
+    };
+    sheet.addEventListener("touchend", end);
+    sheet.addEventListener("touchcancel", end);
+  })();
+
   // Keep Tab inside the dialog while it is open.
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Tab" || sheet.hidden) return;

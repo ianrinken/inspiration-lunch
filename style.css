@@ -376,6 +376,8 @@ button.day-cell.no-school { cursor: pointer; }
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .day-sheet.show { transform: translateY(0); }
+.day-sheet { touch-action: pan-y; }
+.sheet-handle, .sheet-header { touch-action: none; }
 @media (min-width: 700px) {
   .day-sheet {
     max-width: 560px; margin: 0 auto;

@@ -107,6 +107,35 @@ exports.handler = async (event) => {
     const sky = pick("Skyward").find((i) => /Family/.test(i.label));
     if (sky) add({ ...sky, label: "Skyward family access" }, "District");
 
+    // Bell schedules are pictures on a bare page: resolve to the picture so
+    // the app can show it in place. Clubs and Organizations is cards of
+    // name + advisor: pull those so the app can list them.
+    const onSite = (u) => u.startsWith(SITE + "/");
+    const pageText = async (u) => stripComments(await (await fetch(u, { headers: ua })).text());
+    await Promise.all(links.map(async (l) => {
+      try {
+        if (/bell schedule|class time/i.test(l.label) && /\.html?$/i.test(l.href) && onSite(l.href)) {
+          const img = (await pageText(l.href)).match(/<img[^>]+class="[^"]*img-fluid[^"]*"[^>]+src="([^"]+)"|<img[^>]+src="([^"]+)"[^>]+class="[^"]*img-fluid/i);
+          const src = img && (img[1] || img[2]);
+          if (src) l.view = absolute(src, l.href);
+        }
+        if (/\.pdf$/i.test(l.href) && onSite(l.href)) l.doc = true;
+      } catch { /* the link still works */ }
+    }));
+    let clubs = [];
+    const clubsLink = links.find((l) => /clubs/i.test(l.label) && /\.html?$/i.test(l.href) && onSite(l.href));
+    if (clubsLink) {
+      try {
+        const html = await pageText(clubsLink.href);
+        for (const card of html.split(/<div class="card">/).slice(1)) {
+          const name = text((card.match(/<h[1-6][^>]*>([\s\S]*?)<\/h[1-6]>/) || [])[1] || "");
+          const advisor = text((card.match(/Advisors?:\s*([^<]+)/i) || [])[1] || "");
+          const about = text((card.match(/<p class="card-text">([\s\S]*?)<\/p>/) || [])[1] || "");
+          if (name) clubs.push({ name, advisor, about });
+        }
+      } catch { clubs = []; }
+    }
+
     return {
       statusCode: 200,
       headers: {
@@ -115,7 +144,7 @@ exports.handler = async (event) => {
         "Cache-Control": "public, max-age=3600",
         "Netlify-CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
       },
-      body: JSON.stringify({ site: base, ...contact(footer), links }),
+      body: JSON.stringify({ site: base, ...contact(footer), links, clubs }),
     };
   } catch (err) {
     return {

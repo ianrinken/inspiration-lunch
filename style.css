@@ -748,3 +748,8 @@ button.sheet-action { border: none; cursor: pointer; }
 .school-view .menu-section li { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
 .school-view .sheet-hint { margin-top: 4px; }
 @media (min-width: 700px) { .quick { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---------- In-app document viewer, clubs ---------- */
+.doc-img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border); background: #fff; margin-bottom: 14px; }
+.doc-frame { display: block; width: 100%; height: 62dvh; border: 1px solid var(--border); border-radius: 12px; background: #fff; margin-bottom: 14px; }
+.club-row { display: flex; flex-direction: column; min-height: 44px; justify-content: center; }

@@ -1573,7 +1573,7 @@
   /* ---------------- school info sheet ---------------- */
 
   const SCHOOL_API = "/.netlify/functions/school";
-  const SCHOOL_INFO_PREFIX = "bvl-school-v1:";
+  const SCHOOL_INFO_PREFIX = "bvl-school-v2:"; // v2: viewable docs, clubs
   const SCHOOL_INFO_FRESH_MS = 24 * 60 * 60 * 1000;
 
   async function getSchoolInfo(school) {
@@ -1582,7 +1582,7 @@
     try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
     if (cached && Date.now() - cached.fetchedAt < SCHOOL_INFO_FRESH_MS) return cached.info;
     try {
-      const res = await fetch(`${SCHOOL_API}?school=${school}`);
+      const res = await fetch(`${SCHOOL_API}?school=${school}&v=2`);
       if (!res.ok) throw new Error(`school ${res.status}`);
       const info = await res.json();
       try { localStorage.setItem(key, JSON.stringify({ fetchedAt: Date.now(), info })); } catch {}
@@ -1612,6 +1612,54 @@
     const [lo] = BVGrades.SPAN[school];
     return lo >= 9 ? "High School" : lo >= 7 ? "Middle School" : lo >= 5 ? "Intermediate" : "Elementary";
   };
+
+  // Group a school's links by what they're for, rather than by which menu
+  // the website keeps them in.
+  const TOPICS = [
+    ["contact", "Contact"],
+    ["schedules", "Schedules and calendars"],
+    ["school", "For school"],
+    ["health", "Health"],
+    ["activities", "Activities and clubs"],
+    ["counseling", "Counseling and academics"],
+    ["accounts", "Logins and accounts"],
+    ["students", "Student resources"],
+    ["district", "District notices"],
+  ];
+  function topicOf(l) {
+    const t = `${l.label} ${l.group || ""}`;
+    if (/attendance/i.test(t)) return "contact";
+    if (/bell schedule|class time|calendar/i.test(t)) return "schedules";
+    if (/nurse|health|allergy|concussion|medication|exclusion|seizure|immuniz|wellness/i.test(t)) return "health";
+    if (/skyward|clever|cns menu|linq|lunch account|myschoolbucks/i.test(t)) return "accounts";
+    if (/counsel|college|scholarship|transcript|library|academic/i.test(t)) return "counseling";
+    if (/club|activity pass|booster|coaches|physical|athletic|student council|fine arts|band|choir|orchestra|theat/i.test(t)) return "activities";
+    if (/ferpa|complaint|notice|policy|board/i.test(t)) return "district";
+    if (/supply|handbook|bus pass|parking|forms?\b|drivers|registration|enroll|permit|picture/i.test(t)) return "school";
+    if (l.section === "Students") return "students";
+    if (l.section === "Activities") return "activities";
+    if (l.section === "District") return "district";
+    return "school";
+  }
+
+  // Show a document from the school's own site in place: a picture, or a
+  // PDF in a frame. The original is always a tap away.
+  function openViewerSheet(label, url, kind) {
+    $("sheetDate").textContent = label;
+    const body = $("sheetBody");
+    body.innerHTML = kind === "image"
+      ? `<img class="doc-img" src="${esc(url)}" alt="${esc(label)}">`
+      : `<iframe class="doc-frame" src="${esc(url)}#toolbar=0&view=FitH" title="${esc(label)}"></iframe>`;
+    const open = document.createElement("a");
+    open.className = "sheet-action"; open.href = url; open.target = "_blank"; open.rel = "noopener";
+    open.textContent = kind === "image" ? "Open the original" : "Open the full document";
+    body.appendChild(open);
+    const hint = document.createElement("p");
+    hint.className = "sheet-hint"; hint.textContent = "From the school's website.";
+    body.appendChild(hint);
+    showSheet(null);
+  }
+  const viewable = (l) => (l.view ? "image" : l.doc ? "pdf" : null);
 
   async function renderSchoolView() {
     const token = ++schoolToken;
@@ -1650,6 +1698,12 @@
       `<p class="hero-entree">${esc(schoolName(school))}</p><p class="hero-sides">${esc(status)}</p></div>`;
 
     let quick = "", sections = "";
+    const viewers = []; // [id, label, url, kind] wired after paint
+    const rowAttrs = (l, id) => {
+      const kind = viewable(l);
+      if (kind) { viewers.push([id, l.label, l.view || l.href, kind]); return `href="#" data-view="${id}"`; }
+      return `href="${esc(l.href)}"${l.href.startsWith("mailto:") || l.href.startsWith("tel:") ? "" : ' target="_blank" rel="noopener"'}`;
+    };
     if (info) {
       const links = info.links || [];
       const span = levelWord(school);
@@ -1658,27 +1712,36 @@
       for (const q of QUICK) {
         if (q.phone) continue;
         const l = links.find((x) => q.test(x, span)) || (q.label === "Handbook" ? links.find((x) => /handbook/i.test(x.group || "")) : null);
-        if (l) actions.push({ label: q.label, href: l.href, sub: l.label !== q.label ? l.label : "", external: !l.href.startsWith("mailto:") });
+        if (l) actions.push({ ...l, label: q.label, sub: l.label !== q.label ? l.label : "" });
       }
-      quick = actions.length ? `<div class="quick">${actions.slice(0, 6).map((a) =>
-        `<a class="quick-btn" href="${esc(a.href)}"${a.external ? ' target="_blank" rel="noopener"' : ""}><span class="quick-label">${esc(a.label)}</span>${a.sub ? `<span class="quick-sub">${esc(a.sub)}</span>` : ""}</a>`).join("")}</div>` : "";
+      quick = actions.length ? `<div class="quick">${actions.slice(0, 6).map((a, n) =>
+        `<a class="quick-btn" ${rowAttrs(a, `q${n}`)}><span class="quick-label">${esc(a.label)}</span>${a.sub ? `<span class="quick-sub">${esc(a.sub)}</span>` : ""}</a>`).join("")}</div>` : "";
 
-      const row = (href, label, sub, external) =>
-        `<li><a class="info-row" href="${esc(href)}"${external ? ' target="_blank" rel="noopener"' : ""}>` +
-        `<span><span class="info-label">${esc(label)}</span>${sub ? `<span class="info-sub">${esc(sub)}</span>` : ""}</span></a></li>`;
+      const row = (l, id, sub) =>
+        `<li><a class="info-row" ${rowAttrs(l, id)}>` +
+        `<span><span class="info-label">${esc(l.label)}</span>${sub ? `<span class="info-sub">${esc(sub)}</span>` : ""}</span></a></li>`;
+      const groups = {};
+      links.forEach((l, n) => { (groups[topicOf(l)] = groups[topicOf(l)] || []).push([l, `l${n}`]); });
       const parts = [];
-      parts.push(`<div class="menu-section"><h3>Calendar</h3><ul>` +
-        `<li><button type="button" class="info-row info-btn" id="schoolSubscribe"><span><span class="info-label">Subscribe to all school events</span>` +
-        `<span class="info-sub">Keeps your phone's calendar up to date on its own</span></span></button></li></ul></div>`);
-      const contact = [];
-      if (info.email) contact.push(row(`mailto:${info.email}`, "Email the office", info.email));
-      if (info.address) contact.push(row(`https://maps.apple.com/?q=${encodeURIComponent(info.address)}`, "Address", info.address, true));
-      if (contact.length) parts.push(`<div class="menu-section"><h3>Office</h3><ul>${contact.join("")}</ul></div>`);
-      for (const title of ["Parents", "Students", "Activities", "District"]) {
-        const list = links.filter((l) => l.section === title);
-        if (!list.length) continue;
-        parts.push(`<div class="menu-section"><h3>${esc(title)}</h3><ul>` +
-          list.map((l) => row(l.href, l.label, l.group ? l.group.replace(/\s*\|\s*/g, " · ") : "", !l.href.startsWith("mailto:"))).join("") + `</ul></div>`);
+      for (const [key, title] of TOPICS) {
+        const items = [];
+        if (key === "contact") {
+          if (info.email) items.push(row({ label: "Email the office", href: `mailto:${info.email}` }, "c1", info.email));
+          if (info.address) items.push(row({ label: "Address", href: `https://maps.apple.com/?q=${encodeURIComponent(info.address)}` }, "c2", info.address));
+        }
+        if (key === "schedules") {
+          items.push(`<li><button type="button" class="info-row info-btn" id="schoolSubscribe"><span><span class="info-label">Subscribe to all school events</span>` +
+            `<span class="info-sub">Keeps your phone's calendar up to date on its own</span></span></button></li>`);
+        }
+        for (const [l, id] of groups[key] || []) {
+          const sub = l.group && !new RegExp(l.group.split("|")[0].trim().slice(0, 6), "i").test(l.label) ? l.group.replace(/\s*\|\s*/g, " · ") : "";
+          items.push(row(l, id, sub));
+        }
+        if (key === "activities" && info.clubs && info.clubs.length) {
+          items.push(info.clubs.map((c) => `<li class="club-row"><span class="info-label">${esc(c.name)}</span>` +
+            `${c.advisor ? `<span class="info-sub">Advisor: ${esc(c.advisor)}</span>` : ""}</li>`).join(""));
+        }
+        if (items.length) parts.push(`<div class="menu-section"><h3>${esc(title)}</h3><ul>${items.join("")}</ul></div>`);
       }
       parts.push(`<p class="sheet-hint">From the school's website, checked daily. <a href="${esc(info.site)}" target="_blank" rel="noopener">Open the full site</a></p>`);
       sections = parts.join("");
@@ -1690,6 +1753,9 @@
     el.querySelectorAll(".school-pick .chip").forEach((b) => b.addEventListener("click", () => { schoolPick = b.dataset.school; renderSchoolView(); }));
     const sub = $("schoolSubscribe");
     if (sub) sub.addEventListener("click", () => openSubscribeSheet(null, school));
+    for (const [id, label, url, kind] of viewers) {
+      el.querySelectorAll(`[data-view="${id}"]`).forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); openViewerSheet(label, url, kind); }));
+    }
   }
 
   function renderSchoolLink() {}

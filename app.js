@@ -1354,57 +1354,38 @@
     // fetched over http, and this site redirects http away, which Apple's
     // fetcher doesn't reliably follow.
     const webcal = url.replace(/^https:\/\//, "webcals://").replace(/^http:\/\//, "webcal://");
-    const apple = document.createElement("a");
-    apple.className = "sheet-action";
-    apple.href = webcal;
-    apple.textContent = "Add to iPhone or Mac calendar";
-    body.appendChild(apple);
-    const appleHint = document.createElement("p");
-    appleHint.className = "sheet-hint";
-    appleHint.textContent = "Tap Subscribe when your phone asks. It then lives under Calendars as a subscribed calendar; make sure it's checked.";
-    body.appendChild(appleHint);
-    // Google Calendar only takes a subscription by address on a computer
-    // (calendar.google.com); the phone app can't, and says "check the
-    // URL". On a computer the hand-off link opens Google's add screen; on
-    // a phone, give them the link and a way to get it to a computer.
-    const onPhone = isIOS || /android/i.test(navigator.userAgent);
+    const android = /android/i.test(navigator.userAgent);
     const copy = async () => {
       try { await navigator.clipboard.writeText(url); toast("Link copied"); }
       catch { prompt("Copy this link:", url); }
     };
-    if (onPhone) {
-      const steps = document.createElement("div");
-      steps.className = "steps";
-      steps.innerHTML = `<p class="steps-title">${GOOGLE_G_ICON}<span>Google Calendar, step by step</span></p>` +
-        `<p class="sheet-note">The Google Calendar app can't add a calendar by link, so this goes through Google's website once. About a minute.</p>` +
-        `<ol>` +
-        `<li><span>Copy the calendar link.</span><div class="step-act" id="stepCopy"></div></li>` +
-        `<li><span>Open Google Calendar's settings page. ${isIOS
-          ? "If it opens in a small browser window inside this app, tap the <b>compass</b> icon at the bottom right to open it in Safari."
-          : "If it opens in a small browser window inside this app, tap the <b>three dots</b>, then <b>Open in Chrome</b>."}</span><div class="step-act" id="stepOpen"></div></li>` +
-        `<li><span>${isIOS
-          ? "Google shows its phone page first. Tap the <b>aA</b> at the left of Safari's address bar, then <b>Request Desktop Website</b>. The page reloads with the settings."
-          : "Google shows its phone page first. Tap the <b>three dots</b> at the top right of Chrome, then turn on <b>Desktop site</b>. The page reloads with the settings."}</span></li>` +
-        `<li><span>Sign in if asked. In the <b>URL of calendar</b> box, paste the link, then tap <b>Add calendar</b>.</span></li>` +
-        `<li><span>Done. It appears in the Google Calendar app on your phone within a few minutes and updates itself from then on.</span></li>` +
-        `</ol>`;
-      body.appendChild(steps);
-      const g1 = document.createElement("button");
-      g1.type = "button"; g1.className = "chip on"; g1.textContent = "Copy the link";
-      g1.addEventListener("click", async () => { await copy(); g1.textContent = "Copied"; });
-      steps.querySelector("#stepCopy").appendChild(g1);
-      const g2 = document.createElement("a");
-      // Through www.google.com: a calendar.google.com link gets grabbed by
-      // the Google Calendar app on iPhones, which has no settings page.
-      // Google's own redirect keeps this one in the browser.
-      g2.className = "chip on"; g2.href = "https://www.google.com/calendar/u/0/r/settings/addbyurl";
-      g2.target = "_blank"; g2.rel = "noopener"; g2.textContent = "Open Google Calendar settings";
-      steps.querySelector("#stepOpen").appendChild(g2);
-      const g3 = document.createElement("a");
-      g3.className = "link-btn copy-link";
-      g3.href = `mailto:?subject=${encodeURIComponent(`${what} calendar`)}&body=${encodeURIComponent(`On a computer, open calendar.google.com, then Other calendars > + > From URL, and paste this link:\n\n${url}`)}`;
-      g3.textContent = "Rather do it on a computer? Email the link to yourself";
-      body.appendChild(g3);
+    if (!android) {
+      const apple = document.createElement("a");
+      apple.className = "sheet-action";
+      apple.href = webcal;
+      apple.textContent = isIOS ? "Add to iPhone calendar" : "Add to Apple Calendar";
+      body.appendChild(apple);
+      const appleHint = document.createElement("p");
+      appleHint.className = "sheet-hint";
+      appleHint.textContent = "Tap Subscribe when your phone asks. It then lives under Calendars as a subscribed calendar; make sure it's checked.";
+      body.appendChild(appleHint);
+    }
+    if (isIOS || android) {
+      // Google Calendar's phone app can't add a calendar by link; only its
+      // website on a computer can. Say so in one line rather than walk
+      // people through a workaround.
+      const note = document.createElement("p");
+      note.className = "sheet-note sub-google";
+      note.textContent = android
+        ? "Google Calendar can only add a subscription from a computer: open brandonvalleylunch.com there, tap Subscribe, then Add to Google Calendar. Or copy the link and paste it under Other calendars, From URL, at calendar.google.com."
+        : "Google Calendar users: add it from a computer at brandonvalleylunch.com (Subscribe, then Add to Google Calendar).";
+      body.appendChild(note);
+      if (android) {
+        const c = document.createElement("button");
+        c.type = "button"; c.className = "sheet-action sheet-action-quiet"; c.textContent = "Copy the link";
+        c.addEventListener("click", copy);
+        body.appendChild(c);
+      }
     } else {
       const google = document.createElement("a");
       google.className = "sheet-action sheet-action-google";

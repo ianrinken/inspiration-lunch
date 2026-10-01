@@ -712,3 +712,27 @@ button.sheet-action { border: none; cursor: pointer; }
 .code-input:focus { outline: 2px solid var(--bv-red); outline-offset: 2px; }
 
 .copy-link { display: block; margin: 2px auto 0; font-size: .88rem; font-family: inherit; }
+
+/* ---------- School tab ---------- */
+.school-tab .hero, .school-tab .month-nav, .school-tab .weekday-row, .school-tab #calendar,
+.school-tab #statusArea, .school-tab #updatedNote { display: none !important; }
+.school-view[hidden] { display: none; }
+.school-pick { margin-bottom: 12px; justify-content: center; }
+.school-card { cursor: default; margin-bottom: 14px; }
+.school-card:active { transform: none; }
+.quick {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin-bottom: clamp(16px, 3vw, 22px);
+}
+.quick-btn {
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  min-height: 60px; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--shadow); color: var(--text); text-decoration: none;
+}
+.quick-btn:active { transform: scale(.98); }
+.quick-label { font-family: var(--display); font-weight: 600; font-size: 1rem; }
+.quick-sub { font-size: .76rem; color: var(--text-soft); overflow-wrap: anywhere; }
+.school-view .menu-section li { background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.school-view .sheet-hint { margin-top: 4px; }
+@media (min-width: 700px) { .quick { grid-template-columns: repeat(3, 1fr); } }

@@ -243,7 +243,7 @@
 
   const TAB_KEY = "bvl-tab";
   let tab = "lunch";
-  try { if (localStorage.getItem(TAB_KEY) === "events") tab = "events"; } catch {}
+  try { const t = localStorage.getItem(TAB_KEY); if (t === "events" || t === "school") tab = t; } catch {}
 
   /* ---------------- data ---------------- */
 
@@ -490,6 +490,7 @@
   function renderHero() {
     const token = ++heroToken;
     const stale = () => token !== heroToken;
+    if (tab === "school") { $("hero").hidden = true; return Promise.resolve(); }
     return tab === "events" ? renderEventsHero(stale) : renderLunchHero(stale);
   }
 
@@ -672,6 +673,9 @@
   }
 
   function render() {
+    document.getElementById("main").classList.toggle("school-tab", tab === "school");
+    $("schoolView").hidden = tab !== "school";
+    if (tab === "school") { renderSchoolView(); return; }
     const { year, month } = view;
     monthLabelEl.textContent = `${MONTHS[month]} ${year}`;
     calendarEl.innerHTML = "";
@@ -1571,48 +1575,109 @@
     } catch { return cached ? cached.info : null; }
   }
 
-  // Office contact and the school's own parent links, read live from the
-  // school website, so nothing here can go stale on our side.
-  async function openSchoolSheet() {
-    const forSchool = schoolId;
-    $("sheetDate").textContent = schoolName(forSchool);
-    const body = $("sheetBody");
-    body.innerHTML = `<p class="sheet-intro">Loading…</p>`;
-    showSheet(null);
-    const info = await getSchoolInfo(forSchool);
-    if (sheet.hidden || schoolId !== forSchool || $("sheetDate").textContent !== schoolName(forSchool)) return;
-    if (!info) {
-      body.innerHTML = `<p class="sheet-intro">The school website isn't reachable right now. Try again in a bit.</p>`;
-      return;
+  /* ---------------- School tab ---------------- */
+
+  // The building's page inside the app: today's status, the few things
+  // parents reach for most, then everything the school's own site links
+  // for families, read live so nothing here can go stale on our side.
+  let schoolPick = null; // which school the tab shows when "All my kids" spans two
+  let schoolToken = 0;
+
+  const QUICK = [
+    { label: "Call the office", test: (l) => false, phone: true },
+    { label: "Report an absence", test: (l) => /attendance/i.test(l.label) && /^mailto:/.test(l.href) },
+    { label: "Bell schedule", test: (l) => /bell schedule|class time/i.test(l.label) },
+    { label: "Supply list", test: (l) => /supply/i.test(l.label) },
+    { label: "Handbook", test: (l, span) => /handbook/i.test(l.group || "") && new RegExp(span, "i").test(l.label) },
+    { label: "Counselors", test: (l) => /counsel/i.test(l.label) },
+    { label: "Bus pass", test: (l) => /bus pass/i.test(l.label) },
+    { label: "Lunch account", test: (l) => /lunch (?:account|money|pay)|myschoolbucks|revtrak/i.test(l.label) },
+  ];
+  const levelWord = (school) => {
+    const [lo] = BVGrades.SPAN[school];
+    return lo >= 9 ? "High School" : lo >= 7 ? "Middle School" : lo >= 5 ? "Intermediate" : "Elementary";
+  };
+
+  async function renderSchoolView() {
+    const token = ++schoolToken;
+    const stale = () => token !== schoolToken;
+    const schools = activeSchools();
+    if (!schools.includes(schoolPick)) schoolPick = schoolId;
+    const school = schoolPick;
+    const el = $("schoolView");
+
+    // Today at this school: a school day (and what's for lunch), a day
+    // off and why, or an early dismissal.
+    const now = new Date();
+    const key = dkey(now);
+    const [md, ed, info] = await Promise.all([
+      getMonthData(now.getFullYear(), now.getMonth(), school),
+      getEventsData(now.getFullYear(), now.getMonth(), school),
+      getSchoolInfo(school),
+    ]);
+    if (stale()) return;
+    const todays = ((ed && ed.events) || []).filter((ev) => ev.s <= key && key < ev.e && allowedFor(ev, school));
+    const off = (md && md.holidays && md.holidays[key]) || (todays.find((ev) => /\bno school\b/i.test(ev.t)) || {}).t;
+    const early = todays.find((ev) => /early (?:dismissal|out|release)/i.test(ev.t));
+    const weekend = now.getDay() === 0 || now.getDay() === 6;
+    const lunch = md && md.days && md.days[key];
+    let status;
+    if (weekend) status = "No school today";
+    else if (off) status = `No school: ${off.replace(/\s*-\s*no school/i, "")}`;
+    else if (early) status = early.t;
+    else if (lunch) status = `School day · Lunch: ${lunch.entree || lunch.alternates[0] || ""}`;
+    else status = "School day";
+
+    const pick = schools.length > 1
+      ? `<div class="chips school-pick">${schools.map((sch) => `<button type="button" class="chip${sch === school ? " on" : ""}" data-school="${sch}">${esc(SHORT[sch])}</button>`).join("")}</div>`
+      : "";
+    const card = `<div class="hero-card school-card"><p class="hero-kicker"><span>Today</span> · <span>${esc(fmtHero.format(now))}</span></p>` +
+      `<p class="hero-entree">${esc(schoolName(school))}</p><p class="hero-sides">${esc(status)}</p></div>`;
+
+    let quick = "", sections = "";
+    if (info) {
+      const links = info.links || [];
+      const span = levelWord(school);
+      const actions = [];
+      if (info.phone) actions.push({ label: "Call the office", href: `tel:${info.phone.replace(/\D/g, "")}`, sub: info.phone });
+      for (const q of QUICK) {
+        if (q.phone) continue;
+        const l = links.find((x) => q.test(x, span)) || (q.label === "Handbook" ? links.find((x) => /handbook/i.test(x.group || "")) : null);
+        if (l) actions.push({ label: q.label, href: l.href, sub: l.label !== q.label ? l.label : "", external: !l.href.startsWith("mailto:") });
+      }
+      quick = actions.length ? `<div class="quick">${actions.slice(0, 6).map((a) =>
+        `<a class="quick-btn" href="${esc(a.href)}"${a.external ? ' target="_blank" rel="noopener"' : ""}><span class="quick-label">${esc(a.label)}</span>${a.sub ? `<span class="quick-sub">${esc(a.sub)}</span>` : ""}</a>`).join("")}</div>` : "";
+
+      const row = (href, label, sub, external) =>
+        `<li><a class="info-row" href="${esc(href)}"${external ? ' target="_blank" rel="noopener"' : ""}>` +
+        `<span><span class="info-label">${esc(label)}</span>${sub ? `<span class="info-sub">${esc(sub)}</span>` : ""}</span></a></li>`;
+      const parts = [];
+      parts.push(`<div class="menu-section"><h3>Calendar</h3><ul>` +
+        `<li><button type="button" class="info-row info-btn" id="schoolSubscribe"><span><span class="info-label">Subscribe to all school events</span>` +
+        `<span class="info-sub">Keeps your phone's calendar up to date on its own</span></span></button></li></ul></div>`);
+      const contact = [];
+      if (info.email) contact.push(row(`mailto:${info.email}`, "Email the office", info.email));
+      if (info.address) contact.push(row(`https://maps.apple.com/?q=${encodeURIComponent(info.address)}`, "Address", info.address, true));
+      if (contact.length) parts.push(`<div class="menu-section"><h3>Office</h3><ul>${contact.join("")}</ul></div>`);
+      for (const title of ["Parents", "Students", "Activities", "District"]) {
+        const list = links.filter((l) => l.section === title);
+        if (!list.length) continue;
+        parts.push(`<div class="menu-section"><h3>${esc(title)}</h3><ul>` +
+          list.map((l) => row(l.href, l.label, l.group ? l.group.replace(/\s*\|\s*/g, " · ") : "", !l.href.startsWith("mailto:"))).join("") + `</ul></div>`);
+      }
+      parts.push(`<p class="sheet-hint">From the school's website, checked daily. <a href="${esc(info.site)}" target="_blank" rel="noopener">Open the full site</a></p>`);
+      sections = parts.join("");
+    } else {
+      sections = `<p class="sheet-intro">The school website isn't reachable right now. Try again in a bit.</p>`;
     }
-    const row = (href, label, sub, external) =>
-      `<li><a class="info-row" href="${esc(href)}"${external ? ' target="_blank" rel="noopener"' : ""}>` +
-      `<span><span class="info-label">${esc(label)}</span>${sub ? `<span class="info-sub">${esc(sub)}</span>` : ""}</span></a></li>`;
-    const contact = [];
-    if (info.phone) contact.push(row(`tel:${info.phone.replace(/\D/g, "")}`, "Call the office", info.phone));
-    if (info.email) contact.push(row(`mailto:${info.email}`, "Email the office", info.email));
-    if (info.address) contact.push(row(`https://maps.apple.com/?q=${encodeURIComponent(info.address)}`, "Address", info.address, true));
-    const sections = [];
-    sections.push(`<div class="menu-section"><h3>Calendar</h3><ul>` +
-      `<li><button type="button" class="info-row info-btn" id="schoolSubscribe"><span><span class="info-label">Subscribe to all school events</span>` +
-      `<span class="info-sub">Keeps your phone's calendar up to date on its own</span></span></button></li></ul></div>`);
-    if (contact.length) sections.push(`<div class="menu-section"><h3>Office</h3><ul>${contact.join("")}</ul></div>`);
-    for (const title of ["Parents", "Students", "Activities", "District"]) {
-      const links = (info.links || []).filter((l) => l.section === title);
-      if (!links.length) continue;
-      sections.push(`<div class="menu-section"><h3>${esc(title)}</h3><ul>` +
-        links.map((l) => row(l.href, l.label, l.group ? l.group.replace(/\s*\|\s*/g, " · ") : "", !l.href.startsWith("mailto:"))).join("") +
-        `</ul></div>`);
-    }
-    sections.push(`<p class="sheet-hint">From the school's website, checked daily. ` +
-      `<a href="${esc(info.site)}" target="_blank" rel="noopener">Open the full site</a></p>`);
-    body.innerHTML = sections.join("");
-    $("schoolSubscribe").addEventListener("click", () => openSubscribeSheet(null, forSchool));
+
+    el.innerHTML = pick + card + quick + sections;
+    el.querySelectorAll(".school-pick .chip").forEach((b) => b.addEventListener("click", () => { schoolPick = b.dataset.school; renderSchoolView(); }));
+    const sub = $("schoolSubscribe");
+    if (sub) sub.addEventListener("click", () => openSubscribeSheet(null, school));
   }
 
-  function renderSchoolLink() {
-    $("schoolInfoBtn").textContent = `${schoolName(schoolId)} office and links`;
-  }
+  function renderSchoolLink() {}
 
   // Chips under the header, on every tab: one child, all of them, or the
   // whole school. Before anything is set up, just the invitation.
@@ -1819,7 +1884,7 @@
   function setTab(t) {
     tab = t;
     try { localStorage.setItem(TAB_KEY, t); } catch {}
-    for (const [id, name] of [["tabLunch", "lunch"], ["tabEvents", "events"]]) {
+    for (const [id, name] of [["tabLunch", "lunch"], ["tabEvents", "events"], ["tabSchool", "school"]]) {
       const active = name === t;
       $(id).classList.toggle("active", active);
       $(id).setAttribute("aria-selected", String(active));
@@ -1830,6 +1895,7 @@
   }
   $("tabLunch").addEventListener("click", () => setTab("lunch"));
   $("tabEvents").addEventListener("click", () => setTab("events"));
+  $("tabSchool").addEventListener("click", () => setTab("school"));
   if (tab !== "lunch") setTab(tab); // restore persisted tab styling
 
   $("prevMonth").addEventListener("click", () => shiftMonth(-1));
@@ -1863,7 +1929,6 @@
     schoolId = select.value;
     setMode("all");
   });
-  $("schoolInfoBtn").addEventListener("click", openSchoolSheet);
   syncPicker();
   renderKidBar();
 

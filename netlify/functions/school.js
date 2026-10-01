@@ -125,6 +125,13 @@ async function supplies(school) {
 exports.handler = async (event) => {
   const q = event.queryStringParameters || {};
   if (q.doc) return passDoc(q.doc);
+  // ?status=1: what the supply-list watch last saw, per school.
+  if (q.status) {
+    try {
+      const { status } = require("./lib/watch.js");
+      return { statusCode: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" }, body: JSON.stringify(await status(), null, 1) };
+    } catch (err) { return { statusCode: 502, body: JSON.stringify({ error: "status unavailable" }) }; }
+  }
   if (q.supplies && SLUGS[q.school]) {
     try { return await supplies(q.school); }
     catch (err) { return { statusCode: 502, headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "supply list unavailable" }) }; }

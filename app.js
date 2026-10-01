@@ -59,7 +59,21 @@
 
   // Domain migration: accept a school preference handed over via ?school=…
   // (used when moving installs from bvlunch.netlify.app to the custom domain).
-  const urlSchool = new URLSearchParams(location.search).get("school");
+  // Read once; handlers below strip the URL. A landing (tab / fresh /
+  // school from a notification tap) is parked in sessionStorage for a few
+  // seconds too, so the app's own update-reload can't swallow it.
+  const INITIAL_PARAMS = new URLSearchParams(location.search);
+  try {
+    if (INITIAL_PARAMS.get("tab") || INITIAL_PARAMS.get("fresh")) {
+      sessionStorage.setItem("bvl-landing", INITIAL_PARAMS.toString());
+    } else if (sessionStorage.getItem("bvl-landing")) {
+      for (const [k, v] of new URLSearchParams(sessionStorage.getItem("bvl-landing"))) INITIAL_PARAMS.set(k, v);
+    }
+    setTimeout(() => { try { sessionStorage.removeItem("bvl-landing"); } catch {} }, 6000);
+  } catch {}
+  // A "new supply list" notification lands on that school's tab, fresh.
+  const LANDING_SCHOOL = INITIAL_PARAMS.get("fresh") && SCHOOLS.some((s) => s.id === INITIAL_PARAMS.get("school")) ? INITIAL_PARAMS.get("school") : null;
+  const urlSchool = INITIAL_PARAMS.get("school");
   if (urlSchool && SCHOOLS.some((s) => s.id === urlSchool)) {
     schoolId = urlSchool;
     try { localStorage.setItem(SCHOOL_KEY, urlSchool); } catch {}
@@ -175,6 +189,12 @@
     return ks.length ? [...new Set(ks.map((k) => k.school))] : [schoolId];
   };
   if (activeKids().length) schoolId = activeKids()[0].school;
+  // A notification about one school lands on that school.
+  let landingPick = null;
+  if (LANDING_SCHOOL) {
+    if (!activeSchools().includes(LANDING_SCHOOL)) { mode = "all"; schoolId = LANDING_SCHOOL; }
+    landingPick = LANDING_SCHOOL;
+  }
 
   function saveKids() {
     try {
@@ -296,6 +316,18 @@
   const TAB_KEY = "bvl-tab";
   let tab = "lunch";
   try { const t = localStorage.getItem(TAB_KEY); if (t === "events" || t === "school") tab = t; } catch {}
+  // A notification can land on a tab ("new supply list" opens School) and
+  // ask for that school's cached info to be fetched fresh.
+  {
+    const p = INITIAL_PARAMS;
+    if (p.get("tab") === "school" || p.get("tab") === "events") { tab = p.get("tab"); try { localStorage.setItem(TAB_KEY, tab); } catch {} }
+    if (p.get("fresh") && p.get("school")) {
+      try { Object.keys(localStorage).filter((k) => k.endsWith(p.get("school")) && /^bvl-(school|supplies)-/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch {}
+      if (SCHOOLS.some((s) => s.id === p.get("school"))) { schoolId = p.get("school"); try { localStorage.setItem(SCHOOL_KEY, schoolId); } catch {} }
+    }
+    if (p.get("tab") || p.get("fresh")) history.replaceState(null, "", location.pathname);
+  }
+
 
   /* ---------------- data ---------------- */
 
@@ -1939,6 +1971,7 @@
     const token = ++schoolToken;
     const stale = () => token !== schoolToken;
     const schools = activeSchools();
+    if (landingPick && schools.includes(landingPick)) { schoolPick = landingPick; landingPick = null; }
     if (!schools.includes(schoolPick)) schoolPick = schoolId;
     const school = schoolPick;
     const el = $("schoolView");
@@ -2050,7 +2083,7 @@
       bar.innerHTML = "";
       const b = document.createElement("button");
       b.type = "button"; b.className = "chip kid-add";
-      b.textContent = isStudent() ? "Set up my schedule" : role === "parent" ? "Set up my kids" : "Get started";
+      b.textContent = isStudent() ? "Set up my schedule" : role === "parent" ? "Set up my kids" : "Set up my kids or my schedule";
       b.addEventListener("click", openKidsSheet);
       bar.appendChild(b);
       return;

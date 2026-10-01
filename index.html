@@ -53,6 +53,8 @@
   </header>
 
   <main id="main">
+    <div id="kidBar" class="kid-bar" role="group" aria-label="Whose schedule to show"></div>
+
     <div id="installBanner" class="install-banner" hidden>
       <p id="installText"></p>
       <button id="installBtn" class="install-btn" hidden>Install</button>
@@ -60,19 +62,14 @@
     </div>
 
     <div id="whatsNew" class="whats-new" hidden>
-      <p><span class="wn-tag">New</span> Tap any day below, then <b>Add to my calendar</b> to put picture day, conferences and spirit days straight on your phone.</p>
+      <p><span class="wn-tag">New</span> Add your kids &mdash; school, grade, activities &mdash; then switch between one child, all of them, or everything. <button type="button" id="whatsNewGo" class="wn-link">Set up my kids</button></p>
       <button id="whatsNewClose" class="wn-close" aria-label="Dismiss">&times;</button>
     </div>
 
     <section id="hero" class="hero" hidden>
-      <button id="heroCard" class="hero-card">
-        <p class="hero-kicker"><span id="heroLabel">Today</span> · <span id="heroDate"></span></p>
-        <p class="hero-entree" id="heroName"></p>
-        <p class="hero-sides" id="heroSides"></p>
-        <p class="hero-alt" id="heroAlt"></p>
-        <p class="hero-events" id="heroEvents"></p>
-      </button>
+      <div id="heroCards"></div>
       <p class="hero-tomorrow" id="heroTomorrow" hidden></p>
+      <div id="heroUpcoming" class="upcoming" hidden></div>
     </section>
 
     <div class="tab-bar" role="tablist" aria-label="Calendar view">
@@ -96,6 +93,7 @@
 
   <footer class="app-footer">
     <p>Menu subject to change &middot; <a href="https://linqconnect.com/public/menu/L36JZQ" target="_blank" rel="noopener">Official menu on LINQ Connect</a></p>
+    <p class="footer-school"><button type="button" id="schoolInfoBtn" class="link-btn"></button></p>
     <p class="footer-credit">Created by <a href="https://scratchmarketing.net" target="_blank" rel="noopener">Scratch Marketing &amp; Solutions</a></p>
   </footer>
 
@@ -110,6 +108,12 @@
     <div id="sheetBody" class="sheet-body"></div>
   </div>
 
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+    <span id="toastText"></span>
+    <button type="button" id="toastUndo" class="toast-undo" hidden>Undo</button>
+  </div>
+
+  <script src="grades.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

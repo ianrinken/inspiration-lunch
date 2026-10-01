@@ -290,9 +290,21 @@
   });
   window.addEventListener("appinstalled", dismissInstallBanner);
 
+  // Facebook, Instagram and Messenger open links in their own browser,
+  // which can't install the app or deliver notifications. Say so, with
+  // the way out, every visit (it's a different situation each time).
+  const inAppBrowser = /FBAN|FBAV|FB_IAB|Instagram|Messenger|\bLine\/|Snapchat|musical_ly|TikTok/i.test(navigator.userAgent);
   let installDismissed = false;
   try { installDismissed = localStorage.getItem(INSTALL_KEY) === "done"; } catch {}
-  if (!isStandalone && !installDismissed) {
+  let inAppDismissed = false;
+  try { inAppDismissed = sessionStorage.getItem("bvl-inapp") === "done"; } catch {}
+  if (inAppBrowser && !isStandalone && !inAppDismissed) {
+    $("installText").textContent = isIOS
+      ? "You're in Facebook's browser. For the full app (home screen, notifications, calendar sync), open this in Safari: tap the three dots, then Open in browser."
+      : "You're in Facebook's browser. For the full app (home screen, notifications, calendar sync), open this in Chrome: tap the three dots, then Open in browser.";
+    $("installBanner").hidden = false;
+    $("installClose").addEventListener("click", () => { try { sessionStorage.setItem("bvl-inapp", "done"); } catch {} });
+  } else if (!isStandalone && !installDismissed) {
     if (isIOS) {
       // iOS has no programmatic install prompt — only the share sheet.
       $("installText").textContent = "Add this app to your home screen: tap the Share icon, then “Add to Home Screen.”";
@@ -1351,26 +1363,52 @@
     appleHint.className = "sheet-hint";
     appleHint.textContent = "Tap Subscribe when your phone asks. It then lives under Calendars as a subscribed calendar; make sure it's checked.";
     body.appendChild(appleHint);
-    // Google Calendar opens its own "add this calendar" screen when handed
-    // the feed address this way; no copying and pasting.
-    const google = document.createElement("a");
-    google.className = "sheet-action sheet-action-google";
-    google.href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url)}`;
-    google.target = "_blank"; google.rel = "noopener";
-    google.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
-    body.appendChild(google);
-    const copy = document.createElement("button");
-    copy.type = "button"; copy.className = "link-btn copy-link";
-    copy.textContent = "Copy the feed link instead";
-    copy.addEventListener("click", async () => {
+    // Google Calendar only takes a subscription by address on a computer
+    // (calendar.google.com); the phone app can't, and says "check the
+    // URL". On a computer the hand-off link opens Google's add screen; on
+    // a phone, give them the link and a way to get it to a computer.
+    const onPhone = isIOS || /android/i.test(navigator.userAgent);
+    const copy = async () => {
       try { await navigator.clipboard.writeText(url); toast("Link copied"); }
       catch { prompt("Copy this link:", url); }
-    });
-    body.appendChild(copy);
-    const hint = document.createElement("p");
-    hint.className = "sheet-hint";
-    hint.textContent = "Google asks you to confirm, then the calendar syncs to the Google Calendar app on your phone. If it doesn't open, paste the copied link under Other calendars, From URL, on a computer.";
-    body.appendChild(hint);
+    };
+    if (onPhone) {
+      const h = document.createElement("p"); h.className = "sheet-note sub-google";
+      h.innerHTML = `<b>Google Calendar</b>: the phone app can't add a calendar by link, but Google's website can. ` +
+        `Copy the link, open the From URL page below, and if it asks you to sign in or shows the phone app instead, use your browser's ` +
+        `<b>${isIOS ? "Request Desktop Website" : "Desktop site"}</b> option${isIOS ? " (the aA button in Safari)" : " (the three-dot menu in Chrome)"}, then paste. It then syncs to the phone app.`;
+      body.appendChild(h);
+      const g1 = document.createElement("button");
+      g1.type = "button"; g1.className = "sheet-action sheet-action-google"; g1.innerHTML = `${GOOGLE_G_ICON}<span>Copy the link</span>`;
+      g1.addEventListener("click", copy);
+      body.appendChild(g1);
+      const g2 = document.createElement("a");
+      g2.className = "sheet-action sheet-action-quiet";
+      g2.href = "https://calendar.google.com/calendar/u/0/r/settings/addbyurl";
+      g2.target = "_blank"; g2.rel = "noopener";
+      g2.textContent = "Open Google's From URL page";
+      body.appendChild(g2);
+      const g3 = document.createElement("a");
+      g3.className = "link-btn copy-link";
+      g3.href = `mailto:?subject=${encodeURIComponent(`${what} calendar`)}&body=${encodeURIComponent(`Open calendar.google.com on a computer, then Other calendars > + > From URL, and paste:\n\n${url}`)}`;
+      g3.textContent = "Or email the link to myself for a computer";
+      body.appendChild(g3);
+    } else {
+      const google = document.createElement("a");
+      google.className = "sheet-action sheet-action-google";
+      google.href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url)}`;
+      google.target = "_blank"; google.rel = "noopener";
+      google.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
+      body.appendChild(google);
+      const c = document.createElement("button");
+      c.type = "button"; c.className = "link-btn copy-link"; c.textContent = "Copy the feed link instead";
+      c.addEventListener("click", copy);
+      body.appendChild(c);
+      const hint = document.createElement("p");
+      hint.className = "sheet-hint";
+      hint.textContent = "Google asks you to confirm, then the calendar syncs to the Google Calendar app on your phone.";
+      body.appendChild(hint);
+    }
     showSheet(null);
   }
 

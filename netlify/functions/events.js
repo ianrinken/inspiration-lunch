@@ -456,8 +456,9 @@ exports.handler = async (event) => {
       const want = (q.ids || "").split(",").filter(Boolean);
       let picked = want.length ? events.filter((ev) => want.includes(ev.id)) : events;
       // A child's feed: their grade and activities, same rule as the app.
+      // "all" is how the clean /feed/… address says "no filter".
       const grade = /^-?\d{1,2}$/.test(q.grade || "") ? parseInt(q.grade, 10) : null;
-      const acts = (q.acts || "").split(",").filter(Boolean);
+      const acts = (q.acts === "all" ? "" : decodeURIComponent(q.acts || "")).split(",").filter(Boolean);
       if (grade !== null || acts.length) {
         picked = picked.filter((ev) => allowsFor(ev, grade, acts));
         if (grade !== null && schools.length === 1) {

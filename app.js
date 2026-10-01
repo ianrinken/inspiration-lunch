@@ -1321,10 +1321,13 @@
   // A calendar subscription: the phone's calendar app fetches this feed
   // itself, so games, changes and cancellations keep flowing with nothing
   // to tap. One child, or a whole school.
+  // A clean address ending in .ics: Google's "add by URL" is picky about
+  // query strings and file names, and the Calendar app doesn't mind.
   function feedUrl(kid, school) {
-    const p = new URLSearchParams({ school: kid ? kid.school : school, feed: "1" });
-    if (kid) { p.set("grade", String(kid.grade)); if (kid.acts.length) p.set("acts", kid.acts.join(",")); }
-    return `${location.origin}${EVENTS_API}?${p.toString()}`;
+    const sch = kid ? kid.school : school;
+    const grade = kid ? String(kid.grade) : "all";
+    const acts = kid && kid.acts.length ? encodeURIComponent(kid.acts.join(",")) : "all";
+    return `${location.origin}/feed/${sch}/${grade}/${acts}/calendar.ics`;
   }
 
   function openSubscribeSheet(kid, school) {
@@ -1352,7 +1355,7 @@
     // the feed address this way; no copying and pasting.
     const google = document.createElement("a");
     google.className = "sheet-action sheet-action-google";
-    google.href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
+    google.href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url)}`;
     google.target = "_blank"; google.rel = "noopener";
     google.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
     body.appendChild(google);

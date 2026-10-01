@@ -28,3 +28,10 @@
   to = "/index.html"
   status = 404
   force = true
+
+# Clean calendar-feed addresses (Google's "add by URL" wants a .ics path).
+# /feed/<school>/<grade or all>/<activities or all>/calendar.ics
+[[redirects]]
+  from = "/feed/:school/:grade/:acts/calendar.ics"
+  to = "/.netlify/functions/events?school=:school&feed=1&grade=:grade&acts=:acts"
+  status = 200

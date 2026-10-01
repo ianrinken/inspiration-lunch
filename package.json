@@ -3,7 +3,7 @@
   "private": true,
   "description": "Brandon Valley Lunch: static PWA plus Netlify Functions",
   "dependencies": {
-    "@netlify/blobs": "^8.2.0",
+    "@netlify/blobs": "^11.1.2",
     "web-push": "^3.6.7"
   }
 }

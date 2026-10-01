@@ -29,6 +29,8 @@
   const EVENTS_FRESH_MS = 30 * 60 * 1000;     // refetch events older than 30min
   const EMPTY_FRESH_MS = 2 * 60 * 60 * 1000;  // recheck unposted months every 2h
   const SHEET_MAX_OPEN_MS = 5 * 60 * 1000;    // auto-close a day sheet left open this long
+  const FAMILY_API = "/.netlify/functions/family";
+  const FAMILY_KEY = "bvl-family"; // this device's family code, once one exists
   const PUSH_API = "/.netlify/functions/push";
   const PUSH_KEY = "bvl-push"; // "1" once this device asked for the evening heads-up
   const PUSH_PUBLIC = "BPwNi91GO_Q3BvtYJodMYYajTDU3b_opYxbzXLS7r4TDpdPaMqX4NWx-TSVW-trBTi8GZV-ob8TqKKuQELU1SI8";
@@ -133,7 +135,13 @@
       localStorage.setItem(MODE_KEY, mode);
     } catch {}
     syncPush(); // the evening heads-up follows whatever the kids are now
+    syncFamily(); // and so does the family code
   }
+
+  // Ask the browser not to evict this site's saved data under storage
+  // pressure. A deliberate "clear website data" still clears it; the
+  // family code covers that.
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch {}
 
   const schoolName = (id) => (SCHOOLS.find((s) => s.id === id) || {}).name || "";
   const ordinal = (n) => `${n}${["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`;
@@ -1091,6 +1099,7 @@
     hint.className = "sheet-hint";
     hint.textContent = "Share sends a link that sets up the same kids on another phone, or in the installed app. No names, no account.";
     body.appendChild(hint);
+    body.appendChild(familyBlock(null));
     body.appendChild(notificationsSection());
     showSheet(null);
   }
@@ -1130,6 +1139,113 @@
     hint.textContent = "Google Calendar: on a computer, open Other calendars, choose From URL, and paste the link. It then syncs to your phone.";
     body.appendChild(hint);
     showSheet(null);
+  }
+
+  /* ---------------- family code ---------------- */
+
+  const familyCode = () => { try { return localStorage.getItem(FAMILY_KEY) || ""; } catch { return ""; } };
+  const CODE_RX = /^[A-Z0-9]{6,12}$/;
+  const cleanCode = (raw) => String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const kidsPayload = () => kids.map((k) => ({ school: k.school, grade: k.grade, acts: k.acts }));
+
+  async function postFamily(payload) {
+    const res = await fetch(FAMILY_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || `family ${res.status}`), { status: res.status });
+    return data;
+  }
+
+  // Claim the family's own code; refused if another family has it.
+  async function createFamilyCode(raw) {
+    const code = cleanCode(raw);
+    if (!CODE_RX.test(code)) throw Object.assign(new Error("format"), { status: 0 });
+    await postFamily({ action: "save", code, kids: kidsPayload(), create: true });
+    try { localStorage.setItem(FAMILY_KEY, code); } catch {}
+    return code;
+  }
+
+  let familyTimer = null;
+  function syncFamily() {
+    const code = familyCode();
+    if (!code || !kids.length) return;
+    clearTimeout(familyTimer);
+    familyTimer = setTimeout(() => { postFamily({ action: "save", code, kids: kidsPayload() }).catch(() => {}); }, 800);
+  }
+
+  async function restoreFromCode(raw) {
+    const code = cleanCode(raw);
+    if (!CODE_RX.test(code)) throw Object.assign(new Error("format"), { status: 0 });
+    const data = await postFamily({ action: "load", code });
+    const list = (data.kids || []).filter((k) => SCHOOLS.some((x) => x.id === k.school) && Number.isInteger(k.grade) && Array.isArray(k.acts));
+    if (!list.length) throw new Error("empty");
+    kids = list.map((k, i) => ({ id: `${Date.now().toString(36)}${i}`, school: k.school, grade: k.grade, acts: [...k.acts].sort() }));
+    try { localStorage.setItem(FAMILY_KEY, code); } catch {}
+    closeSheet();
+    setMode(kids.length > 1 ? "kids" : kids[0].id);
+    toast(kids.length === 1 ? "1 child restored" : `${kids.length} kids restored`);
+  }
+
+  const CODE_NOTE = "Remember this code, or write it down. Phones sometimes clear a website's saved settings for security " +
+    "(Safari does it after a week without a visit). Your family code brings your kids back on any phone. No names, no account.";
+
+  // The code block shown in the child form and in My kids: pick a code, or
+  // see the one already saved.
+  function familyBlock(beforeCreate) {
+    const wrap = document.createElement("div");
+    wrap.className = "menu-section family";
+    wrap.innerHTML = `<h3>Family code</h3>`;
+    const paint = () => {
+      const code = familyCode();
+      [...wrap.querySelectorAll(":scope > :not(h3)")].forEach((n) => n.remove());
+      if (code) {
+        const p = document.createElement("p"); p.className = "family-code"; p.textContent = code;
+        const note = document.createElement("p"); note.className = "sheet-note"; note.textContent = CODE_NOTE;
+        wrap.appendChild(p); wrap.appendChild(note);
+        return;
+      }
+      const note = document.createElement("p"); note.className = "sheet-note";
+      note.textContent = "Optional. Pick a code only your family would know, 6 to 12 letters and numbers. " + CODE_NOTE;
+      const row = document.createElement("div"); row.className = "code-row";
+      const input = document.createElement("input");
+      input.type = "text"; input.className = "code-input"; input.maxLength = 12; input.placeholder = "LYNXFAMILY26";
+      input.autocomplete = "off"; input.spellcheck = false; input.setAttribute("autocapitalize", "characters"); input.setAttribute("aria-label", "Family code");
+      const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.textContent = "Save code";
+      b.addEventListener("click", async () => {
+        const code = cleanCode(input.value);
+        if (!CODE_RX.test(code)) { toast("6 to 12 letters and numbers"); return; }
+        b.disabled = true;
+        try {
+          if (beforeCreate) beforeCreate();
+          await createFamilyCode(code);
+          toast("Family code saved");
+          paint();
+        } catch (err) {
+          toast(err.status === 409 ? "That code is taken. Try another." : err.message === "pick a grade first" ? "Pick the grade first" : "Couldn't save the code right now");
+          b.disabled = false;
+        }
+      });
+      row.appendChild(input); row.appendChild(b);
+      wrap.appendChild(note); wrap.appendChild(row);
+    };
+    paint();
+    return wrap;
+  }
+
+  function openRestoreSheet() {
+    $("sheetDate").textContent = "Restore my kids";
+    const body = $("sheetBody");
+    body.innerHTML = `<p class="sheet-intro">Enter the family code from your other phone, or from before your settings were cleared.</p>` +
+      `<input id="restoreCode" class="code-input" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="12" placeholder="Your family code" aria-label="Family code">`;
+    const go = document.createElement("button");
+    go.type = "button"; go.className = "sheet-action"; go.textContent = "Restore";
+    go.addEventListener("click", async () => {
+      go.disabled = true;
+      try { await restoreFromCode($("restoreCode").value); }
+      catch (err) { toast(err.status === 404 ? "No kids under that code" : err.message === "format" ? "6 to 12 letters and numbers" : "Couldn't restore right now"); go.disabled = false; }
+    });
+    body.appendChild(go);
+    showSheet(null);
+    setTimeout(() => { try { $("restoreCode").focus(); } catch {} }, 350);
   }
 
   /* ---------------- evening heads-up (push) ---------------- */
@@ -1273,11 +1389,39 @@
       `<div class="menu-section"><h3>Grade</h3><div class="chips" id="kGrade"></div></div>` +
       `<div class="menu-section" id="kActsWrap" hidden><h3>Activities</h3>` +
       `<p class="sheet-note" id="kActsNote"></p><div class="chips" id="kActs"></div></div>`;
+    // While they're setting up the first child, offer the family code too,
+    // so the "my settings vanished" case is covered from day one. The
+    // code is created when they tap it, with the child included.
+    if (!existing && !kids.length) {
+      body.appendChild(familyBlock(() => {
+        if (draft.grade === null) throw new Error("pick a grade first");
+        commit();
+      }));
+      const restore = document.createElement("p");
+      restore.className = "sheet-hint";
+      restore.innerHTML = `Already have a family code? <button type="button" class="wn-link" id="restoreLink">Restore my kids</button>`;
+      body.appendChild(restore);
+      restore.querySelector("#restoreLink").addEventListener("click", openRestoreSheet);
+    }
     const save = document.createElement("button");
     save.type = "button"; save.className = "sheet-action";
     save.textContent = existing ? "Save" : "Add";
     body.appendChild(save);
     let remove = null;
+    // Put the draft into the kids list (used by Add, and by the code button
+    // when it fires first).
+    const commit = () => {
+      if (!draft.grade && draft.grade !== 0) return;
+      draft.acts = [...draft.acts].sort();
+      if (draft.id) {
+        kids = kids.map((k) => (k.id === draft.id ? draft : k));
+      } else {
+        draft.id = Date.now().toString(36);
+        kids.push(draft);
+      }
+      saveKids();
+      renderKidBar();
+    };
     if (existing) {
       remove = document.createElement("button");
       remove.type = "button"; remove.className = "sheet-remove"; remove.textContent = "Remove this child";
@@ -1323,13 +1467,7 @@
 
     save.addEventListener("click", () => {
       if (save.classList.contains("disabled")) return;
-      draft.acts = [...draft.acts].sort();
-      if (draft.id) {
-        kids = kids.map((k) => (k.id === draft.id ? draft : k));
-      } else {
-        draft.id = Date.now().toString(36);
-        kids.push(draft);
-      }
+      commit();
       dismissWhatsNew();
       closeSheet();
       setMode(draft.id);

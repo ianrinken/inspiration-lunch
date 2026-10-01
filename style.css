@@ -692,3 +692,19 @@ button.sheet-action { border: none; cursor: pointer; }
 .tour-dots { display: flex; gap: 6px; margin-top: 16px; }
 .tour-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
 .tour-dots span.on { background: var(--bv-red); }
+
+/* ---------- Family code ---------- */
+.family { margin-top: 18px; }
+.family-code {
+  font-family: var(--display); font-weight: 700; font-size: 1.7rem; letter-spacing: .08em;
+  color: var(--bv-red); margin: 2px 0 8px; overflow-wrap: anywhere;
+}
+.code-row { display: flex; gap: 8px; align-items: stretch; margin-top: 4px; }
+.code-row .code-input { flex: 1; margin: 0; }
+.code-row .chip { flex: none; }
+.code-input {
+  display: block; width: 100%; min-width: 0; margin: 4px 0 14px; padding: 10px 14px;
+  font-family: var(--display); font-weight: 700; font-size: 1.15rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text); background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 14px;
+}
+.code-input:focus { outline: 2px solid var(--bv-red); outline-offset: 2px; }

@@ -629,10 +629,11 @@
         rows.push({ k, day: new Date(d), g });
       }
     }
-    // One collapsed line by default so the hero stays next to the tabs;
-    // the app remembers if someone opens it.
+    // One collapsed line by default so the hero stays next to the tabs.
+    // Opening it lasts for the visit, not forever: every fresh open of the
+    // app starts collapsed, on every device.
     let openUp = false;
-    try { openUp = localStorage.getItem("bvl-upcoming") === "open"; } catch {}
+    try { openUp = sessionStorage.getItem("bvl-upcoming") === "open"; } catch {}
     const peek = rows[0] ? `${fmtShort.format(rows[0].day).split(",")[0]}: ${rows[0].g.title}${rows.length > 1 ? ` +${rows.length - 1} more` : ""}` : "";
     const chevron = `<svg class="up-chev" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     up.classList.toggle("open", openUp);
@@ -648,7 +649,7 @@
       const now = !up.classList.contains("open");
       up.classList.toggle("open", now);
       toggle.setAttribute("aria-expanded", String(now));
-      try { localStorage.setItem("bvl-upcoming", now ? "open" : "closed"); } catch {}
+      try { sessionStorage.setItem("bvl-upcoming", now ? "open" : "closed"); } catch {}
     });
     up.querySelectorAll(".up-row").forEach((b) => b.addEventListener("click", () => {
       const k = b.dataset.key;

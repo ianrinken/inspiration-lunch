@@ -109,7 +109,7 @@
         const [si, grade, acts] = row;
         const sch = SCHOOLS[si];
         if (!sch || !Number.isInteger(grade) || !Array.isArray(acts)) continue;
-        const clean = { id: `${Date.now().toString(36)}${imported}`, school: sch.id, grade, acts: acts.filter((a) => typeof a === "string").sort() };
+        const clean = { id: `${Date.now().toString(36)}${imported}`, school: sch.id, grade, acts: acts.filter((a) => typeof a === "string").sort(), year: schoolYear() };
         const dup = kids.some((k) => k.school === clean.school && k.grade === clean.grade && k.acts.join("|") === clean.acts.join("|"));
         if (!dup) { kids.push(clean); imported++; }
       }
@@ -121,6 +121,44 @@
     history.replaceState(null, "", location.pathname);
   }
   if (mode === "kids" ? kids.length < 2 : mode !== "all" && !kids.some((k) => k.id === mode)) mode = kids.length === 1 ? kids[0].id : "all";
+  // School years turn over on July 1: feeds switch then, and August
+  // events (band camp, freshman day) are tagged for the incoming grade.
+  const schoolYear = (d = new Date()) => (d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1);
+  const INTERMEDIATE_ID = "82b0714f-8f8d-ec11-8df7-d30e05c96286";
+  const MIDDLE_ID = "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1";
+  const HIGH_ID = "ffc1d3ff-8e8d-ec11-8df7-c6813137b210";
+  // The district has one path: any elementary -> Intermediate (5-6) ->
+  // Middle (7-8) -> High (9-12). So each July every child moves up a grade
+  // and, when the grade crosses a building line, to the next building.
+  const schoolForGrade = (grade, current) =>
+    grade >= 9 ? HIGH_ID : grade >= 7 ? MIDDLE_ID : grade >= 5 ? INTERMEDIATE_ID : current;
+  let promoted = [], graduated = [];
+  (() => {
+    const now = schoolYear();
+    let changed = false;
+    kids = kids.filter((k) => {
+      if (!Number.isInteger(k.year)) { k.year = now; changed = true; return true; }
+      if (k.year >= now) return true;
+      const steps = now - k.year;
+      const grade = k.grade + steps;
+      changed = true;
+      if (grade > 12) { graduated.push(k); return false; }
+      const before = kidLabelOf(k);
+      k.grade = grade;
+      k.school = schoolForGrade(grade, k.school);
+      k.year = now;
+      promoted.push(`${before} is now ${kidLabelOf(k)}`);
+      return true;
+    });
+    if (changed) { try { localStorage.setItem(KIDS_KEY, JSON.stringify(kids)); } catch {} }
+    // Keep the "moved up" notice until it's been read: a reload (the app
+    // updating itself on the same open) must not swallow it.
+    if (promoted.length || graduated.length) {
+      const lines = [...promoted, ...graduated.map(() => "Your 12th grader graduated. Congratulations!")];
+      try { localStorage.setItem("bvl-notice", JSON.stringify(lines)); } catch {}
+    }
+  })();
+
   const activeKids = () => (mode === "kids" ? kids : kids.filter((k) => k.id === mode));
   // The schools in play: a child's, every child's, or just the one picked.
   const activeSchools = () => {
@@ -143,6 +181,11 @@
   // family code covers that.
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch {}
 
+  function kidLabelOf(k) {
+    const g = k.grade;
+    const ord = `${g}${["th", "st", "nd", "rd"][(g % 100 > 10 && g % 100 < 14) || g % 10 > 3 ? 0 : g % 10]}`;
+    return `${g === -1 ? "Jr. K" : g === 0 ? "K" : ord} · ${SHORT[k.school] || ""}`;
+  }
   const schoolName = (id) => (SCHOOLS.find((s) => s.id === id) || {}).name || "";
   const ordinal = (n) => `${n}${["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) || n % 10 > 3 ? 0 : n % 10]}`;
   const gradeShort = (g) => (g === -1 ? "Jr. K" : g === 0 ? "K" : ordinal(g));
@@ -1258,7 +1301,7 @@
     const data = await postFamily({ action: "load", code });
     const list = (data.kids || []).filter((k) => SCHOOLS.some((x) => x.id === k.school) && Number.isInteger(k.grade) && Array.isArray(k.acts));
     if (!list.length) throw new Error("empty");
-    kids = list.map((k, i) => ({ id: `${Date.now().toString(36)}${i}`, school: k.school, grade: k.grade, acts: [...k.acts].sort() }));
+    kids = list.map((k, i) => ({ id: `${Date.now().toString(36)}${i}`, school: k.school, grade: k.grade, acts: [...k.acts].sort(), year: schoolYear() }));
     try { localStorage.setItem(FAMILY_KEY, code); } catch {}
     closeSheet();
     setMode(kids.length > 1 ? "kids" : kids[0].id);
@@ -1499,6 +1542,7 @@
         draft.id = Date.now().toString(36);
         kids.push(draft);
       }
+      draft.year = schoolYear();
       saveKids();
       renderKidBar();
     };
@@ -1995,6 +2039,22 @@
     showSheet(null);
   }
 
+  let pendingNotice = [];
+  try { pendingNotice = JSON.parse(localStorage.getItem("bvl-notice") || "[]"); } catch {}
+  if (!Array.isArray(pendingNotice)) pendingNotice = [];
+
+  function openNotice(title, lines) {
+    $("sheetDate").textContent = title;
+    const body = $("sheetBody");
+    body.innerHTML = `<div class="tour">${lines.map((l) => `<p class="tour-p">${esc(l)}</p>`).join("")}` +
+      `<p class="sheet-note">Grades move up every July. Anything off? Fix it under Edit.</p></div>`;
+    const ok = document.createElement("button");
+    ok.type = "button"; ok.className = "sheet-action"; ok.textContent = "Got it";
+    ok.addEventListener("click", () => { try { localStorage.removeItem("bvl-notice"); } catch {} closeSheet(); });
+    body.appendChild(ok);
+    showSheet(null);
+  }
+
   /* ---------------- what's-new walkthrough ---------------- */
 
   // Shown once to people who used the app before this round. New visitors
@@ -2146,6 +2206,11 @@
   renderHero();
   updateWhatsNew();
   if (imported) toast(imported === 1 ? "1 child added from the link" : `${imported} kids added from the link`);
+  else if (pendingNotice.length) {
+    // The new school year moved everyone up; say so once it's been read.
+    if (promoted.length || graduated.length) saveKids();
+    setTimeout(() => openNotice("New school year", pendingNotice), 900);
+  }
   // Let the page paint first; a sheet sliding up over a blank screen reads as broken.
   else if (tourDue) setTimeout(openTour, 900);
 })();

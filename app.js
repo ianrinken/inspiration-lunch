@@ -574,12 +574,27 @@
         rows.push({ k, day: new Date(d), g });
       }
     }
-    up.innerHTML = rows.length ? `<p class="up-title">Coming up</p>` + rows.map((r) =>
+    // One collapsed line by default so the hero stays next to the tabs;
+    // the app remembers if someone opens it.
+    let openUp = false;
+    try { openUp = localStorage.getItem("bvl-upcoming") === "open"; } catch {}
+    const peek = rows[0] ? `${fmtShort.format(rows[0].day).split(",")[0]}: ${rows[0].g.title}${rows.length > 1 ? ` +${rows.length - 1} more` : ""}` : "";
+    const chevron = `<svg class="up-chev" viewBox="0 0 12 8" aria-hidden="true"><path d="M1 1.5 6 6.5 11 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    up.classList.toggle("open", openUp);
+    up.innerHTML = rows.length ? `<button type="button" class="up-toggle" aria-expanded="${openUp}"><span class="up-title">Coming up</span>` +
+      `<span class="up-peek">${esc(peek)}</span>${chevron}</button><div class="up-list">` + rows.map((r) =>
       `<button type="button" class="up-row" data-key="${r.k}"><span class="up-day">${esc(fmtShort.format(r.day))}</span>` +
       `<span class="up-what"><b>${esc(r.g.title)}</b>${r.g.levels.length ? ` · ${esc(r.g.levels.join(", "))}` : ""}` +
       `${r.g.time ? ` · ${esc(r.g.time)}` : ""}${r.g.sch ? ` · ${esc(SHORT[r.g.sch])}` : ""}` +
       `${r.g.x ? ` · <i>${r.g.x === "postponed" ? "Postponed" : "Cancelled"}</i>` : ""}</span></button>`
-    ).join("") : "";
+    ).join("") + `</div>` : "";
+    const toggle = up.querySelector(".up-toggle");
+    if (toggle) toggle.addEventListener("click", () => {
+      const now = !up.classList.contains("open");
+      up.classList.toggle("open", now);
+      toggle.setAttribute("aria-expanded", String(now));
+      try { localStorage.setItem("bvl-upcoming", now ? "open" : "closed"); } catch {}
+    });
     up.querySelectorAll(".up-row").forEach((b) => b.addEventListener("click", () => {
       const k = b.dataset.key;
       const [y, m, dd] = k.split("-").map(Number);

@@ -652,11 +652,23 @@ button.sheet-action { border: none; cursor: pointer; }
 
 /* ---------- Coming up (Events hero) ---------- */
 .upcoming[hidden] { display: none; }
-.upcoming { margin-top: 10px; }
-.up-title {
-  font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--text-soft); margin: 0 4px 4px;
+.upcoming { margin-top: 6px; }
+.up-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 44px; padding: 6px 4px;
+  background: none; border: none; cursor: pointer; text-align: left;
+  font-size: clamp(.84rem, 2.9vw, .93rem); color: var(--text-soft);
 }
+.up-title {
+  flex: none; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-soft);
+}
+.up-peek { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.up-chev { flex: none; width: 12px; height: 8px; color: var(--text-soft); transition: transform .2s ease; }
+.upcoming.open .up-chev { transform: rotate(180deg); }
+.upcoming.open .up-peek { visibility: hidden; }
+.up-list { display: none; }
+.upcoming.open .up-list { display: block; }
 .up-row {
   display: flex; align-items: baseline; gap: 10px; width: 100%;
   min-height: 44px; padding: 8px 4px;

@@ -36,7 +36,8 @@ export default async (req) => {
       const kids = (Array.isArray(body.kids) ? body.kids : []).map(cleanKid).filter(Boolean).slice(0, 8);
       const record = {
         sub: { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } },
-        kids, school: typeof body.school === "string" ? body.school : null, savedAt: Date.now(),
+        kids, school: typeof body.school === "string" ? body.school : null,
+        role: body.role === "student" ? "student" : "parent", savedAt: Date.now(),
       };
       await store().setJSON(key, record);
       return json({ ok: true });

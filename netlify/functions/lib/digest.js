@@ -101,8 +101,25 @@ async function buildDigest(record, cache) {
     lines.push(targets.length > 1 ? `${who}: ${parts.join(" · ")}` : parts.join(" · "));
   }
   if (!lines.length) return null;
-  const who = targets.length > 1 ? "your kids" : (targets[0].grade === null || targets[0].grade === undefined ? SHORT[targets[0].school] : "your child");
+  const who = record.role === "student" ? "you"
+    : targets.length > 1 ? "your kids" : (targets[0].grade === null || targets[0].grade === undefined ? SHORT[targets[0].school] : "your child");
   return { title: `${label} for ${who}`, body: lines.join("\n"), url: "/", day };
+}
+
+// A student's game-day ping: today's competitions for them, morning of.
+async function buildGameDay(record, cache) {
+  const today = toCentral(new Date()).date;
+  const t = (record.kids && record.kids[0]) || null;
+  if (!t || !SCHOOL_NAMES[t.school]) return null;
+  const key = `gd|${t.school}|${today}`;
+  if (!cache[key]) cache[key] = eventsFor(t.school, today, addDays(today, 1)).catch(() => []);
+  const events = await cache[key];
+  const games = events.filter((ev) => allowsFor(ev, t.grade, t.acts) && ev.home !== undefined && !ev.x);
+  if (!games.length) return null;
+  const lines = games.slice(0, 3).map((ev) =>
+    `${compact(ev.t)}${ev.time ? ` ${ev.time}` : ""} · ${ev.home ? "Home" : "Away"}${ev.where ? ` · ${ev.where}` : ""}`);
+  if (games.length > 3) lines.push(`+${games.length - 3} more`);
+  return { title: games.length === 1 ? "Game day" : `Game day: ${games.length} today`, body: lines.join("\n"), url: "/", day: today };
 }
 
 async function send(record, payload) {
@@ -110,4 +127,4 @@ async function send(record, payload) {
   await webpush.sendNotification(record.sub, JSON.stringify(payload), { TTL: 6 * 60 * 60 });
 }
 
-module.exports = { buildDigest, send, nextSchoolDay, VAPID_PUBLIC };
+module.exports = { buildDigest, buildGameDay, send, nextSchoolDay, VAPID_PUBLIC };

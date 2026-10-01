@@ -762,3 +762,10 @@ button.sheet-action { border: none; cursor: pointer; }
 .doc-page { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
 .doc-page canvas { display: block; }
 .club-row { display: flex; flex-direction: column; min-height: 44px; justify-content: center; }
+
+/* ---------- Student extras ---------- */
+.hero-links[hidden] { display: none; }
+.hero-links { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+.hero-events::before { display: none; }
+.hero-events { color: var(--text); line-height: 1.45; }
+.hero-events[hidden] { display: none; }

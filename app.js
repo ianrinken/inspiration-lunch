@@ -75,6 +75,15 @@
   // lives only in this browser's storage -- no account, no name, nothing
   // sent anywhere.
   const KIDS_KEY = "bvl-kids";
+  // Whose phone this is. A student sets up one profile (their own grade
+  // and activities) and the app talks to them, not about "your kids".
+  // Student mode is high school only: everyone there is 13 or older, which
+  // keeps the notification (a persistent identifier) out of COPPA's reach.
+  const ROLE_KEY = "bvl-role";
+  let role = "";
+  try { role = localStorage.getItem(ROLE_KEY) || ""; } catch {}
+  const isStudent = () => role === "student";
+  const setRole = (r) => { role = r; try { localStorage.setItem(ROLE_KEY, r); } catch {} };
   const MODE_KEY = "bvl-mode"; // "all" | "kids" | a child's id
   const ACTIVITIES_PREFIX = "bvl-activities-v2:";
   const ACTIVITIES_FRESH_MS = 24 * 60 * 60 * 1000;
@@ -533,7 +542,7 @@
   function renderHero() {
     const token = ++heroToken;
     const stale = () => token !== heroToken;
-    if (tab === "school") { $("hero").hidden = true; return Promise.resolve(); }
+    if (tab === "school") { $("hero").hidden = true; $("heroLinks").hidden = true; return Promise.resolve(); }
     return tab === "events" ? renderEventsHero(stale) : renderLunchHero(stale);
   }
 
@@ -582,9 +591,12 @@
     const evs = byDay[key] || [];
 
     const card = heroCard();
-    card.querySelector(".hero-kicker").innerHTML = `<span>${esc(heroLabel(target))}</span> · <span>${esc(fmtHero.format(target))}</span>`;
     const groups = summarize(evs);
     const lead = groups[0] || null;
+    // A competition leads the day: say so where "Tomorrow" usually goes.
+    const gameDay = lead && lead.home !== undefined && !lead.x;
+    card.querySelector(".hero-kicker").innerHTML = `<span>${esc(gameDay ? `Game day · ${heroLabel(target).toLowerCase()}` : heroLabel(target))}</span> · <span>${esc(fmtHero.format(target))}</span>`;
+    $("heroLinks").hidden = true;
     card.querySelector(".hero-entree").textContent = !lead ? "No events"
       : `${lead.x ? (lead.x === "postponed" ? "Postponed: " : "Cancelled: ") : ""}${lead.title}`;
     card.querySelector(".hero-sides").textContent = !lead ? "" : [
@@ -647,6 +659,24 @@
     up.hidden = !rows.length;
   }
 
+  // Students get the bell schedule one tap from the lunch card.
+  async function renderStudentLinks() {
+    const el = $("heroLinks");
+    if (!isStudent()) { el.hidden = true; return; }
+    const info = await getSchoolInfo(HIGH_ID);
+    const bell = info && (info.links || []).find((l) => /bell schedule|class time/i.test(l.label));
+    if (!bell || tab !== "lunch") { el.hidden = true; return; }
+    el.innerHTML = "";
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = "Bell schedule";
+    b.addEventListener("click", () => {
+      const kind = viewable(bell);
+      if (kind) openViewerSheet("Bell schedule", bell.view || bell.href, kind); else window.open(bell.href, "_blank", "noopener");
+    });
+    el.appendChild(b);
+    el.hidden = false;
+  }
+
   // The next published lunch at one school, plus the one after it.
   async function nextLunch(school, stale) {
     const probe = heroStart();
@@ -699,6 +729,23 @@
       card.querySelector(".hero-sides").textContent = r.info.sides.length ? `with ${r.info.sides.join(" · ")}` : "";
       card.querySelector(".hero-alt").innerHTML = r.info.alternates.length
         ? `or: <b>${r.info.alternates.map(esc).join("</b> · <b>")}</b>` : "";
+      if (isStudent()) {
+        // A student's day is lunch AND what's after school, in one card.
+        const evHost = document.createElement("p");
+        evHost.className = "hero-events";
+        evHost.hidden = true;
+        card.appendChild(evHost);
+        monthEvents(r.target.getFullYear(), r.target.getMonth()).then((byDay) => {
+          if (stale()) return;
+          const groups = summarize(byDay[dkey(r.target)] || []);
+          if (!groups.length) return;
+          evHost.innerHTML = groups.slice(0, 3).map((g) =>
+            `${esc(g.title)}${g.levels.length ? ` · ${esc(g.levels.join(", "))}` : ""}${g.time ? ` · ${esc(g.time)}` : ""}` +
+            `${g.home === true ? " · Home" : g.home === false ? " · Away" : ""}`).join("<br>") +
+            (groups.length > 3 ? `<br>+${groups.length - 3} more` : "");
+          evHost.hidden = false;
+        });
+      }
       card.onclick = () => {
         if (schoolId !== sch) { mode = kids.find((k) => k.school === sch) ? mode : "all"; schoolId = sch; syncPicker(); }
         showMonthOf(r.target);
@@ -710,6 +757,7 @@
 
     // One-line teaser for the school day after the hero day (single school).
     $("heroUpcoming").hidden = true;
+    renderStudentLinks();
     const teaser = $("heroTomorrow");
     teaser.hidden = true;
     const one = schools.length === 1 && found[0] && found[0].after;
@@ -1170,8 +1218,28 @@
   const fill = (el, nodes) => { el.innerHTML = ""; nodes.forEach((n) => el.appendChild(n)); };
   const toggleIn = (list, x) => (list.includes(x) ? list.filter((y) => y !== x) : [...list, x]);
 
+  // Who is this phone for? Asked once, before the first profile.
+  function openRoleSheet() {
+    $("sheetDate").textContent = "Who's this phone for?";
+    const body = $("sheetBody");
+    body.innerHTML = `<p class="sheet-intro">Pick one. You can change it later under Edit.</p>`;
+    const parent = document.createElement("button");
+    parent.type = "button"; parent.className = "sheet-action"; parent.textContent = "A parent";
+    parent.addEventListener("click", () => { setRole("parent"); openKidForm(null); });
+    const student = document.createElement("button");
+    student.type = "button"; student.className = "sheet-action sheet-action-quiet"; student.textContent = "A high school student";
+    student.addEventListener("click", () => { setRole("student"); openKidForm(null); });
+    body.appendChild(parent); body.appendChild(student);
+    const hint = document.createElement("p");
+    hint.className = "sheet-hint"; hint.textContent = "Student mode is for Brandon Valley High School. No name, no account, either way.";
+    body.appendChild(hint);
+    showSheet(null);
+  }
+
   // The list of children, or straight to the form when there are none yet.
   function openKidsSheet() {
+    if (!kids.length && !role) return openRoleSheet();
+    if (isStudent()) return openKidForm(kids[0] || null);
     if (!kids.length) return openKidForm(null);
     $("sheetDate").textContent = "My kids";
     const body = $("sheetBody");
@@ -1208,6 +1276,12 @@
     body.appendChild(hint);
     body.appendChild(familyBlock(null));
     body.appendChild(notificationsSection());
+    if (kids.length === 1 && kids[0].school === HIGH_ID) {
+      const who = document.createElement("button");
+      who.type = "button"; who.className = "sheet-remove"; who.textContent = "This is a student's phone";
+      who.addEventListener("click", () => { setRole("student"); openKidsSheet(); });
+      body.appendChild(who);
+    }
     showSheet(null);
   }
 
@@ -1309,14 +1383,14 @@
   }
 
   const CODE_NOTE = "Remember this code, or write it down. Phones sometimes clear a website's saved settings for security " +
-    "(Safari does it after a week without a visit). Your family code brings your kids back on any phone. No names, no account.";
+    "(Safari does it after a week without a visit). Your code brings this setup back on any phone. No names, no account.";
 
   // The code block shown in the child form and in My kids: pick a code, or
   // see the one already saved.
   function familyBlock(beforeCreate) {
     const wrap = document.createElement("div");
     wrap.className = "menu-section family";
-    wrap.innerHTML = `<h3>Family code</h3>`;
+    wrap.innerHTML = `<h3>${isStudent() ? "Backup code" : "Family code"}</h3>`;
     const paint = () => {
       const code = familyCode();
       [...wrap.querySelectorAll(":scope > :not(h3)")].forEach((n) => n.remove());
@@ -1327,7 +1401,7 @@
         return;
       }
       const note = document.createElement("p"); note.className = "sheet-note";
-      note.textContent = "Optional. Pick a code only your family would know, 6 to 12 letters and numbers. " + CODE_NOTE;
+      note.textContent = (isStudent() ? "Optional. Pick a code only you would know, 6 to 12 letters and numbers. " : "Optional. Pick a code only your family would know, 6 to 12 letters and numbers. ") + CODE_NOTE;
       const row = document.createElement("div"); row.className = "code-row";
       const input = document.createElement("input");
       input.type = "text"; input.className = "code-input"; input.maxLength = 12; input.placeholder = "LYNXFAMILY26";
@@ -1395,7 +1469,7 @@
   }
 
   // What the server should know: the kids (no names), or the picked school.
-  const pushConfig = () => ({ kids: kids.map((k) => ({ school: k.school, grade: k.grade, acts: k.acts })), school: schoolId });
+  const pushConfig = () => ({ kids: kids.map((k) => ({ school: k.school, grade: k.grade, acts: k.acts })), school: schoolId, role: role || "parent" });
 
   let syncTimer = null;
   function syncPush() {
@@ -1431,10 +1505,10 @@
   function notificationsSection() {
     const wrap = document.createElement("div");
     wrap.className = "menu-section notify";
-    wrap.innerHTML = `<h3>Evening heads-up</h3>`;
+    wrap.innerHTML = `<h3>${isStudent() ? "Heads-ups" : "Evening heads-up"}</h3>`;
     const row = document.createElement("label");
     row.className = "notify-row";
-    row.innerHTML = `<span><span class="info-label">Tomorrow's lunch and events, 7 pm</span>` +
+    row.innerHTML = `<span><span class="info-label">${isStudent() ? "Tomorrow's lunch and your events at 7 pm, and a game-day ping at 7 am" : "Tomorrow's lunch and events, 7 pm"}</span>` +
       `<span class="info-sub" id="notifySub"></span></span><input type="checkbox" id="notifyToggle">`;
     wrap.appendChild(row);
     const box = row.querySelector("#notifyToggle");
@@ -1461,8 +1535,8 @@
       box.checked = !!s && pushWanted();
       test.hidden = !box.checked;
       sub.textContent = box.checked
-        ? (kids.length ? "One notification a night, for each child." : `One notification a night, for ${schoolName(schoolId)}.`)
-        : "A single notification the evening before each school day. Nothing else, ever.";
+        ? (isStudent() ? "One a night, plus one on game mornings." : kids.length ? "One notification a night, for each child." : `One notification a night, for ${schoolName(schoolId)}.`)
+        : (isStudent() ? "One the evening before each school day, one on mornings you have a game. Nothing else, ever." : "A single notification the evening before each school day. Nothing else, ever.");
     };
     box.addEventListener("change", async () => {
       box.disabled = true;
@@ -1500,15 +1574,20 @@
   }
 
   function openKidForm(existing) {
+    const student = isStudent();
     const draft = existing
       ? { ...existing, acts: [...existing.acts] }
-      : { id: null, school: schoolId, grade: null, acts: [] };
-    $("sheetDate").textContent = existing ? "Edit child" : (kids.length ? "Add a child" : "Set up my kids");
+      : { id: null, school: student ? HIGH_ID : schoolId, grade: null, acts: [] };
+    $("sheetDate").textContent = student
+      ? (existing ? "My schedule" : "Set up my schedule")
+      : (existing ? "Edit child" : (kids.length ? "Add a child" : "Set up my kids"));
     const body = $("sheetBody");
-    body.innerHTML =
-      `<p class="sheet-intro">Pick the school, grade and activities. Events then shows what's theirs; ` +
-      `school-wide events always stay. This stays on your phone &mdash; no name, no account.</p>` +
-      `<div class="menu-section"><h3>School</h3><div class="chips grid" id="kSchool"></div></div>` +
+    body.innerHTML = (student
+      ? `<p class="sheet-intro">Pick your grade and what you're in. Events then shows what's yours; ` +
+        `school-wide events always stay. This stays on your phone &mdash; no name, no account.</p>`
+      : `<p class="sheet-intro">Pick the school, grade and activities. Events then shows what's theirs; ` +
+        `school-wide events always stay. This stays on your phone &mdash; no name, no account.</p>` +
+        `<div class="menu-section"><h3>School</h3><div class="chips grid" id="kSchool"></div></div>`) +
       `<div class="menu-section"><h3>Grade</h3><div class="chips" id="kGrade"></div></div>` +
       `<div class="menu-section" id="kActsWrap" hidden><h3>Activities</h3>` +
       `<p class="sheet-note" id="kActsNote"></p><div class="chips" id="kActs"></div></div>`;
@@ -1522,13 +1601,13 @@
       }));
       const restore = document.createElement("p");
       restore.className = "sheet-hint";
-      restore.innerHTML = `Already have a family code? <button type="button" class="wn-link" id="restoreLink">Restore my kids</button>`;
+      restore.innerHTML = `Already have a ${student ? "backup" : "family"} code? <button type="button" class="wn-link" id="restoreLink">${student ? "Restore my schedule" : "Restore my kids"}</button>`;
       body.appendChild(restore);
       restore.querySelector("#restoreLink").addEventListener("click", openRestoreSheet);
     }
     const save = document.createElement("button");
     save.type = "button"; save.className = "sheet-action";
-    save.textContent = existing ? "Save" : "Add";
+    save.textContent = existing || student ? "Save" : "Add";
     body.appendChild(save);
     let remove = null;
     // Put the draft into the kids list (used by Add, and by the code button
@@ -1548,12 +1627,12 @@
     };
     if (existing) {
       remove = document.createElement("button");
-      remove.type = "button"; remove.className = "sheet-remove"; remove.textContent = "Remove this child";
+      remove.type = "button"; remove.className = "sheet-remove"; remove.textContent = student ? "Clear my schedule" : "Remove this child";
       body.appendChild(remove);
     }
 
     function paint() {
-      fill($("kSchool"), SCHOOLS.map((sch) => chip(sch.name, draft.school === sch.id, () => {
+      if ($("kSchool")) fill($("kSchool"), SCHOOLS.map((sch) => chip(sch.name, draft.school === sch.id, () => {
         if (draft.school === sch.id) return;
         draft.school = sch.id; draft.grade = null; draft.acts = [];
         paint(); loadActs();
@@ -1611,6 +1690,21 @@
       });
     }
 
+    if (student && existing) {
+      body.appendChild(familyBlock(null));
+      const share = document.createElement("button");
+      share.type = "button"; share.className = "sheet-action sheet-action-quiet"; share.textContent = "Share my schedule";
+      share.addEventListener("click", shareSetup);
+      body.appendChild(share);
+      const hint = document.createElement("p");
+      hint.className = "sheet-hint"; hint.textContent = "Share sends a link that sets up the same grade and activities on a friend's phone.";
+      body.appendChild(hint);
+      body.appendChild(notificationsSection());
+      const who = document.createElement("button");
+      who.type = "button"; who.className = "sheet-remove"; who.textContent = "This is a parent's phone";
+      who.addEventListener("click", () => { setRole("parent"); openKidsSheet(); });
+      body.appendChild(who);
+    }
     paint();
     loadActs();
     showSheet(null);
@@ -1873,13 +1967,14 @@
     if (!kids.length) {
       bar.innerHTML = "";
       const b = document.createElement("button");
-      b.type = "button"; b.className = "chip kid-add"; b.textContent = "Set up my kids";
+      b.type = "button"; b.className = "chip kid-add";
+      b.textContent = isStudent() ? "Set up my schedule" : role === "parent" ? "Set up my kids" : "Get started";
       b.addEventListener("click", openKidsSheet);
       bar.appendChild(b);
       return;
     }
     const nodes = [chip("Everything", mode === "all", () => setMode("all"))];
-    for (const k of kids) nodes.push(chip(kidLabel(k), mode === k.id, () => setMode(k.id)));
+    for (const k of kids) nodes.push(chip(isStudent() ? "My schedule" : kidLabel(k), mode === k.id, () => setMode(k.id)));
     if (kids.length > 1) nodes.push(chip("All my kids", mode === "kids", () => setMode("kids")));
     const edit = document.createElement("button");
     edit.type = "button"; edit.className = "link-btn kid-edit"; edit.textContent = "Edit";

@@ -4,6 +4,7 @@
   "description": "Brandon Valley Lunch: static PWA plus Netlify Functions",
   "dependencies": {
     "@netlify/blobs": "^11.1.2",
+    "pdfjs-dist": "^4.10.38",
     "web-push": "^3.6.7"
   }
 }

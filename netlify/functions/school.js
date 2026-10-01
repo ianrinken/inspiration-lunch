@@ -99,9 +99,36 @@ async function passDoc(url) {
   };
 }
 
+// ?supplies=1&school=…: the school's supply list read into sections (by
+// grade at the elementaries, by class at the middle school).
+async function supplies(school) {
+  const base = `${SITE}/${SLUGS[school]}/`;
+  const nav = stripComments(await (await fetch(`${base}library/navbar.html`, { headers: { "User-Agent": "brandonvalleylunch.com school app" } })).text());
+  const link = sections(nav, base).flatMap((s) => s.items).find((i) => /supply/i.test(i.label) && /\.pdf$/i.test(i.href) && i.href.startsWith(SITE));
+  if (!link) return { statusCode: 404, headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "no supply list" }) };
+  const r = await fetch(link.href, { headers: { "User-Agent": "brandonvalleylunch.com school app" } });
+  if (!r.ok) throw new Error(`upstream ${r.status}`);
+  const { parseSupplyPdf } = require("./lib/supplies.js");
+  const parsed = await parseSupplyPdf(Buffer.from(await r.arrayBuffer()));
+  return {
+    statusCode: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "public, max-age=3600",
+      "Netlify-CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+    },
+    body: JSON.stringify({ source: link.href, label: link.label, ...parsed }),
+  };
+}
+
 exports.handler = async (event) => {
   const q = event.queryStringParameters || {};
   if (q.doc) return passDoc(q.doc);
+  if (q.supplies && SLUGS[q.school]) {
+    try { return await supplies(q.school); }
+    catch (err) { return { statusCode: 502, headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "supply list unavailable" }) }; }
+  }
   const slug = SLUGS[q.school];
   if (!slug) return { statusCode: 400, body: JSON.stringify({ error: "bad params" }) };
   const base = `${SITE}/${slug}/`;

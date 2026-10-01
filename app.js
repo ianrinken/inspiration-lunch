@@ -1862,6 +1862,79 @@
   }
   const viewable = (l) => (l.view ? "image" : l.doc ? "pdf" : null);
 
+  // The supply list, read into sections: a child sees their grade (or, at
+  // the middle school, the core list plus their classes), with the full
+  // sheet one tap away.
+  const SUPPLIES_PREFIX = "bvl-supplies-v1:";
+  async function getSupplies(school) {
+    const key = `${SUPPLIES_PREFIX}${school}`;
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
+    if (cached && Date.now() - cached.fetchedAt < SCHOOL_INFO_FRESH_MS) return cached.data;
+    try {
+      const res = await fetch(`${SCHOOL_API}?school=${school}&supplies=1`);
+      if (!res.ok) throw new Error(`supplies ${res.status}`);
+      const data = await res.json();
+      try { localStorage.setItem(key, JSON.stringify({ fetchedAt: Date.now(), data })); } catch {}
+      return data;
+    } catch { return cached ? cached.data : null; }
+  }
+
+  async function openSuppliesSheet(school, link) {
+    $("sheetDate").textContent = "Supply list";
+    const body = $("sheetBody");
+    body.innerHTML = `<p class="sheet-note doc-loading">Loading…</p>`;
+    showSheet(null);
+    const data = await getSupplies(school);
+    if ($("sheetDate").textContent !== "Supply list" || sheet.hidden) return;
+    const secs = [...((data && data.sections) || [])].sort((a, b) => (a.grade === null || b.grade === null) ? 0 : a.grade - b.grade);
+    if (!secs.length) {
+      // Can't read it: fall back to the sheet itself.
+      body.innerHTML = "";
+      const kind = viewable(link);
+      if (kind) { openViewerSheet("Supply list", link.view || link.href, kind); return; }
+      body.innerHTML = `<p class="sheet-intro">Couldn't read the list right now.</p>`;
+      return;
+    }
+    const mine = activeKids().filter((k) => k.school === school);
+    const graded = secs.some((sec) => sec.grade !== null);
+    let pick = null;
+    if (graded) {
+      const grades = [...new Set(mine.map((k) => k.grade))];
+      pick = grades.length === 1 ? secs.find((sec) => sec.grade === grades[0]) || secs[0] : secs[0];
+    }
+    const render = () => {
+      body.innerHTML = "";
+      if (graded) {
+        const chips = document.createElement("div"); chips.className = "chips supply-pick";
+        for (const sec of secs) chips.appendChild(chip(gradeShort(sec.grade), sec === pick, () => { pick = sec; render(); }));
+        body.appendChild(chips);
+        const h = document.createElement("h3"); h.className = "supply-h"; h.textContent = `${gradeName(pick.grade)} · ${schoolName(school)}`;
+        body.appendChild(h);
+        body.appendChild(list(pick.lines));
+      } else {
+        // Middle school: the core list, then the child's classes first.
+        const acts = new Set(mine.flatMap((k) => k.acts.map((a) => a.toLowerCase())));
+        const order = [...secs].sort((a, b) => rank(a) - rank(b));
+        function rank(sec) { const t = sec.title.toLowerCase(); return /core/.test(t) ? 0 : [...acts].some((a) => t.includes(a.split(" ").pop())) ? 1 : 2; }
+        for (const sec of order) {
+          const h = document.createElement("h3"); h.className = "supply-h"; h.textContent = titleCase(sec.title);
+          body.appendChild(h); body.appendChild(list(sec.lines));
+        }
+      }
+      for (const n of (data.notes || [])) { const p = document.createElement("p"); p.className = "sheet-note"; p.textContent = n; body.appendChild(p); }
+      const full = document.createElement("button");
+      full.type = "button"; full.className = "sheet-action sheet-action-quiet"; full.textContent = "See the full list";
+      full.addEventListener("click", () => { const kind = viewable(link); if (kind) openViewerSheet("Supply list", link.view || link.href, kind); else window.open(link.href, "_blank", "noopener"); });
+      body.appendChild(full);
+      const hint = document.createElement("p"); hint.className = "sheet-hint"; hint.textContent = "Read from the school's supply list. Check the full list if anything looks off.";
+      body.appendChild(hint);
+    };
+    const list = (lines) => { const ul = document.createElement("ul"); ul.className = "supply-list"; for (const l of lines) { const li = document.createElement("li"); li.textContent = l; ul.appendChild(li); } return ul; };
+    const titleCase = (t) => t.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).replace(/\bPe\b/g, "PE").replace(/\bArt\b/g, "Art");
+    render();
+  }
+
   async function renderSchoolView() {
     const token = ++schoolToken;
     const stale = () => token !== schoolToken;
@@ -1901,6 +1974,7 @@
     let quick = "", sections = "";
     const viewers = []; // [id, label, url, kind] wired after paint
     const rowAttrs = (l, id) => {
+      if (/supply/i.test(l.label) && /\.pdf$/i.test(l.href)) { viewers.push([id, "supplies", l, "supplies"]); return `href="#" data-view="${id}"`; }
       const kind = viewable(l);
       if (kind) { viewers.push([id, l.label, l.view || l.href, kind]); return `href="#" data-view="${id}"`; }
       return `href="${esc(l.href)}"${l.href.startsWith("mailto:") || l.href.startsWith("tel:") ? "" : ' target="_blank" rel="noopener"'}`;
@@ -1913,7 +1987,11 @@
       for (const q of QUICK) {
         if (q.phone) continue;
         const l = links.find((x) => q.test(x, span)) || (q.label === "Handbook" ? links.find((x) => /handbook/i.test(x.group || "")) : null);
-        if (l) actions.push({ ...l, label: q.label, sub: l.label !== q.label ? l.label : "" });
+        if (l) {
+          const grades = [...new Set(activeKids().filter((k) => k.school === school).map((k) => k.grade))];
+          const sub = q.label === "Supply list" && grades.length === 1 ? gradeName(grades[0]) : (l.label !== q.label ? l.label : "");
+          actions.push({ ...l, label: q.label, sub });
+        }
       }
       quick = actions.length ? `<div class="quick">${actions.slice(0, 6).map((a, n) =>
         `<a class="quick-btn" ${rowAttrs(a, `q${n}`)}><span class="quick-label">${esc(a.label)}</span>${a.sub ? `<span class="quick-sub">${esc(a.sub)}</span>` : ""}</a>`).join("")}</div>` : "";
@@ -1955,7 +2033,10 @@
     const sub = $("schoolSubscribe");
     if (sub) sub.addEventListener("click", () => openSubscribeSheet(null, school));
     for (const [id, label, url, kind] of viewers) {
-      el.querySelectorAll(`[data-view="${id}"]`).forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); openViewerSheet(label, url, kind); }));
+      el.querySelectorAll(`[data-view="${id}"]`).forEach((a) => a.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (kind === "supplies") openSuppliesSheet(school, url); else openViewerSheet(label, url, kind);
+      }));
     }
   }
 

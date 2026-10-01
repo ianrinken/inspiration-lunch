@@ -663,7 +663,13 @@ button.sheet-action { border: none; cursor: pointer; }
   flex: none; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
   color: var(--text-soft);
 }
-.up-peek { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The clip box for the ellipsis gets headroom: iOS's system font paints
+   tall glyphs above a "normal" line box and the tops were shaved off. */
+.up-peek {
+  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.6; padding: 2px 0; margin: -2px 0;
+}
+.up-title { line-height: 1.6; }
 .up-chev { flex: none; width: 12px; height: 8px; color: var(--text-soft); transition: transform .2s ease; }
 .upcoming.open .up-chev { transform: rotate(180deg); }
 .upcoming.open .up-peek { visibility: hidden; }

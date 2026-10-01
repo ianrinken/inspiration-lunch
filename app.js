@@ -1575,7 +1575,7 @@
   /* ---------------- school info sheet ---------------- */
 
   const SCHOOL_API = "/.netlify/functions/school";
-  const SCHOOL_INFO_PREFIX = "bvl-school-v2:"; // v2: viewable docs, clubs
+  const SCHOOL_INFO_PREFIX = "bvl-school-v3:"; // v3: no district calendar PDF (the app is the calendar)
   const SCHOOL_INFO_FRESH_MS = 24 * 60 * 60 * 1000;
 
   async function getSchoolInfo(school) {
@@ -1584,7 +1584,7 @@
     try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch {}
     if (cached && Date.now() - cached.fetchedAt < SCHOOL_INFO_FRESH_MS) return cached.info;
     try {
-      const res = await fetch(`${SCHOOL_API}?school=${school}&v=2`);
+      const res = await fetch(`${SCHOOL_API}?school=${school}&v=3`);
       if (!res.ok) throw new Error(`school ${res.status}`);
       const info = await res.json();
       try { localStorage.setItem(key, JSON.stringify({ fetchedAt: Date.now(), info })); } catch {}

@@ -101,9 +101,6 @@ exports.handler = async (event) => {
     // Family-facing menus only; Teachers/Staff, Departments and the
     // school list are skipped.
     for (const title of ["Parents", "Students", "Activities"]) for (const item of pick(title)) add(item, title);
-    // The newest district calendar PDF ("26-27 BVSD Calendar").
-    const cals = pick("Calendar").filter((i) => /^\d\d-\d\d BVSD Calendar$/.test(i.label)).sort((a, b) => b.label.localeCompare(a.label));
-    if (cals[0]) add({ ...cals[0], label: `District calendar ${cals[0].label.slice(0, 5)}` }, "District");
     const sky = pick("Skyward").find((i) => /Family/.test(i.label));
     if (sky) add({ ...sky, label: "Skyward family access" }, "District");
 

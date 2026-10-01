@@ -1166,22 +1166,38 @@
     body.innerHTML =
       `<p class="sheet-intro"><b>${esc(what)}</b><br>Your calendar app checks this feed on its own, so new games, ` +
       `time changes and cancellations show up without opening this app again.</p>`;
+    // webcals:// = a subscription fetched over https. Plain webcal:// is
+    // fetched over http, and this site redirects http away, which Apple's
+    // fetcher doesn't reliably follow.
+    const webcal = url.replace(/^https:\/\//, "webcals://").replace(/^http:\/\//, "webcal://");
     const apple = document.createElement("a");
     apple.className = "sheet-action";
-    apple.href = url.replace(/^https?:\/\//, "webcal://");
+    apple.href = webcal;
     apple.textContent = "Add to iPhone or Mac calendar";
     body.appendChild(apple);
-    const google = document.createElement("button");
-    google.type = "button"; google.className = "sheet-action sheet-action-quiet";
-    google.textContent = "Copy link for Google Calendar";
-    google.addEventListener("click", async () => {
+    const appleHint = document.createElement("p");
+    appleHint.className = "sheet-hint";
+    appleHint.textContent = "Tap Subscribe when your phone asks. It then lives under Calendars as a subscribed calendar; make sure it's checked.";
+    body.appendChild(appleHint);
+    // Google Calendar opens its own "add this calendar" screen when handed
+    // the feed address this way; no copying and pasting.
+    const google = document.createElement("a");
+    google.className = "sheet-action sheet-action-google";
+    google.href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
+    google.target = "_blank"; google.rel = "noopener";
+    google.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
+    body.appendChild(google);
+    const copy = document.createElement("button");
+    copy.type = "button"; copy.className = "link-btn copy-link";
+    copy.textContent = "Copy the feed link instead";
+    copy.addEventListener("click", async () => {
       try { await navigator.clipboard.writeText(url); toast("Link copied"); }
       catch { prompt("Copy this link:", url); }
     });
-    body.appendChild(google);
+    body.appendChild(copy);
     const hint = document.createElement("p");
     hint.className = "sheet-hint";
-    hint.textContent = "Google Calendar: on a computer, open Other calendars, choose From URL, and paste the link. It then syncs to your phone.";
+    hint.textContent = "Google asks you to confirm, then the calendar syncs to the Google Calendar app on your phone. If it doesn't open, paste the copied link under Other calendars, From URL, on a computer.";
     body.appendChild(hint);
     showSheet(null);
   }

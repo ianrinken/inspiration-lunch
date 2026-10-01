@@ -710,3 +710,5 @@ button.sheet-action { border: none; cursor: pointer; }
   color: var(--text); background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 14px;
 }
 .code-input:focus { outline: 2px solid var(--bv-red); outline-offset: 2px; }
+
+.copy-link { display: block; margin: 2px auto 0; font-size: .88rem; font-family: inherit; }

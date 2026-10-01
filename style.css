@@ -683,3 +683,12 @@ button.sheet-action { border: none; cursor: pointer; }
 .notify-row input { flex: none; width: 24px; height: 24px; accent-color: var(--bv-red); cursor: pointer; margin: 0; }
 .notify-test { padding-left: 0; }
 .notify-test[hidden] { display: none; }
+
+/* ---------- What's-new walkthrough ---------- */
+.tour { padding: 6px 2px 18px; min-height: 190px; }
+.tour-step { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--bv-red); }
+.tour-h { font-family: var(--display); font-weight: 600; font-size: 1.35rem; margin: 6px 0 8px; line-height: 1.2; }
+.tour-p { font-size: .95rem; line-height: 1.5; color: var(--text-soft); }
+.tour-dots { display: flex; gap: 6px; margin-top: 16px; }
+.tour-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.tour-dots span.on { background: var(--bv-red); }

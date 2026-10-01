@@ -1563,6 +1563,58 @@
   $("whatsNewClose").addEventListener("click", dismissWhatsNew);
   $("whatsNewGo").addEventListener("click", openKidsSheet);
 
+  /* ---------------- what's-new walkthrough ---------------- */
+
+  // Shown once to people who used the app before this round. New visitors
+  // see the "Set up my kids" button and need no tour.
+  const TOUR_KEY = "bvl-tour-v1";
+  const TOUR = [
+    { h: "Your kids, your calendar",
+      p: "Tap Set up my kids under the header. Add each child's school, grade and activities, no names needed. Then switch between one child, all of them, or everything at a school." },
+    { h: "Events, cleaned up",
+      p: "Cancelled and postponed games are marked instead of missing. Details on any event opens tickets and directions. Coming up shows the next two weeks at a glance." },
+    { h: "Your phone's calendar, kept in sync",
+      p: "In Edit, tap Subscribe next to a child. Their games, time changes and cancellations flow into your calendar on their own." },
+    { h: "A heads-up every evening",
+      p: "Turn on the 7 pm notification in Edit for tomorrow's lunch and events, one line per child. Share my setup sends the same kids to the other parent's phone." },
+  ];
+
+  function openTour() {
+    try { localStorage.setItem(TOUR_KEY, "done"); } catch {}
+    dismissWhatsNew();
+    let step = 0;
+    $("sheetDate").textContent = "What's new";
+    const body = $("sheetBody");
+    const paint = () => {
+      const t = TOUR[step];
+      const last = step === TOUR.length - 1;
+      body.innerHTML =
+        `<div class="tour"><p class="tour-step">${step + 1} of ${TOUR.length}</p>` +
+        `<h3 class="tour-h">${esc(t.h)}</h3><p class="tour-p">${esc(t.p)}</p>` +
+        `<p class="tour-dots">${TOUR.map((_, i) => `<span class="${i === step ? "on" : ""}"></span>`).join("")}</p></div>`;
+      const next = document.createElement("button");
+      next.type = "button"; next.className = "sheet-action";
+      next.textContent = last ? (kids.length ? "Done" : "Set up my kids") : "Next";
+      next.addEventListener("click", () => {
+        if (!last) { step++; paint(); return; }
+        closeSheet();
+        if (!kids.length) setTimeout(() => openKidsSheet(), 320);
+      });
+      body.appendChild(next);
+      if (!last) {
+        const skip = document.createElement("button");
+        skip.type = "button"; skip.className = "sheet-remove"; skip.textContent = "Skip";
+        skip.addEventListener("click", closeSheet);
+        body.appendChild(skip);
+      }
+    };
+    paint();
+    showSheet(null);
+  }
+
+  let tourDue = false;
+  try { tourDue = isReturning && localStorage.getItem(TOUR_KEY) !== "done"; } catch {}
+
   /* ---------------- tabs ---------------- */
 
   function setTab(t) {
@@ -1662,4 +1714,6 @@
   renderHero();
   updateWhatsNew();
   if (imported) toast(imported === 1 ? "1 child added from the link" : `${imported} kids added from the link`);
+  // Let the page paint first; a sheet sliding up over a blank screen reads as broken.
+  else if (tourDue) setTimeout(openTour, 900);
 })();

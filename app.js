@@ -1373,25 +1373,32 @@
       catch { prompt("Copy this link:", url); }
     };
     if (onPhone) {
-      const h = document.createElement("p"); h.className = "sheet-note sub-google";
-      h.innerHTML = `<b>Google Calendar</b>: the phone app can't add a calendar by link, but Google's website can. ` +
-        `Copy the link, open the From URL page below, and if it asks you to sign in or shows the phone app instead, use your browser's ` +
-        `<b>${isIOS ? "Request Desktop Website" : "Desktop site"}</b> option${isIOS ? " (the aA button in Safari)" : " (the three-dot menu in Chrome)"}, then paste. It then syncs to the phone app.`;
-      body.appendChild(h);
+      const steps = document.createElement("div");
+      steps.className = "steps";
+      steps.innerHTML = `<p class="steps-title">${GOOGLE_G_ICON}<span>Google Calendar, step by step</span></p>` +
+        `<p class="sheet-note">The Google Calendar app can't add a calendar by link, so this goes through Google's website once. About a minute.</p>` +
+        `<ol>` +
+        `<li><span>Copy the calendar link.</span><div class="step-act" id="stepCopy"></div></li>` +
+        `<li><span>Open Google Calendar's settings page.</span><div class="step-act" id="stepOpen"></div></li>` +
+        `<li><span>${isIOS
+          ? "If it shows a phone-sized page or the Google Calendar app opens, come back to Safari, tap the <b>aA</b> at the left of the address bar, then <b>Request Desktop Website</b>."
+          : "If it shows a phone-sized page or the Google Calendar app opens, come back to Chrome, tap the <b>three dots</b> at the top right, then turn on <b>Desktop site</b>."}</span></li>` +
+        `<li><span>Sign in if asked. In the <b>URL of calendar</b> box, paste the link, then tap <b>Add calendar</b>.</span></li>` +
+        `<li><span>Done. It appears in the Google Calendar app on your phone within a few minutes and updates itself from then on.</span></li>` +
+        `</ol>`;
+      body.appendChild(steps);
       const g1 = document.createElement("button");
-      g1.type = "button"; g1.className = "sheet-action sheet-action-google"; g1.innerHTML = `${GOOGLE_G_ICON}<span>Copy the link</span>`;
-      g1.addEventListener("click", copy);
-      body.appendChild(g1);
+      g1.type = "button"; g1.className = "chip on"; g1.textContent = "Copy the link";
+      g1.addEventListener("click", async () => { await copy(); g1.textContent = "Copied"; });
+      steps.querySelector("#stepCopy").appendChild(g1);
       const g2 = document.createElement("a");
-      g2.className = "sheet-action sheet-action-quiet";
-      g2.href = "https://calendar.google.com/calendar/u/0/r/settings/addbyurl";
-      g2.target = "_blank"; g2.rel = "noopener";
-      g2.textContent = "Open Google's From URL page";
-      body.appendChild(g2);
+      g2.className = "chip on"; g2.href = "https://calendar.google.com/calendar/u/0/r/settings/addbyurl";
+      g2.target = "_blank"; g2.rel = "noopener"; g2.textContent = "Open Google Calendar settings";
+      steps.querySelector("#stepOpen").appendChild(g2);
       const g3 = document.createElement("a");
       g3.className = "link-btn copy-link";
-      g3.href = `mailto:?subject=${encodeURIComponent(`${what} calendar`)}&body=${encodeURIComponent(`Open calendar.google.com on a computer, then Other calendars > + > From URL, and paste:\n\n${url}`)}`;
-      g3.textContent = "Or email the link to myself for a computer";
+      g3.href = `mailto:?subject=${encodeURIComponent(`${what} calendar`)}&body=${encodeURIComponent(`On a computer, open calendar.google.com, then Other calendars > + > From URL, and paste this link:\n\n${url}`)}`;
+      g3.textContent = "Rather do it on a computer? Email the link to yourself";
       body.appendChild(g3);
     } else {
       const google = document.createElement("a");

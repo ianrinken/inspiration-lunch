@@ -778,3 +778,13 @@ button.sheet-action { border: none; cursor: pointer; }
 
 .sub-google { margin: 14px 0 10px; line-height: 1.5; }
 .sub-google b { color: var(--text); }
+
+/* ---------- Step-by-step (Google Calendar on a phone) ---------- */
+.steps { margin-top: 18px; }
+.steps-title { display: flex; align-items: center; gap: 8px; font-family: var(--display); font-weight: 600; font-size: 1.05rem; margin-bottom: 6px; }
+.steps ol { list-style: none; counter-reset: step; margin-top: 10px; }
+.steps li { counter-increment: step; display: flex; flex-direction: column; gap: 8px; padding: 10px 0 10px 40px; position: relative; border-top: 1px solid var(--border); font-size: .93rem; line-height: 1.45; }
+.steps li::before { content: counter(step); position: absolute; left: 0; top: 10px; width: 28px; height: 28px; border-radius: 50%; background: var(--bv-red); color: #fff; font-family: var(--display); font-weight: 700; font-size: .9rem; display: flex; align-items: center; justify-content: center; }
+.steps li b { font-weight: 700; color: var(--text); }
+.step-act .chip { font-size: .9rem; }
+a.chip { text-decoration: none; display: inline-flex; align-items: center; }

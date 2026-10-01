@@ -1547,10 +1547,12 @@
 
     save.addEventListener("click", () => {
       if (save.classList.contains("disabled")) return;
+      const firstChild = !existing && kids.length === 0;
       commit();
       dismissWhatsNew();
       closeSheet();
       setMode(draft.id);
+      if (firstChild) setTimeout(() => openSchoolTip(draft.school), 380);
     });
     if (remove) {
       remove.addEventListener("click", () => {
@@ -1907,6 +1909,31 @@
 
   $("whatsNewClose").addEventListener("click", dismissWhatsNew);
   $("whatsNewGo").addEventListener("click", openKidsSheet);
+
+  /* ---------------- after the first child: point at the School tab ---------------- */
+
+  const SCHOOL_TIP_KEY = "bvl-tip-school";
+  function openSchoolTip(school) {
+    let seen = false;
+    try { seen = localStorage.getItem(SCHOOL_TIP_KEY) === "done"; } catch {}
+    if (seen) return;
+    try { localStorage.setItem(SCHOOL_TIP_KEY, "done"); } catch {}
+    $("sheetDate").textContent = "One more thing";
+    const body = $("sheetBody");
+    body.innerHTML =
+      `<div class="tour"><h3 class="tour-h">${esc(schoolName(school))} has its own tab</h3>` +
+      `<p class="tour-p">The School tab has the office phone, how to report an absence, the bell schedule, ` +
+      `supply list, handbooks and more, all right here in the app.</p></div>`;
+    const go = document.createElement("button");
+    go.type = "button"; go.className = "sheet-action"; go.textContent = "Show me";
+    go.addEventListener("click", () => { closeSheet(); setTab("school"); window.scrollTo({ top: 0, behavior: "smooth" }); });
+    body.appendChild(go);
+    const later = document.createElement("button");
+    later.type = "button"; later.className = "sheet-remove"; later.textContent = "Later";
+    later.addEventListener("click", closeSheet);
+    body.appendChild(later);
+    showSheet(null);
+  }
 
   /* ---------------- what's-new walkthrough ---------------- */
 

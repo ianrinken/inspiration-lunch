@@ -6,3 +6,21 @@
 # it alongside the functions as plain node_modules.
 [functions]
   included_files = ["node_modules/**"]
+
+# Repo housekeeping files aren't part of the site.
+[[redirects]]
+  from = "/package.json"
+  to = "/index.html"
+  status = 404
+[[redirects]]
+  from = "/package-lock.json"
+  to = "/index.html"
+  status = 404
+[[redirects]]
+  from = "/netlify.toml"
+  to = "/index.html"
+  status = 404
+[[redirects]]
+  from = "/netlify/*"
+  to = "/index.html"
+  status = 404

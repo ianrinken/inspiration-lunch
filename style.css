@@ -788,3 +788,12 @@ button.sheet-action { border: none; cursor: pointer; }
 .steps li b { font-weight: 700; color: var(--text); }
 .step-act .chip { font-size: .9rem; }
 a.chip { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* Subscribe sheet: Google's copies of a view, one row per calendar */
+.sub-google-box { margin-top: 4px; }
+.sub-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .95rem; margin: 16px 0 4px; color: var(--text); }
+.sub-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); min-width: 0; }
+.sub-row:last-of-type { border-bottom: 1px solid var(--border); }
+.sub-row > span { min-width: 0; line-height: 1.4; }
+.sub-add { flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 999px; background: var(--bv-red); color: #fff; font-weight: 700; font-size: .9rem; text-decoration: none; }
+.sub-add:active { transform: scale(.98); }

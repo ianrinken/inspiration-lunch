@@ -404,6 +404,20 @@ async function eventsFor(school, start, end) {
   return events;
 }
 
+// list=activities: everything a student at this school could be signed
+// up for, drawn from the whole activities feed (every season, not just
+// the month on screen), so a parent setting up a child picks from what
+// actually exists. Attribution is the same keep as the calendar. A
+// one-off title is more likely a typo than a program.
+async function activitiesFor(school) {
+  const counts = {};
+  for (const ev of parseIcs(await grab(BOUND_ICS), "0000-01-01", "9999-12-31", makeKeep(school))) {
+    const name = ev.act || (isActivity(ev.t) ? activityName(ev.t) : null);
+    if (name) counts[name] = (counts[name] || 0) + 1;
+  }
+  return Object.keys(counts).filter((n) => counts[n] >= 2).sort();
+}
+
 exports.handler = async (event) => {
   const q = { ...(event.queryStringParameters || {}) };
   // The clean feed address (/feed/<school>/<grade>/<acts>/calendar.ics)
@@ -429,18 +443,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    // list=activities: everything a student at this school could be signed
-    // up for, drawn from the whole activities feed (every season, not just
-    // the month on screen), so a parent setting up a child picks from what
-    // actually exists. Attribution is the same keep as the calendar.
     if (listing) {
-      const counts = {};
-      for (const ev of parseIcs(await grab(BOUND_ICS), "0000-01-01", "9999-12-31", makeKeep(schools[0]))) {
-        const name = ev.act || (isActivity(ev.t) ? activityName(ev.t) : null);
-        if (name) counts[name] = (counts[name] || 0) + 1;
-      }
-      // A one-off title is more likely a typo than a program.
-      const activities = Object.keys(counts).filter((n) => counts[n] >= 2).sort();
       return {
         statusCode: 200,
         headers: {
@@ -449,7 +452,7 @@ exports.handler = async (event) => {
           "Cache-Control": "public, max-age=3600",
           "Netlify-CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
         },
-        body: JSON.stringify({ activities }),
+        body: JSON.stringify({ activities: await activitiesFor(schools[0]) }),
       };
     }
 
@@ -463,9 +466,16 @@ exports.handler = async (event) => {
       // A child's feed: their grade and activities, same rule as the app.
       // "all" is how the clean /feed/… address says "no filter".
       const grade = /^-?\d{1,2}$/.test(q.grade || "") ? parseInt(q.grade, 10) : null;
-      const acts = (q.acts === "all" ? "" : decodeURIComponent(q.acts || "")).split(",").filter(Boolean);
-      if (grade !== null || acts.length) {
-        picked = picked.filter((ev) => allowsFor(ev, grade, acts));
+      // acts=none: no activity events at all; only=1: nothing but the named
+      // activities. The mirrored Google Calendars are built from these two
+      // (one calendar per grade, one per activity), so nothing lands twice.
+      const none = q.acts === "none";
+      const acts = (q.acts === "all" || none ? "" : decodeURIComponent(q.acts || "")).split(",").filter(Boolean);
+      const only = q.only === "1" && acts.length > 0;
+      if (grade !== null || acts.length || none) {
+        const actOf = (ev) => ev.act || (isActivity(ev.t) ? activityName(ev.t) : null);
+        picked = picked.filter((ev) => none ? !actOf(ev) : only ? acts.includes(actOf(ev)) : allowsFor(ev, grade, acts));
+        if (only && acts.length === 1 && schools.length === 1) name = `${acts[0]} · ${SCHOOL_NAMES[schools[0]]}`;
         if (grade !== null && schools.length === 1) {
           const label = grade === -1 ? "Junior kindergarten" : grade === 0 ? "Kindergarten" : `${grade}${["th", "st", "nd", "rd"][(grade % 100 > 10 && grade % 100 < 14) || grade % 10 > 3 ? 0 : grade % 10]} grade`;
           name = `${label} · ${SCHOOL_NAMES[schools[0]]}`;
@@ -515,5 +525,6 @@ exports.handler = async (event) => {
 exports.eventsFor = eventsFor;
 exports.allowsFor = allowsFor;
 exports.SCHOOL_NAMES = SCHOOL_NAMES;
+exports.activitiesFor = activitiesFor;
 exports.toCentral = toCentral;
 exports.addDays = addDays;

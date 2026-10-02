@@ -1342,13 +1342,31 @@
     return `${location.origin}/feed/${sch}/${grade}/${acts}/calendar.ics`;
   }
 
+  // Google's own copies of these feeds (netlify/functions/mirror.mjs): the
+  // one thing Google's phone apps can add in a single tap. Fetched once.
+  const MIRROR_API = "/.netlify/functions/mirror";
+  let mirrorCache = null;
+  async function getMirror() {
+    if (mirrorCache) return mirrorCache;
+    try {
+      const res = await fetch(MIRROR_API);
+      if (res.ok) mirrorCache = (await res.json()).calendars || {};
+    } catch { /* offline, or not set up yet: the feed link still works */ }
+    return mirrorCache || {};
+  }
+  // Google's own share-link form: the calendar id, base64, no padding.
+  const googleAddUrl = (id) => `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(btoa(id).replace(/=+$/, ""))}`;
+
   function openSubscribeSheet(kid, school) {
+    const sch = kid ? kid.school : school;
     const what = kid ? `${gradeName(kid.grade)} · ${schoolName(kid.school)}` : schoolName(school);
     const url = feedUrl(kid, school);
     $("sheetDate").textContent = "Subscribe";
     const body = $("sheetBody");
+    const token = String(Date.now());
+    body.dataset.sub = token;
     body.innerHTML =
-      `<p class="sheet-intro"><b>${esc(what)}</b><br>Your calendar app checks this feed on its own, so new games, ` +
+      `<p class="sheet-intro"><b>${esc(what)}</b><br>Your calendar app checks this on its own, so new games, ` +
       `time changes and cancellations show up without opening this app again.</p>`;
     // webcals:// = a subscription fetched over https. Plain webcal:// is
     // fetched over http, and this site redirects http away, which Apple's
@@ -1370,39 +1388,93 @@
       appleHint.textContent = "Tap Subscribe when your phone asks. It then lives under Calendars as a subscribed calendar; make sure it's checked.";
       body.appendChild(appleHint);
     }
-    if (isIOS || android) {
-      // Google Calendar's phone app can't add a calendar by link; only its
-      // website on a computer can. Say so in one line rather than walk
-      // people through a workaround.
-      const note = document.createElement("p");
-      note.className = "sheet-note sub-google";
-      note.textContent = android
-        ? "Google Calendar can only add a subscription from a computer: open brandonvalleylunch.com there, tap Subscribe, then Add to Google Calendar. Or copy the link and paste it under Other calendars, From URL, at calendar.google.com."
-        : "Google Calendar users: add it from a computer at brandonvalleylunch.com (Subscribe, then Add to Google Calendar).";
-      body.appendChild(note);
-      if (android) {
-        const c = document.createElement("button");
-        c.type = "button"; c.className = "sheet-action sheet-action-quiet"; c.textContent = "Copy the link";
-        c.addEventListener("click", copy);
-        body.appendChild(c);
-      }
-    } else {
-      const google = document.createElement("a");
-      google.className = "sheet-action sheet-action-google";
-      google.href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url)}`;
-      google.target = "_blank"; google.rel = "noopener";
-      google.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
-      body.appendChild(google);
+    const gBox = document.createElement("div");
+    gBox.className = "sub-google-box";
+    body.appendChild(gBox);
+    if (!isIOS && !android) {
       const c = document.createElement("button");
       c.type = "button"; c.className = "link-btn copy-link"; c.textContent = "Copy the feed link instead";
       c.addEventListener("click", copy);
       body.appendChild(c);
-      const hint = document.createElement("p");
-      hint.className = "sheet-hint";
-      hint.textContent = "Google asks you to confirm, then the calendar syncs to the Google Calendar app on your phone.";
-      body.appendChild(hint);
     }
     showSheet(null);
+
+    // Without a Google copy of this view: on a computer Google adds the
+    // feed itself; on a phone it can't, and one line says so.
+    const fallback = () => {
+      if (isIOS || android) {
+        const note = document.createElement("p");
+        note.className = "sheet-note sub-google";
+        note.textContent = android
+          ? "Google Calendar can only add a subscription from a computer: open brandonvalleylunch.com there, tap Subscribe, then Add to Google Calendar. Or copy the link and paste it under Other calendars, From URL, at calendar.google.com."
+          : "Google Calendar users: add it from a computer at brandonvalleylunch.com (Subscribe, then Add to Google Calendar).";
+        gBox.appendChild(note);
+        if (android) {
+          const c = document.createElement("button");
+          c.type = "button"; c.className = "sheet-action sheet-action-quiet"; c.textContent = "Copy the link";
+          c.addEventListener("click", copy);
+          gBox.appendChild(c);
+        }
+      } else {
+        const google = document.createElement("a");
+        google.className = "sheet-action sheet-action-google";
+        google.href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url)}`;
+        google.target = "_blank"; google.rel = "noopener";
+        google.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
+        gBox.appendChild(google);
+        const hint = document.createElement("p");
+        hint.className = "sheet-hint";
+        hint.textContent = "Google asks you to confirm, then the calendar syncs to the Google Calendar app on your phone.";
+        gBox.appendChild(hint);
+      }
+    };
+
+    // One Google calendar per grade (with the school-wide events) and one
+    // per activity, so a child's view is one tap, or one per activity.
+    const pieces = kid
+      ? [{ key: `g:${sch}:${kid.grade}`, suffix: " and school-wide events" }, ...kid.acts.map((a) => ({ key: `a:${sch}:${a}`, name: a }))]
+      : [{ key: `s:${sch}` }];
+    getMirror().then((m) => {
+      if (body.dataset.sub !== token) return; // another sheet took over
+      const first = m[pieces[0].key];
+      if (!first || !first.synced) return fallback();
+      const ready = pieces.filter((p) => m[p.key] && m[p.key].synced);
+      const missing = pieces.filter((p) => !ready.includes(p)).map((p) => p.name).filter(Boolean);
+      const shortName = (c) => (c.name.includes(" · ") ? c.name.slice(c.name.indexOf(" · ") + 3) : c.name);
+      if (ready.length === 1) {
+        const a = document.createElement("a");
+        a.className = "sheet-action sheet-action-google";
+        a.href = googleAddUrl(m[ready[0].key].id);
+        a.target = "_blank"; a.rel = "noopener";
+        a.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
+        gBox.appendChild(a);
+      } else {
+        const head = document.createElement("p");
+        head.className = "sub-head";
+        head.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
+        gBox.appendChild(head);
+        for (const p of ready) {
+          const c = m[p.key];
+          const row = document.createElement("div");
+          row.className = "sub-row";
+          const label = document.createElement("span");
+          label.textContent = (p.name || shortName(c)) + (p.suffix || "");
+          const add = document.createElement("a");
+          add.className = "sub-add"; add.href = googleAddUrl(c.id); add.target = "_blank"; add.rel = "noopener";
+          add.textContent = "Add";
+          add.setAttribute("aria-label", `Add ${label.textContent} to Google Calendar`);
+          row.append(label, add);
+          gBox.appendChild(row);
+        }
+      }
+      const hint = document.createElement("p");
+      hint.className = "sheet-hint";
+      hint.textContent = (ready.length === 1
+        ? "Google asks you to confirm, then it shows in the Google Calendar app and keeps itself current."
+        : "One calendar per activity, so you can add or drop them later. Google asks you to confirm each one.") +
+        (missing.length ? ` ${missing.join(", ")} ${missing.length > 1 ? "aren't" : "isn't"} on Google yet; check back later.` : "");
+      gBox.appendChild(hint);
+    });
   }
 
   /* ---------------- family code ---------------- */

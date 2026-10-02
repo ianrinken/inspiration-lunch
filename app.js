@@ -1368,10 +1368,10 @@
     body.innerHTML =
       `<p class="sheet-intro"><b>${esc(what)}</b><br>Your calendar app checks this on its own, so new games, ` +
       `time changes and cancellations show up without opening this app again.</p>`;
-    // webcals:// = a subscription fetched over https. Plain webcal:// is
-    // fetched over http, and this site redirects http away, which Apple's
-    // fetcher doesn't reliably follow.
-    const webcal = url.replace(/^https:\/\//, "webcals://").replace(/^http:\/\//, "webcal://");
+    // webcal:// is the one subscription scheme iPhones understand (webcals://
+    // gets "address is invalid"). It fetches over http; the site's redirect
+    // to https is followed, same as Google's own webcal feeds.
+    const webcal = url.replace(/^https?:\/\//, "webcal://");
     const android = /android/i.test(navigator.userAgent);
     const copy = async () => {
       try { await navigator.clipboard.writeText(url); toast("Link copied"); }
@@ -1418,7 +1418,8 @@
       } else {
         const google = document.createElement("a");
         google.className = "sheet-action sheet-action-google";
-        google.href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(url)}`;
+        // Google's add-by-link accepts the webcal:// form of a feed, not https://.
+        google.href = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`;
         google.target = "_blank"; google.rel = "noopener";
         google.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
         gBox.appendChild(google);

@@ -14,7 +14,7 @@
  */
 import { getStore } from "@netlify/blobs";
 import events from "./events.js";
-import grades from "../../grades.js";
+import gradesLib from "../../grades.js";
 
 const SITE = "https://brandonvalleylunch.com";
 const store = () => getStore({ name: "mirror", consistency: "strong" });
@@ -31,25 +31,27 @@ const ORDER = [
 ];
 
 // Every calendar the script should keep, in the order it should get to
-// them. Keys are stable so a calendar survives renames: g:<school>:<grade>,
-// a:<school>:<activity>, s:<school> (the whole school).
+// them: every grade at every school first (so each child's view works
+// within the first few hours), then whole schools, then activities. Keys
+// are stable so a calendar survives renames: g:<school>:<grade>,
+// s:<school>, a:<school>:<activity>.
 export async function needed() {
   const schools = [...ORDER, ...Object.keys(events.SCHOOL_NAMES).filter((s) => !ORDER.includes(s))];
-  const out = [];
+  const grades = [], whole = [], acts = [];
   for (const school of schools) {
     const name = events.SCHOOL_NAMES[school];
-    const [lo, hi] = grades.SPAN[school];
+    const [lo, hi] = gradesLib.SPAN[school];
     for (let g = lo; g <= hi; g++) {
-      out.push({ key: `g:${school}:${g}`, name: `${name} · ${gradeLabel(g)}`, feed: `${SITE}/feed/${school}/${g}/none/calendar.ics` });
+      grades.push({ key: `g:${school}:${g}`, name: `${name} · ${gradeLabel(g)}`, feed: `${SITE}/feed/${school}/${g}/none/calendar.ics` });
     }
-    let acts = [];
-    try { acts = await events.activitiesFor(school); } catch { /* a school without activities is fine */ }
-    for (const act of acts) {
-      out.push({ key: `a:${school}:${act}`, name: `${name} · ${act}`, feed: `${SITE}/feed/${school}/all/${encodeURIComponent(act)}/calendar.ics?only=1` });
+    whole.push({ key: `s:${school}`, name: `${name} · All events`, feed: `${SITE}/feed/${school}/all/all/calendar.ics` });
+    let list = [];
+    try { list = await events.activitiesFor(school); } catch { /* a school without activities is fine */ }
+    for (const act of list) {
+      acts.push({ key: `a:${school}:${act}`, name: `${name} · ${act}`, feed: `${SITE}/feed/${school}/all/${encodeURIComponent(act)}/calendar.ics?only=1` });
     }
-    out.push({ key: `s:${school}`, name: `${name} · All events`, feed: `${SITE}/feed/${school}/all/all/calendar.ics` });
   }
-  return out;
+  return [...grades, ...whole, ...acts];
 }
 
 const cleanEntry = (e) => e && typeof e.id === "string" && /^[\w.-]+@(group\.)?calendar\.google\.com$/.test(e.id)

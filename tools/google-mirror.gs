@@ -12,7 +12,10 @@
  *      starter code → save.
  *   2. Put the site's secret in SECRET below (the site refuses reports
  *      without it).
- *   3. Pick "setup" in the toolbar's function menu → Run → allow access
+ *   3. In the left column, next to Services, press + → pick
+ *      "Google Calendar API" → Add. (The script talks to Calendar through
+ *      it; the name it gets, "Calendar", must stay as is.)
+ *   4. Pick "setup" in the toolbar's function menu → Run → allow access
  *      (Calendar and "connect to an external service").
  * It then runs itself every hour. The calendars sit in the owner's Google
  * Calendar list hidden and unchecked; the app shows them to parents.
@@ -26,7 +29,6 @@ var SECRET = "PASTE_THE_SECRET_HERE";
 var TZ = "America/Chicago";
 var BUDGET_MS = 270000;   // stop at 4.5 min; Google ends a run at 6
 var NEW_PER_RUN = 10;     // Google rate-limits creating calendars
-var API = "https://www.googleapis.com/calendar/v3";
 
 function setup() {
   ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
@@ -123,11 +125,7 @@ function createCalendar(name) {
 
 // Public, read-only: anyone can add it, nobody can change it.
 function makePublic(id) {
-  try {
-    api("post", "/calendars/" + encodeURIComponent(id) + "/acl", { role: "reader", scope: { type: "default" } });
-  } catch (e) {
-    if (!/-> 409/.test(String(e))) throw e; // already public
-  }
+  withRetry(function () { Calendar.Acl.insert({ role: "reader", scope: { type: "default" } }, id); });
 }
 
 // All feeds in parallel, in gentle batches. null where a fetch failed.
@@ -199,10 +197,11 @@ function toGoogle(e) {
 // Bring one calendar in line with its feed. false = out of time (the feed's
 // fingerprint isn't saved, so the next run finishes the job).
 function applyFeed(calId, feed, started) {
-  var base = "/calendars/" + encodeURIComponent(calId) + "/events";
   var existing = {}, token = null;
   do {
-    var page = api("get", base + "?maxResults=2500&showDeleted=false&timeZone=" + encodeURIComponent(TZ) + (token ? "&pageToken=" + encodeURIComponent(token) : ""));
+    var opts = { maxResults: 2500, showDeleted: false, timeZone: TZ };
+    if (token) opts.pageToken = token;
+    var page = withRetry(function () { return Calendar.Events.list(calId, opts); });
     (page.items || []).forEach(function (it) { if (it.iCalUID) existing[it.iCalUID] = it; });
     token = page.nextPageToken;
   } while (token);
@@ -212,10 +211,12 @@ function applyFeed(calId, feed, started) {
     var e = feed[i], body = toGoogle(e), have = existing[e.uid];
     if (!have) {
       body.iCalUID = e.uid;
-      api("post", base + "/import", body);
+      withRetry(function () { Calendar.Events["import"](body, calId); });
     } else {
       var old = have.extendedProperties && have.extendedProperties["private"] && have.extendedProperties["private"].bvl;
-      if (old !== body.extendedProperties["private"].bvl) api("put", base + "/" + encodeURIComponent(have.id), body);
+      if (old !== body.extendedProperties["private"].bvl) {
+        withRetry(function () { Calendar.Events.update(body, calId, have.id); });
+      }
     }
     delete existing[e.uid];
   }
@@ -228,23 +229,22 @@ function applyFeed(calId, feed, started) {
     if (Date.now() - started > BUDGET_MS) return false;
     var it = existing[left[j]];
     var d = ((it.start && (it.start.date || it.start.dateTime)) || "").slice(0, 10);
-    if (d >= windowStart) api("delete", base + "/" + encodeURIComponent(it.id));
+    if (d >= windowStart) withRetry(function () { Calendar.Events.remove(calId, it.id); });
   }
   return true;
 }
 
-function api(method, path, payload) {
-  var opts = { method: method, muteHttpExceptions: true, headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() } };
-  if (payload) { opts.contentType = "application/json"; opts.payload = JSON.stringify(payload); }
-  for (var attempt = 0; attempt < 4; attempt++) {
-    var res = UrlFetchApp.fetch(API + path, opts);
-    var code = res.getResponseCode();
-    if (code === 204) return null;
-    var text = res.getContentText();
-    if (code < 300) return text ? JSON.parse(text) : null;
-    var retry = code === 429 || code >= 500 || (code === 403 && /rateLimitExceeded/i.test(text));
-    if (retry && attempt < 3) { Utilities.sleep(1500 * Math.pow(2, attempt)); continue; }
-    throw new Error(method.toUpperCase() + " " + path + " -> " + code + " " + text.slice(0, 300));
+// Google's momentary refusals (rate limit, backend hiccup) get a few
+// tries with a pause; anything else is a real error.
+function withRetry(fn) {
+  for (var attempt = 0; ; attempt++) {
+    try { return fn(); }
+    catch (e) {
+      var msg = String(e);
+      var retry = /rate ?limit|backend|internal error|503|500|timed out/i.test(msg) && !/too many calendars|usageLimits|dailyLimit/i.test(msg);
+      if (!retry || attempt >= 3) throw e;
+      Utilities.sleep(1500 * Math.pow(2, attempt));
+    }
   }
 }
 

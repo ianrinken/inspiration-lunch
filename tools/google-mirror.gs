@@ -59,6 +59,16 @@ function sync() {
         if (/limit|quota|too many/i.test(String(e))) break;
       }
     }
+    // Make each one public (retried on later runs until it sticks).
+    wanted.forEach(function (w) {
+      var id = all["id:" + w.key];
+      if (!id || all["pub:" + w.key]) return;
+      try {
+        makePublic(id);
+        all["pub:" + w.key] = "1";
+        props.setProperty("pub:" + w.key, "1");
+      } catch (e) { Logger.log("public " + w.key + ": " + e); }
+    });
 
     // Every feed at once; only the ones that changed get applied.
     var have = wanted.filter(function (w) { return !!all["id:" + w.key]; });
@@ -101,14 +111,23 @@ function sync() {
 }
 
 function createCalendar(name) {
-  var cal = CalendarApp.createCalendar(name, {
+  // Reuse one made by an earlier run that failed before saving its id, so
+  // nothing piles up in the owner's list.
+  var owned = CalendarApp.getCalendarsByName(name).filter(function (c) { return c.isOwnedByMe(); });
+  var cal = owned.length ? owned[0] : CalendarApp.createCalendar(name, {
     timeZone: TZ, hidden: true, selected: false,
     summary: "Kept current by brandonvalleylunch.com",
   });
-  var id = cal.getId();
-  // Public, read-only: anyone can add it, nobody can change it.
-  api("post", "/calendars/" + encodeURIComponent(id) + "/acl", { role: "reader", scope: { type: "default" } });
-  return id;
+  return cal.getId();
+}
+
+// Public, read-only: anyone can add it, nobody can change it.
+function makePublic(id) {
+  try {
+    api("post", "/calendars/" + encodeURIComponent(id) + "/acl", { role: "reader", scope: { type: "default" } });
+  } catch (e) {
+    if (!/-> 409/.test(String(e))) throw e; // already public
+  }
 }
 
 // All feeds in parallel, in gentle batches. null where a fetch failed.
@@ -233,7 +252,7 @@ function report(wanted, all) {
   var calendars = {};
   wanted.forEach(function (w) {
     var id = all["id:" + w.key];
-    if (id) calendars[w.key] = { id: id, name: w.name, synced: !!all["h:" + w.key] };
+    if (id) calendars[w.key] = { id: id, name: w.name, synced: !!(all["h:" + w.key] && all["pub:" + w.key]) };
   });
   var res = UrlFetchApp.fetch(SITE + "/.netlify/functions/mirror", {
     method: "post", contentType: "application/json", muteHttpExceptions: true,
@@ -244,13 +263,34 @@ function report(wanted, all) {
 
 function status() {
   var all = PropertiesService.getScriptProperties().getProperties();
-  var ids = 0, synced = 0;
-  Object.keys(all).forEach(function (k) { if (k.indexOf("id:") === 0) ids++; if (k.indexOf("h:") === 0) synced++; });
-  Logger.log("calendars created: " + ids + ", filled: " + synced + ", cursor: " + (all.cursor || 0));
+  var ids = 0, pub = 0, synced = 0;
+  Object.keys(all).forEach(function (k) {
+    if (k.indexOf("id:") === 0) ids++;
+    if (k.indexOf("pub:") === 0) pub++;
+    if (k.indexOf("h:") === 0) synced++;
+  });
+  Logger.log("calendars created: " + ids + ", public: " + pub + ", filled: " + synced + ", cursor: " + (all.cursor || 0));
 }
 
 function resync() {
   var props = PropertiesService.getScriptProperties();
   Object.keys(props.getProperties()).forEach(function (k) { if (k.indexOf("h:") === 0) props.deleteProperty(k); });
   props.setProperty("cursor", "0");
+}
+
+// Try every step once, out loud, on a single calendar.
+function diagnose() {
+  var wanted = JSON.parse(UrlFetchApp.fetch(SITE + "/.netlify/functions/mirror?list=1").getContentText()).calendars;
+  Logger.log("site lists " + wanted.length + " calendars; first: " + wanted[0].name);
+  var id = createCalendar(wanted[0].name);
+  Logger.log("calendar id: " + id);
+  makePublic(id);
+  Logger.log("made public");
+  var text = UrlFetchApp.fetch(wanted[0].feed).getContentText();
+  var evs = parseIcs(text);
+  Logger.log("feed has " + evs.length + " events; first: " + (evs[0] && evs[0].summary));
+  var ok = applyFeed(id, evs.slice(0, 3), Date.now());
+  Logger.log("wrote 3 events: " + ok);
+  PropertiesService.getScriptProperties().setProperty("id:" + wanted[0].key, id);
+  PropertiesService.getScriptProperties().setProperty("pub:" + wanted[0].key, "1");
 }

@@ -2376,33 +2376,49 @@
 
   // Shown once to people who used the app before this round. New visitors
   // see the "Set up my kids" button and need no tour.
-  const TOUR_KEY = "bvl-tour-v2";
+  // Each step carries the day it shipped; a parent sees only the steps
+  // newer than the last walkthrough they finished, so nothing is repeated.
+  const TOUR_SEEN = "bvl-tour-seen";
   const TOUR = [
-    { h: "Snow days, late starts, early outs",
+    { since: "2026-10-05", h: "Snow days, late starts, early outs",
       p: "The app watches the KELOLAND closings list. When Brandon Valley is on it, a red bar shows here and phones with notifications on get a push within minutes." },
-    { h: "The School tab",
+    { since: "2026-10-01", h: "The School tab",
       p: "Bell schedules, the supply list for your child's grade, clubs with their advisors, and the office contact, all inside the app." },
-    { h: "Calendar sync in one tap",
+    { since: "2026-10-02", h: "Calendar sync in one tap",
       p: "In Edit, tap Subscribe next to a child. Add to iPhone calendar or Add to Google Calendar, both one tap on a phone. Games, changes and cancellations keep flowing on their own." },
-    { h: "A family code",
+    { since: "2026-10-01", h: "A family code",
       p: "Pick a code in Edit. If a phone ever clears the site's data, or the other parent wants the same setup, the code brings it all back. No account, no names." },
-    { h: "High schoolers can use it too",
+    { since: "2026-10-01", h: "High schoolers can use it too",
       p: "Student mode gives a high schooler their own schedule and a 7 am ping on game days. Parents keep their own view." },
   ];
+  // When this parent last finished a walkthrough. Earlier versions kept a
+  // flag per version; those map to the day that version covered.
+  function tourSeen() {
+    try {
+      const seen = localStorage.getItem(TOUR_SEEN);
+      if (seen) return seen;
+      if (localStorage.getItem("bvl-tour-v2") === "done") return "2026-10-05";
+      if (localStorage.getItem("bvl-tour-v1") === "done") return "2026-10-02";
+    } catch {}
+    return "";
+  }
+  const tourSteps = () => { const seen = tourSeen(); return TOUR.filter((t) => t.since > seen); };
+  const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
   function openTour() {
-    try { localStorage.setItem(TOUR_KEY, "done"); } catch {}
+    const steps = tourSteps().length ? tourSteps() : TOUR;
+    try { localStorage.setItem(TOUR_SEEN, todayIso()); } catch {}
     dismissWhatsNew();
     let step = 0;
     $("sheetDate").textContent = "What's new";
     const body = $("sheetBody");
     const paint = () => {
-      const t = TOUR[step];
-      const last = step === TOUR.length - 1;
+      const t = steps[step];
+      const last = step === steps.length - 1;
       body.innerHTML =
-        `<div class="tour"><p class="tour-step">${step + 1} of ${TOUR.length}</p>` +
+        `<div class="tour">${steps.length > 1 ? `<p class="tour-step">${step + 1} of ${steps.length}</p>` : ""}` +
         `<h3 class="tour-h">${esc(t.h)}</h3><p class="tour-p">${esc(t.p)}</p>` +
-        `<p class="tour-dots">${TOUR.map((_, i) => `<span class="${i === step ? "on" : ""}"></span>`).join("")}</p></div>`;
+        (steps.length > 1 ? `<p class="tour-dots">${steps.map((_, i) => `<span class="${i === step ? "on" : ""}"></span>`).join("")}</p>` : "") + `</div>`;
       const next = document.createElement("button");
       next.type = "button"; next.className = "sheet-action";
       next.textContent = last ? (kids.length ? "Done" : "Set up my kids") : "Next";
@@ -2424,7 +2440,7 @@
   }
 
   let tourDue = false;
-  try { tourDue = isReturning && localStorage.getItem(TOUR_KEY) !== "done"; } catch {}
+  try { tourDue = isReturning && tourSteps().length > 0; } catch {}
 
   /* ---------------- closings bar ---------------- */
 

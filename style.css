@@ -797,3 +797,18 @@ a.chip { text-decoration: none; display: inline-flex; align-items: center; }
 .sub-row > span { min-width: 0; line-height: 1.4; }
 .sub-add { flex: none; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: 999px; background: var(--bv-red); color: #fff; font-weight: 700; font-size: .9rem; text-decoration: none; }
 .sub-add:active { transform: scale(.98); }
+
+/* Closings bar: Brandon Valley on the KELOLAND list */
+.alert-bar[hidden] { display: none; }
+.alert-bar {
+  background: var(--bv-red); color: #fff;
+  border-radius: 14px;
+  padding: 13px 16px;
+  margin-bottom: clamp(14px, 2.5vw, 20px);
+  box-shadow: var(--shadow-lift);
+  line-height: 1.45;
+}
+.alert-bar p { margin: 0; font-size: clamp(.95rem, 3.2vw, 1.05rem); }
+.alert-bar p + p { margin-top: 6px; }
+.alert-bar p span { display: block; font-size: .88em; opacity: .92; }
+.alert-src { display: inline-block; margin-top: 6px; color: #fff; font-size: .82rem; opacity: .85; text-decoration: underline; text-underline-offset: 2px; }

@@ -2376,16 +2376,18 @@
 
   // Shown once to people who used the app before this round. New visitors
   // see the "Set up my kids" button and need no tour.
-  const TOUR_KEY = "bvl-tour-v1";
+  const TOUR_KEY = "bvl-tour-v2";
   const TOUR = [
-    { h: "Your kids, your calendar",
-      p: "Tap Set up my kids under the header. Add each child's school, grade and activities, no names needed. Then switch between one child, all of them, or everything at a school." },
-    { h: "Events, cleaned up",
-      p: "Cancelled and postponed games are marked instead of missing. Details on any event opens tickets and directions. Coming up shows the next two weeks at a glance." },
-    { h: "Your phone's calendar, kept in sync",
-      p: "In Edit, tap Subscribe next to a child. Their games, time changes and cancellations flow into your calendar on their own." },
-    { h: "A heads-up every evening",
-      p: "Turn on the 7 pm notification in Edit for tomorrow's lunch and events, one line per child. Share my setup sends the same kids to the other parent's phone." },
+    { h: "Snow days, late starts, early outs",
+      p: "The app watches the KELOLAND closings list. When Brandon Valley is on it, a red bar shows here and phones with notifications on get a push within minutes." },
+    { h: "The School tab",
+      p: "Bell schedules, the supply list for your child's grade, clubs with their advisors, and the office contact, all inside the app." },
+    { h: "Calendar sync in one tap",
+      p: "In Edit, tap Subscribe next to a child. Add to iPhone calendar or Add to Google Calendar, both one tap on a phone. Games, changes and cancellations keep flowing on their own." },
+    { h: "A family code",
+      p: "Pick a code in Edit. If a phone ever clears the site's data, or the other parent wants the same setup, the code brings it all back. No account, no names." },
+    { h: "High schoolers can use it too",
+      p: "Student mode gives a high schooler their own schedule and a 7 am ping on game days. Parents keep their own view." },
   ];
 
   function openTour() {
@@ -2423,6 +2425,27 @@
 
   let tourDue = false;
   try { tourDue = isReturning && localStorage.getItem(TOUR_KEY) !== "done"; } catch {}
+
+  /* ---------------- closings bar ---------------- */
+
+  // Brandon Valley on KELOLAND's closings list (snow day, late start,
+  // early dismissal): a red bar under the kid bar while it lasts.
+  const ALERTS_API = "/.netlify/functions/alerts";
+  async function loadAlerts() {
+    const bar = $("alertBar");
+    if (!bar) return;
+    try {
+      const res = await fetch(ALERTS_API);
+      if (!res.ok) return;
+      const { active } = await res.json();
+      const list = Array.isArray(active) ? active : [];
+      if (!list.length) { bar.hidden = true; bar.innerHTML = ""; return; }
+      bar.innerHTML = list.map((a) =>
+        `<p><b>${esc(a.text)}</b>${a.detail ? ` <span>${esc(a.detail)}</span>` : ""}</p>`).join("") +
+        `<a class="alert-src" href="https://www.keloland.com/weather/closings/" target="_blank" rel="noopener">KELOLAND closings</a>`;
+      bar.hidden = false;
+    } catch { /* offline: whatever was shown stays */ }
+  }
 
   /* ---------------- tabs ---------------- */
 
@@ -2484,6 +2507,7 @@
   // cache isn't actually stale, so this tick is cheap when it has nothing
   // to do.
   function refreshIfVisible() {
+    loadAlerts();
     if (document.hidden) return;
     // A day sheet left open long enough to have gone stale gets closed
     // rather than silently shown with outdated content — reopening it
@@ -2502,6 +2526,7 @@
     if (swRegistration) swRegistration.update().catch(() => {});
   }
   document.addEventListener("visibilitychange", refreshIfVisible);
+  loadAlerts();
   setInterval(refreshIfVisible, 5 * 60 * 1000);
 
   let swRegistration = null;

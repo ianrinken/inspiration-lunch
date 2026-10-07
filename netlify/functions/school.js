@@ -122,9 +122,38 @@ async function supplies(school) {
   };
 }
 
+// ?handbook=<district|elementary|intermediate|middle|high|activities>:
+// the handbook's sections, read out of the district's PDF.
+async function handbook(which) {
+  const { HANDBOOKS, parseHandbook } = require("./lib/handbook.js");
+  const entry = HANDBOOKS[which];
+  if (!entry) return { statusCode: 400, body: JSON.stringify({ error: "which handbook?" }) };
+  const [title, url] = entry;
+  const r = await fetch(url, { headers: { "User-Agent": "brandonvalleylunch.com school app" } });
+  if (!r.ok) throw new Error(`upstream ${r.status}`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  if (buf.length > 3 * 1024 * 1024) throw new Error("too large");
+  const parsed = await parseHandbook(buf);
+  return {
+    statusCode: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "public, max-age=3600",
+      "Netlify-CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+    },
+    body: JSON.stringify({ title, source: url, sections: parsed.sections }),
+  };
+}
+
 exports.handler = async (event) => {
+  try { require("@netlify/blobs").connectLambda(event); } catch { /* local run: no Blobs */ }
   const q = event.queryStringParameters || {};
   if (q.doc) return passDoc(q.doc);
+  if (q.handbook) {
+    try { return await handbook(q.handbook); }
+    catch (err) { return { statusCode: 502, headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify({ error: "handbook unavailable" }) }; }
+  }
 
   if (q.supplies && SLUGS[q.school]) {
     try { return await supplies(q.school); }

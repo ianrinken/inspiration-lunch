@@ -315,11 +315,38 @@ function hash(str) {
 }
 
 const UA = { "User-Agent": "brandonvalleylunch.com school app" };
-const grab = async (url) => {
-  const r = await fetch(url, { headers: UA });
-  if (!r.ok) throw new Error(`upstream ${r.status}`);
-  return r.text();
-};
+// Live when the source is healthy, the last good copy when it isn't.
+const { fetchText } = require("./lib/sources.js");
+const grab = (url) => fetchText(url, UA);
+
+// Corrections made on the admin page (hide, retitle, re-target by grade),
+// applied before anything reaches the app, a feed or a mirrored calendar.
+let overridesMemo = { at: 0, list: [] };
+async function overrides() {
+  if (Date.now() - overridesMemo.at < 60 * 1000) return overridesMemo.list;
+  let list = [];
+  try {
+    const { getStore } = require("@netlify/blobs");
+    list = (await getStore({ name: "overrides" }).get("events", { type: "json" })) || [];
+  } catch { list = overridesMemo.list; }
+  overridesMemo = { at: Date.now(), list: Array.isArray(list) ? list : [] };
+  return overridesMemo.list;
+}
+function applyOverrides(events, list) {
+  if (!list.length) return events;
+  const out = [];
+  for (const ev of events) {
+    const o = list.find((r) => r.id === ev.id && (!r.date || r.date === ev.s));
+    if (!o) { out.push(ev); continue; }
+    if (o.hide) continue;
+    const fixed = { ...ev };
+    if (o.title) fixed.t = String(o.title);
+    if (Array.isArray(o.grades)) fixed.g = o.grades.length ? o.grades : undefined;
+    if (o.act !== undefined) fixed.act = o.act || undefined;
+    out.push(fixed);
+  }
+  return out;
+}
 
 // A Bound event belongs to this school if it names it, or (for secondary
 // schools) if it's a district activity that no other level claims.
@@ -401,7 +428,7 @@ async function eventsFor(school, start, end) {
     for (const ev of list) if (ev !== keep) dropOff.add(ev);
   }
   if (dropOff.size) events = events.filter((ev) => !dropOff.has(ev));
-  return events;
+  return applyOverrides(events, await overrides());
 }
 
 // list=activities: everything a student at this school could be signed
@@ -419,6 +446,8 @@ async function activitiesFor(school) {
 }
 
 exports.handler = async (event) => {
+  // A v1 function has to be told about Blobs before the first read.
+  try { require("@netlify/blobs").connectLambda(event); } catch { /* local run: no Blobs */ }
   const q = { ...(event.queryStringParameters || {}) };
   // The clean feed address (/feed/<school>/<grade>/<acts>/calendar.ics)
   // is rewritten here by netlify.toml, but only the request's own query
@@ -526,5 +555,6 @@ exports.eventsFor = eventsFor;
 exports.allowsFor = allowsFor;
 exports.SCHOOL_NAMES = SCHOOL_NAMES;
 exports.activitiesFor = activitiesFor;
+exports.applyOverrides = applyOverrides;
 exports.toCentral = toCentral;
 exports.addDays = addDays;

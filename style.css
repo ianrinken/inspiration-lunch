@@ -812,3 +812,39 @@ a.chip { text-decoration: none; display: inline-flex; align-items: center; }
 .alert-bar p + p { margin-top: 6px; }
 .alert-bar p span { display: block; font-size: .88em; opacity: .92; }
 .alert-src { display: inline-block; margin-top: 6px; color: #fff; font-size: .82rem; opacity: .85; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Weather for the hero day, allergen flags, same-time flag */
+.hero-weather[hidden] { display: none; }
+.hero-weather { margin: 6px 2px 0; font-size: clamp(.84rem, 2.8vw, .92rem); color: var(--text-soft); line-height: 1.5; }
+.hero-weather b { color: var(--text); font-weight: 700; }
+.hero-flag { margin: 8px 0 0; font-size: .85rem; font-weight: 700; color: var(--bv-red); }
+.menu-section li.flag { color: var(--bv-red); font-weight: 700; }
+.flag-note, .item-note { display: block; font-weight: 400; font-size: .8rem; line-height: 1.4; }
+.flag-note { color: var(--bv-red); }
+.item-note { color: var(--text-soft); }
+.ev-clash { color: var(--bv-red); font-weight: 700; }
+.h-opt { font-weight: 400; font-size: .78rem; color: var(--text-soft); margin-left: 6px; }
+
+/* Handbook sheet */
+.hb-chips { margin-bottom: 10px; }
+.hb-search { display: block; width: 100%; font: inherit; font-size: 1rem; padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); margin-bottom: 10px; -webkit-appearance: none; }
+details.hb { border-top: 1px solid var(--border); }
+details.hb:last-of-type { border-bottom: 1px solid var(--border); }
+details.hb summary { cursor: pointer; padding: 12px 2px; font-weight: 700; list-style: none; display: flex; justify-content: space-between; align-items: center; min-height: 44px; }
+details.hb summary::-webkit-details-marker { display: none; }
+details.hb summary::after { content: "+"; color: var(--bv-red); font-weight: 700; font-size: 1.2rem; margin-left: 12px; }
+details.hb[open] summary::after { content: "–"; }
+.hb-text { padding: 0 2px 14px; font-size: .92rem; line-height: 1.55; color: var(--text); overflow-wrap: normal; }
+
+/* Grade guide sheet */
+.guide-chips { margin-bottom: 12px; }
+.guide-h { font-size: 1.25rem; margin: 4px 0 4px; line-height: 1.25; }
+.guide-intro { margin: 0 0 8px; color: var(--text-soft); line-height: 1.45; }
+.guide-list li, .guide-facts li { list-style: none; padding: 9px 0; border-top: 1px solid var(--border); }
+.guide-list, .guide-facts { padding: 0; margin: 0; }
+.guide-item { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; line-height: 1.45; }
+.guide-item input { width: 22px; height: 22px; flex: none; margin: 1px 0 0; accent-color: var(--bv-red); }
+.guide-facts b { display: block; }
+.guide-facts .info-sub { display: block; }
+.guide-count { margin: 0; font-size: 1.05rem; line-height: 1.4; }
+.guide-count b { color: var(--bv-red); font-size: 1.5rem; }

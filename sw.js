@@ -1,6 +1,6 @@
 /* Offline shell for Brandon Valley Lunch. Menu data is cached by the app in
  * localStorage; the service worker handles the static shell and fonts. */
-const CACHE = "bvl-shell-v56";
+const CACHE = "bvl-shell-v57";
 const FONT_CACHE = "bvl-fonts-v1";
 const SHELL = [
   "./",
@@ -78,7 +78,7 @@ self.addEventListener("push", (e) => {
     body: data.body || "",
     icon: "icons/icon-192.png",
     badge: "icons/icon-192.png",
-    tag: "bvl-digest",
+    tag: data.tag || "bvl-digest",
     data: { url: data.url || "./" },
   }));
 });

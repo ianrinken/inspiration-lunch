@@ -21,7 +21,15 @@
   ];
   const DEFAULT_SCHOOL = "0c65b2bc-908d-ec11-8df7-9566c4096294"; // Inspiration Elementary
 
-  const CACHE_PREFIX = "bvl-menu-v5:"; // v5: catch-all for unrecognized categories
+  const CACHE_PREFIX = "bvl-menu-v6:"; // v6: allergens per item
+  // LINQ lists allergens on every recipe as ids; these are the district's.
+  const ALLERGEN_IDS = {
+    "b3d7358a-818b-ec11-90c7-d2d97b40e955": "Eggs", "b4d7358a-818b-ec11-90c7-d2d97b40e955": "Milk",
+    "b5d7358a-818b-ec11-90c7-d2d97b40e955": "Fish", "b6d7358a-818b-ec11-90c7-d2d97b40e955": "Shellfish",
+    "b7d7358a-818b-ec11-90c7-d2d97b40e955": "Tree nuts", "b8d7358a-818b-ec11-90c7-d2d97b40e955": "Peanuts",
+    "b9d7358a-818b-ec11-90c7-d2d97b40e955": "Wheat", "bad7358a-818b-ec11-90c7-d2d97b40e955": "Soy",
+  };
+  const ALLERGENS = ["Milk", "Eggs", "Wheat", "Soy", "Peanuts", "Tree nuts", "Fish", "Shellfish"];
   const EVENTS_PREFIX = "bvl-events-v7:"; // v7: Bound fields (program, grades, end, url, cancellations)
   const EVENTS_API = "/.netlify/functions/events";
   const SCHOOL_KEY = "bvl-school";
@@ -197,6 +205,7 @@
   }
 
   function saveKids() {
+    track("kids");
     try {
       localStorage.setItem(KIDS_KEY, JSON.stringify(kids));
       localStorage.setItem(MODE_KEY, mode);
@@ -387,6 +396,7 @@
           fruit: [],
           milk: [],
           condiments: [],
+          a: {},          // item name -> allergens LINQ lists for it
         };
         for (const meal of meals) {
           const mealName = (meal.MenuMealName || "").toLowerCase();
@@ -396,6 +406,8 @@
             for (const r of cat.Recipes || []) {
               const recipe = cleanName(r.RecipeName || "");
               if (!recipe) continue;
+              const al = [...new Set((r.Allergens || []).map((id) => ALLERGEN_IDS[id]).filter(Boolean))];
+              if (al.length && !d.a[recipe]) d.a[recipe] = al;
               if (catName.includes("entr")) {
                 // First non-standing entrée on the hot line is the day's meal;
                 // everything else marked entrée (second hot choice, standing
@@ -660,6 +672,7 @@
     // Coming up: the next few things after the hero day, across the next
     // two weeks, so the tab answers "what's this week" at a glance.
     $("heroTomorrow").hidden = true;
+    if ($("heroWeather")) $("heroWeather").hidden = true;
     const up = $("heroUpcoming");
     const rows = [];
     const d = new Date(target);
@@ -774,6 +787,13 @@
       card.querySelector(".hero-sides").textContent = r.info.sides.length ? `with ${r.info.sides.join(" · ")}` : "";
       card.querySelector(".hero-alt").innerHTML = r.info.alternates.length
         ? `or: <b>${r.info.alternates.map(esc).join("</b> · <b>")}</b>` : "";
+      const hit = flaggedFor(r.info, r.info.entree || r.info.alternates[0] || "", watchedAllergens(sch));
+      if (hit.length) {
+        const f = document.createElement("p");
+        f.className = "hero-flag";
+        f.textContent = `Contains ${hit.join(", ").toLowerCase()}`;
+        card.appendChild(f);
+      }
       if (isStudent()) {
         // A student's day is lunch AND what's after school, in one card.
         const evHost = document.createElement("p");
@@ -811,6 +831,39 @@
       teaser.innerHTML = `${word}: <b>${esc(one.info.entree || one.info.alternates[0] || "")}</b>`;
       teaser.hidden = false;
     }
+    const first = found.find(Boolean);
+    if (first) renderWeather(first.target, stale);
+  }
+
+  /* ---------------- weather at bus time and pickup ---------------- */
+
+  const WEATHER_API = "/.netlify/functions/weather";
+  let weatherCache = null;
+  async function getWeather() {
+    if (weatherCache && Date.now() - weatherCache.at < 20 * 60 * 1000) return weatherCache.data;
+    const res = await fetch(WEATHER_API);
+    const data = res.ok ? await res.json() : { hours: [] };
+    weatherCache = { at: Date.now(), data };
+    return data;
+  }
+  // The two hours a parent plans around: the bus (7 am) and after school
+  // (3 pm, when every building lets out). Only for the day the hero shows.
+  async function renderWeather(day, stale) {
+    const el = $("heroWeather");
+    if (!el) return;
+    el.hidden = true;
+    let w;
+    try { w = await getWeather(); } catch { return; }
+    if (stale && stale()) return;
+    const key = dkey(day);
+    const at = (hm) => (w.hours || []).find((h) => h.at === `${key}T${hm}`);
+    const am = at("07:00"), pm = at("15:00");
+    if (!am && !pm) return;
+    const part = (h, label) => h
+      ? `<span><b>${label}</b> ${h.temp}°${h.feels < h.temp - 2 ? ` (feels ${h.feels}°)` : ""}, ${esc(h.short.toLowerCase())}${h.pop >= 30 ? `, ${h.pop}% chance of rain or snow` : ""}</span>`
+      : "";
+    el.innerHTML = `${part(am, "Bus time")}${am && pm ? " · " : ""}${part(pm, "After school")}`;
+    el.hidden = false;
   }
 
   /* ---------------- calendar ---------------- */
@@ -1051,12 +1104,35 @@
   // The hero can point at a day in the month after the one on screen (the
   // night of the 30th), so it hands over that day's events itself rather
   // than relying on the viewed month's data.
+  let sheetReportEvents = null;
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest && e.target.closest(".ev-report");
+    if (!a || !sheetReportEvents) return;
+    e.preventDefault(); e.stopPropagation();
+    const ev = sheetReportEvents.events.find((x, i) => (x.id || String(i)) === a.dataset.report);
+    if (ev) reportMistake(ev, sheetReportEvents.date);
+  }, true);
+
   function openSheet(key, info, mode = "lunch", events = null) {
     const [y, m, d] = key.split("-").map(Number);
     $("sheetDate").textContent = fmtDay.format(new Date(y, m - 1, d));
     const dayEvents = events || currentMonthEvents[key] || [];
     const sections = [];
     if (mode === "events") {
+      // Two of this family's kids, timed within an hour of each other, in
+      // different places: flag both so the ride gets sorted out early.
+      const clash = new Set();
+      const fam = activeKids();
+      if (fam.length > 1) {
+        const mins = (st) => parseInt(st.slice(0, 2), 10) * 60 + parseInt(st.slice(2, 4), 10);
+        const who = (ev) => fam.filter((k) => (ev.sch ? k.school === ev.sch : k.school === schoolId) && kidAllows(ev, k)).map((k) => k.id);
+        const timed = dayEvents.filter((ev) => ev.stamp).map((ev) => ({ ev, kids: who(ev) })).filter((x) => x.kids.length);
+        for (const a of timed) for (const b of timed) {
+          if (a === b || a.kids.some((k) => b.kids.includes(k))) continue;
+          if ((a.ev.where || "") && (a.ev.where || "") === (b.ev.where || "")) continue;
+          if (Math.abs(mins(a.ev.stamp) - mins(b.ev.stamp)) <= 60) { clash.add(a.ev); clash.add(b.ev); }
+        }
+      }
       const rows = dayEvents.map((ev, i) => {
         const when = ev.time ? ` · ${ev.time}${ev.end ? ` to ${fmtStamp(ev.end)}` : ""}` : "";
         const { title, level } = compact(ev.t);
@@ -1065,6 +1141,7 @@
         const bits = [];
         if (ev.sch) bits.push(`<b class="ev-sch">${esc(SHORT[ev.sch])}</b>`);
         if (ev.x) bits.push(`<b class="ev-x">${ev.x === "postponed" ? "Postponed" : "Cancelled"}</b>`);
+        if (clash.has(ev)) bits.push(`<b class="ev-clash">Same time as another child's</b>`);
         if (ev.where) {
           const badge = ev.home === true ? `<b class="at-home">Home</b> · `
             : ev.home === false ? `<b class="at-away">Away</b> · ` : "";
@@ -1072,23 +1149,28 @@
         }
         // Bound's page for the event: tickets, directions, changes.
         if (ev.url) bits.push(`<a class="ev-link" href="${esc(ev.url)}" target="_blank" rel="noopener">Details</a>`);
+        bits.push(`<a class="ev-link ev-report" href="#" data-report="${esc(id)}">Report a mistake</a>`);
         const sub = bits.length ? `<span class="ev-where">${bits.join(" · ")}</span>` : "";
         return `<li><label class="ev-pick">` +
           `<input type="checkbox" class="ev-check" value="${esc(id)}">` +
           `<span>${label}${sub}</span></label></li>`;
       }).join("");
       sections.push(`<div class="menu-section"><h3>At school</h3><ul>${rows}</ul></div>`);
+      sheetReportEvents = { date: key, events: dayEvents };
     }
     info = info || { entree: null, sides: [], alternates: [], vegetable: [], fruit: [], milk: [], condiments: [] };
-    if (info.entree) {
-      const items = [{ name: info.entree, hero: true }, ...info.sides.map((s) => ({ name: s }))];
-      sections.push(section("Main Entrée", items));
+    const watch = watchedAllergens(schoolId);
+    const sec = (title, names, hero) => section(title, names.map((n, i) => ({ name: n, hero: hero && i === 0 })), info, watch);
+    if (info.entree) sections.push(sec("Main Entrée", [info.entree, ...info.sides], true));
+    if (info.alternates.length) sections.push(sec("Or choose instead", info.alternates));
+    if (info.vegetable.length) sections.push(sec("Garden Bar · Vegetables", info.vegetable));
+    if (info.fruit.length) sections.push(sec("Garden Bar · Fruit", info.fruit));
+    if (info.milk.length) sections.push(sec("Milk", info.milk));
+    if (info.condiments.length) sections.push(sec("Condiments", info.condiments));
+    if (info.a && Object.keys(info.a).length) {
+      sections.push(`<p class="sheet-note">Allergens are the ones the district's menu lists for each item (milk, eggs, wheat, soy, peanuts, tree nuts, fish, shellfish). ` +
+        `${watch.size ? "Items with one your child avoids are marked. " : "Add a child's allergies in Edit to have them marked. "}Ask the school nurse about severe allergies.</p>`);
     }
-    if (info.alternates.length) sections.push(section("Or choose instead", info.alternates.map((n) => ({ name: n }))));
-    if (info.vegetable.length) sections.push(section("Garden Bar · Vegetables", info.vegetable.map((n) => ({ name: n }))));
-    if (info.fruit.length) sections.push(section("Garden Bar · Fruit", info.fruit.map((n) => ({ name: n }))));
-    if (info.milk.length) sections.push(section("Milk", info.milk.map((n) => ({ name: n }))));
-    if (info.condiments.length) sections.push(section("Condiments", info.condiments.map((n) => ({ name: n }))));
     $("sheetBody").innerHTML = sections.join("");
     if (mode === "events" && dayEvents.length) {
       // A real link (not script) so iOS hands the file to the Calendar app.
@@ -1144,9 +1226,24 @@
     showSheet(Date.now());
   }
 
-  function section(title, items) {
+  // Allergens the active kids at this school are watching for.
+  function watchedAllergens(school) {
+    const set = new Set();
+    for (const k of activeKids()) if (k.school === school) for (const a of k.allergies || []) set.add(a);
+    return set;
+  }
+  const flaggedFor = (info, name, watch) => ((info && info.a && info.a[name]) || []).filter((a) => watch.has(a));
+
+  function section(title, items, info, watch) {
     return `<div class="menu-section"><h3>${esc(title)}</h3><ul>` +
-      items.map((i) => `<li${i.hero ? ' class="hero-item"' : ""}>${esc(i.name)}</li>`).join("") +
+      items.map((i) => {
+        const all = (info && info.a && info.a[i.name]) || [];
+        const hit = watch ? all.filter((a) => watch.has(a)) : [];
+        const note = hit.length
+          ? `<span class="flag-note">Contains ${esc(hit.join(", ").toLowerCase())}</span>`
+          : all.length ? `<span class="item-note">${esc(all.join(", "))}</span>` : "";
+        return `<li class="${i.hero ? "hero-item" : ""}${hit.length ? " flag" : ""}">${esc(i.name)}${note}</li>`;
+      }).join("") +
       `</ul></div>`;
   }
 
@@ -1358,6 +1455,7 @@
   const googleAddUrl = (id) => `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(btoa(id).replace(/=+$/, ""))}`;
 
   function openSubscribeSheet(kid, school) {
+    track("subscribe");
     const sch = kid ? kid.school : school;
     const what = kid ? `${gradeName(kid.grade)} · ${schoolName(kid.school)}` : schoolName(school);
     const url = feedUrl(kid, school);
@@ -1382,6 +1480,7 @@
       apple.className = "sheet-action";
       apple.href = webcal;
       apple.textContent = isIOS ? "Add to iPhone calendar" : "Add to Apple Calendar";
+      apple.addEventListener("click", () => track("apple"));
       body.appendChild(apple);
       const appleHint = document.createElement("p");
       appleHint.className = "sheet-hint";
@@ -1448,6 +1547,7 @@
         a.href = googleAddUrl(m[ready[0].key].id);
         a.target = "_blank"; a.rel = "noopener";
         a.innerHTML = `${GOOGLE_G_ICON}<span>Add to Google Calendar</span>`;
+        a.addEventListener("click", () => track("google"));
         gBox.appendChild(a);
       } else {
         const head = document.createElement("p");
@@ -1463,6 +1563,7 @@
           const add = document.createElement("a");
           add.className = "sub-add"; add.href = googleAddUrl(c.id); add.target = "_blank"; add.rel = "noopener";
           add.textContent = "Add";
+          add.addEventListener("click", () => track("google"));
           add.setAttribute("aria-label", `Add ${label.textContent} to Google Calendar`);
           row.append(label, add);
           gBox.appendChild(row);
@@ -1494,6 +1595,7 @@
 
   // Claim the family's own code; refused if another family has it.
   async function createFamilyCode(raw) {
+    track("family");
     const code = cleanCode(raw);
     if (!CODE_RX.test(code)) throw Object.assign(new Error("format"), { status: 0 });
     await postFamily({ action: "save", code, kids: kidsPayload(), create: true });
@@ -1510,6 +1612,7 @@
   }
 
   async function restoreFromCode(raw) {
+    track("family");
     const code = cleanCode(raw);
     if (!CODE_RX.test(code)) throw Object.assign(new Error("format"), { status: 0 });
     const data = await postFamily({ action: "load", code });
@@ -1624,6 +1727,7 @@
   }
 
   async function enablePush() {
+    track("push");
     const perm = await Notification.requestPermission();
     if (perm !== "granted") throw new Error("denied");
     const reg = await navigator.serviceWorker.ready;
@@ -1704,6 +1808,7 @@
   }
 
   async function shareSetup() {
+    track("share");
     const url = `${location.origin}${location.pathname}?setup=${packSetup(kids)}`;
     const text = "Our kids' schools, grades and activities for Brandon Valley Lunch";
     if (navigator.share) {
@@ -1716,8 +1821,8 @@
   function openKidForm(existing) {
     const student = isStudent();
     const draft = existing
-      ? { ...existing, acts: [...existing.acts] }
-      : { id: null, school: student ? HIGH_ID : schoolId, grade: null, acts: [] };
+      ? { ...existing, acts: [...existing.acts], allergies: [...(existing.allergies || [])] }
+      : { id: null, school: student ? HIGH_ID : schoolId, grade: null, acts: [], allergies: [] };
     $("sheetDate").textContent = student
       ? (existing ? "My schedule" : "Set up my schedule")
       : (existing ? "Edit child" : (kids.length ? "Add a child" : "Set up my kids"));
@@ -1730,7 +1835,9 @@
         `<div class="menu-section"><h3>School</h3><div class="chips grid" id="kSchool"></div></div>`) +
       `<div class="menu-section"><h3>Grade</h3><div class="chips" id="kGrade"></div></div>` +
       `<div class="menu-section" id="kActsWrap" hidden><h3>Activities</h3>` +
-      `<p class="sheet-note" id="kActsNote"></p><div class="chips" id="kActs"></div></div>`;
+      `<p class="sheet-note" id="kActsNote"></p><div class="chips" id="kActs"></div></div>` +
+      `<div class="menu-section"><h3>Food allergies to flag <span class="h-opt">optional</span></h3>` +
+      `<p class="sheet-note">Stays on this phone only. Menu items that contain one get marked.</p><div class="chips" id="kAllergy"></div></div>`;
     // While they're setting up the first child, offer the family code too,
     // so the "my settings vanished" case is covered from day one. The
     // code is created when they tap it, with the child included.
@@ -1786,6 +1893,9 @@
     let actsList = [];
     function paintActs() {
       const names = [...new Set([...actsList, ...draft.acts])].sort();
+      fill($("kAllergy"), ALLERGENS.map((n) => chip(n, draft.allergies.includes(n), () => {
+        draft.allergies = toggleIn(draft.allergies, n); paintActs();
+      })));
       fill($("kActs"), names.map((n) => chip(n, draft.acts.includes(n), () => {
         draft.acts = toggleIn(draft.acts, n); paintActs();
       })));
@@ -1925,6 +2035,7 @@
   // Show a document from the school's own site in place: a picture, or a
   // PDF in a frame. The original is always a tap away.
   function openViewerSheet(label, url, kind) {
+    track("viewer");
     $("sheetDate").textContent = label;
     const body = $("sheetBody");
     body.innerHTML = kind === "image"
@@ -2020,6 +2131,7 @@
   }
 
   async function openSuppliesSheet(school, link) {
+    track("supplies");
     $("sheetDate").textContent = "Supply list";
     const body = $("sheetBody");
     body.innerHTML = `<p class="sheet-note doc-loading">Loading…</p>`;
@@ -2114,6 +2226,7 @@
     let quick = "", sections = "";
     const viewers = []; // [id, label, url, kind] wired after paint
     const rowAttrs = (l, id) => {
+      if (l.handbook) return `href="#" data-handbook="1"`;
       if (/supply/i.test(l.label) && /\.pdf$/i.test(l.href)) { viewers.push([id, "supplies", l, "supplies"]); return `href="#" data-view="${id}"`; }
       const kind = viewable(l);
       if (kind) { viewers.push([id, l.label, l.view || l.href, kind]); return `href="#" data-view="${id}"`; }
@@ -2130,7 +2243,7 @@
         if (l) {
           const grades = [...new Set(activeKids().filter((k) => k.school === school).map((k) => k.grade))];
           const sub = q.label === "Supply list" && grades.length === 1 ? gradeName(grades[0]) : (l.label !== q.label ? l.label : "");
-          actions.push({ ...l, label: q.label, sub });
+          actions.push({ ...l, label: q.label, sub: q.label === "Handbook" ? "Read it here" : sub, handbook: q.label === "Handbook" });
         }
       }
       quick = actions.length ? `<div class="quick">${actions.slice(0, 6).map((a, n) =>
@@ -2152,6 +2265,11 @@
           items.push(`<li><button type="button" class="info-row info-btn" id="schoolSubscribe"><span><span class="info-label">Subscribe to all school events</span>` +
             `<span class="info-sub">Keeps your phone's calendar up to date on its own</span></span></button></li>`);
         }
+        if (key === "counseling" && school === HIGH_ID) {
+          const g = guideGrade(school);
+          items.push(`<li><button type="button" class="info-row info-btn" id="gradeGuide"><span><span class="info-label">Grade guide</span>` +
+            `<span class="info-sub">${esc(gradeName(g))}: what to do this year, test dates, scholarships</span></span></button></li>`);
+        }
         for (const [l, id] of groups[key] || []) {
           const sub = l.group && !new RegExp(l.group.split("|")[0].trim().slice(0, 6), "i").test(l.label) ? l.group.replace(/\s*\|\s*/g, " · ") : "";
           items.push(row(l, id, sub));
@@ -2172,6 +2290,9 @@
     el.querySelectorAll(".school-pick .chip").forEach((b) => b.addEventListener("click", () => { schoolPick = b.dataset.school; renderSchoolView(); }));
     const sub = $("schoolSubscribe");
     if (sub) sub.addEventListener("click", () => openSubscribeSheet(null, school));
+    el.querySelectorAll("[data-handbook]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); openHandbookSheet(school, info); }));
+    const gg = $("gradeGuide");
+    if (gg) gg.addEventListener("click", () => openGuideSheet(guideGrade(school), info));
     for (const [id, label, url, kind] of viewers) {
       el.querySelectorAll(`[data-view="${id}"]`).forEach((a) => a.addEventListener("click", (e) => {
         e.preventDefault();
@@ -2442,6 +2563,267 @@
   let tourDue = false;
   try { tourDue = isReturning && tourSteps().length > 0; } catch {}
 
+  /* ---------------- handbook, in the app ---------------- */
+
+  const HB_PREFIX = "bvl-handbook-v1:";
+  const handbookLevel = (school) => { const [lo] = BVGrades.SPAN[school]; return lo >= 9 ? "high" : lo >= 7 ? "middle" : lo >= 5 ? "intermediate" : "elementary"; };
+  const niceTitle = (t) => t.replace(/\w[\w'’]*/g, (w) => (w.length <= 3 && w === w.toUpperCase() && !/^(the|and|for|of|at|in|on|to|a)$/i.test(w) ? w : w[0].toUpperCase() + w.slice(1).toLowerCase()))
+    .replace(/^(\w)/, (c) => c.toUpperCase());
+  async function getHandbook(which) {
+    const k = HB_PREFIX + which;
+    try {
+      const raw = JSON.parse(localStorage.getItem(k) || "null");
+      if (raw && Date.now() - raw.at < 24 * 3600 * 1000) return raw.data;
+    } catch {}
+    const res = await fetch(`${SCHOOL_API}?handbook=${which}&v=1`);
+    if (!res.ok) throw new Error(`handbook ${res.status}`);
+    const data = await res.json();
+    try { localStorage.setItem(k, JSON.stringify({ at: Date.now(), data })); } catch {}
+    return data;
+  }
+
+  // The school's handbook as searchable sections; the district's and the
+  // activities handbook a chip away.
+  function openHandbookSheet(school, info, which) {
+    track("viewer");
+    const level = handbookLevel(school);
+    const books = [[level, levelWord(school)], ["district", "District"], ...(level === "middle" || level === "high" ? [["activities", "Activities"]] : [])];
+    which = which || level;
+    $("sheetDate").textContent = "Handbook";
+    const body = $("sheetBody");
+    body.innerHTML = `<div class="chips hb-chips">${books.map(([k, label]) => `<button type="button" class="chip${k === which ? " on" : ""}" data-hb="${k}">${esc(label)}</button>`).join("")}</div>` +
+      `<input type="search" class="hb-search" id="hbSearch" placeholder="Search the handbook" autocomplete="off">` +
+      `<div id="hbBody"><p class="sheet-hint">Loading…</p></div>`;
+    body.querySelectorAll("[data-hb]").forEach((b) => b.addEventListener("click", () => openHandbookSheet(school, info, b.dataset.hb)));
+    showSheet(null);
+    const token = String(Date.now());
+    body.dataset.hb = token;
+    getHandbook(which).then((data) => {
+      if (body.dataset.hb !== token) return;
+      const host = $("hbBody");
+      const paint = (q) => {
+        const needle = (q || "").trim().toLowerCase();
+        const hits = data.sections.filter((sec) => !needle || sec.title.toLowerCase().includes(needle) || sec.text.toLowerCase().includes(needle));
+        host.innerHTML = (hits.length ? hits.map((sec) =>
+          `<details class="hb"${needle ? " open" : ""}><summary>${esc(niceTitle(sec.title))}</summary><div class="hb-text">${esc(sec.text).replace(/\n/g, "<br>")}</div></details>`).join("")
+          : `<p class="sheet-hint">Nothing in this handbook mentions “${esc(q)}”.</p>`) +
+          `<p class="sheet-hint">Read from the district's ${esc(data.title)} PDF, checked daily. <a href="${esc(data.source)}" target="_blank" rel="noopener">Open the PDF</a></p>`;
+      };
+      paint("");
+      $("hbSearch").addEventListener("input", (e) => paint(e.target.value));
+    }).catch(() => { if (body.dataset.hb === token) $("hbBody").innerHTML = `<p class="sheet-intro">The handbook isn't reachable right now. Try again in a bit.</p>`; });
+  }
+
+  /* ---------------- grade guide (high school) ---------------- */
+
+  const GUIDE = {
+    9: { headline: "Freshman year sets the GPA",
+      intro: "Grades count toward graduation and scholarships from the first semester of 9th grade.",
+      todo: [
+        { id: "skyward", text: "Set up Skyward Family Access and check grades and attendance there", link: "skyward" },
+        { id: "plan", text: "Meet the counselor and sketch a four-year class plan", link: "counseling" },
+        { id: "act", text: "Pick one club or activity to try this year", link: "activities" },
+        { id: "permit", text: "Instruction permit: South Dakota teens can apply at 14", link: "https://www.sd.gov/dps?id=cs_kb_article_view&sysparm_article=KB0043735" },
+        { id: "supplies", text: "Check the supply list", link: "supplies" },
+      ],
+      facts: [
+        { title: "Graduation requirements", body: "South Dakota's base diploma is 22 credits, including 4 English, 3 math, 3 science and 3 social studies. Brandon Valley's own requirements are in the handbook.", link: "handbook:MINIMUM GRADUATION REQUIREMENTS" },
+        { title: "Plan for the Opportunity Scholarship now", body: "The state scholarship pays $1,500 a year for three years and $3,000 in the fourth. One path requires 4 English, 4 math, 4 science, 3 social studies, 1 fine arts and 2 world language or career-tech units, with no grade below C.", link: "https://ourdakotadreams.com/k12-students/opportunity-scholarship/" },
+      ] },
+    10: { headline: "Sophomore year opens doors",
+      intro: "The year to try the PSAT, look at career-tech options and plan dual credit for junior year.",
+      todo: [
+        { id: "psat", text: "Ask whether your student is taking the PSAT in October" },
+        { id: "course", text: "Look through the course offerings before spring registration", link: "course" },
+        { id: "cte", text: "Ask the counselor about career-tech options and dual credit for next year", link: "counseling" },
+        { id: "drive", text: "Driver's ed and the restricted minor's permit", link: "https://www.sd.gov/dps?id=cs_kb_article_view&sysparm_article=KB0043735" },
+        { id: "act", text: "Keep one activity going, or try a new one", link: "activities" },
+      ],
+      facts: [
+        { title: "Restricted minor's permit", body: "Available from 14 and a half after holding an instruction permit and passing a driving test. Driver's ed shortens the wait.", link: "https://www.sd.gov/dps?id=cs_kb_article_view&sysparm_article=KB0043735" },
+        { title: "Opportunity Scholarship coursework", body: "Staying on track means 4 years each of English, math and science. Check the plan each spring.", link: "https://ourdakotadreams.com/k12-students/opportunity-scholarship/" },
+      ] },
+    11: { headline: "Junior year is testing year",
+      intro: "PSAT in October, ACT in the spring, and college visits all year.",
+      todo: [
+        { id: "psat", text: "PSAT/NMSQT in October (National Merit qualifying year)" },
+        { id: "act", text: "Plan the ACT: the Opportunity Scholarship needs a 24 or higher", link: "https://www.act.org/content/act/en/products-and-services/the-act/registration.html" },
+        { id: "visits", text: "Sign up for college visits through the counseling office", link: "counseling" },
+        { id: "dual", text: "Dual credit: college classes for high school and college credit at a reduced rate", link: "https://www.sdstate.edu/continuing-distance-education/high-school-dual-credit" },
+        { id: "course", text: "Choose senior-year classes before spring registration", link: "course" },
+      ],
+      facts: [
+        { title: "Opportunity Scholarship", body: "ACT 24 or higher, a 3.0 GPA and the required courses with no grade below C. Or an ACT of 28 with the college readiness benchmarks and no course requirement.", link: "https://ourdakotadreams.com/k12-students/opportunity-scholarship/" },
+        { title: "Dual credit", body: "South Dakota's high school dual credit rate was $80.37 per credit hour in 2026-27. The credit counts in high school and college.", link: "https://www.sdstate.edu/continuing-distance-education/high-school-dual-credit" },
+      ] },
+    12: { headline: "Senior year, start to finish",
+      intro: "Applications and financial aid in the fall, scholarships in winter, graduation in May.",
+      todo: [
+        { id: "fafsa", text: "File the FAFSA as soon as it opens in the fall", link: "https://studentaid.gov/h/apply-for-aid/fafsa" },
+        { id: "apps", text: "Finish college or tech school applications" },
+        { id: "aid", text: "Go to a financial aid night at school", link: "counseling" },
+        { id: "build", text: "Build Dakota Scholarship: applications open January 1 and close March 31", link: "https://www.builddakotascholarships.com/" },
+        { id: "osp", text: "Confirm Opportunity Scholarship eligibility with the counselor", link: "https://ourdakotadreams.com/k12-students/opportunity-scholarship/" },
+        { id: "transcript", text: "Ask the school for final transcripts to send to your student's college", link: "handbook:TRANSCRIPTS" },
+      ],
+      facts: [
+        { title: "Build Dakota Scholarship", body: "A full ride at a South Dakota technical college in a high-demand field, in return for three years of work in the state after graduation.", link: "https://www.builddakotascholarships.com/" },
+        { title: "FAFSA first", body: "Most scholarships and all federal aid start with the FAFSA. File early: some aid is first come, first served.", link: "https://studentaid.gov/h/apply-for-aid/fafsa" },
+      ] },
+  };
+  // National test dates for 2026-27 with their registration deadlines.
+  const TEST_DATES = [
+    { test: "ACT", d: "2026-09-19", late: "2026-09-01" }, { test: "ACT", d: "2026-10-17", late: "2026-09-29" },
+    { test: "ACT", d: "2026-12-12", late: "2026-11-29" }, { test: "ACT", d: "2027-02-27", late: "2027-02-09" },
+    { test: "ACT", d: "2027-04-10", late: "2027-03-23" }, { test: "ACT", d: "2027-06-12", late: "2027-05-25" },
+    { test: "ACT", d: "2027-07-10", late: "2027-06-22" },
+    { test: "SAT", d: "2026-10-03", late: "2026-09-22" }, { test: "SAT", d: "2026-11-07", late: "2026-10-27" },
+    { test: "SAT", d: "2026-12-05", late: "2026-11-24" }, { test: "SAT", d: "2027-03-06", late: "2027-02-23" },
+    { test: "SAT", d: "2027-05-01", late: "2027-04-20" }, { test: "SAT", d: "2027-06-05", late: "2027-05-25" },
+  ];
+  const TEST_LINKS = { ACT: "https://www.act.org/content/act/en/products-and-services/the-act/registration.html", SAT: "https://satsuite.collegeboard.org/sat/dates-deadlines" };
+  const GUIDE_CHECKS = "bvl-guide-checks";
+  const fmtShortDay = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const plusDays = (iso, n) => { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + n); return isoOf(d); };
+  const fromIso = (iso) => new Date(`${iso}T12:00:00`);
+
+  // Which grade the guide opens on: the one high schooler being viewed.
+  function guideGrade(school) {
+    const gs = activeKids().filter((k) => k.school === school).map((k) => k.grade).filter((g) => g >= 9 && g <= 12);
+    return gs.length ? gs[0] : 9;
+  }
+
+  const guideEvents = {};
+  async function guideFetch(start, end) {
+    const key = `${start}|${end}`;
+    if (!guideEvents[key]) {
+      guideEvents[key] = fetch(`${EVENTS_API}?school=${HIGH_ID}&start=${start}&end=${end}`).then((r) => (r.ok ? r.json() : { events: [] }))
+        .then((j) => (Array.isArray(j) ? j : j.events || [])).catch(() => []);
+    }
+    return guideEvents[key];
+  }
+
+  function openGuideSheet(grade, info) {
+    track("viewer");
+    const g = GUIDE[grade] ? grade : 9;
+    const guide = GUIDE[g];
+    const links = (info && info.links) || [];
+    const resolve = (link) => {
+      if (!link) return null;
+      if (/^https?:/.test(link)) return { href: link };
+      if (link.startsWith("handbook:")) return { handbook: link.slice(9) };
+      if (link === "supplies") { const l = links.find((x) => /supply/i.test(x.label) && /\.pdf$/i.test(x.href)); return l ? { supplies: l } : null; }
+      const rx = { skyward: /skyward/i, counseling: /counsel/i, course: /course|registration|curriculum/i, activities: /activit|club/i }[link];
+      const l = rx && links.find((x) => rx.test(x.label));
+      return l ? { href: l.href } : null;
+    };
+    let checks = {};
+    try { checks = JSON.parse(localStorage.getItem(GUIDE_CHECKS) || "{}"); } catch {}
+    const mine = checks[g] || {};
+    $("sheetDate").textContent = "Grade guide";
+    const body = $("sheetBody");
+    const linkHtml = (link, label) => {
+      const r = resolve(link);
+      if (!r) return "";
+      if (r.href) return ` <a class="ev-link" href="${esc(r.href)}" target="_blank" rel="noopener">${esc(label || "Open")}</a>`;
+      if (r.handbook) return ` <a class="ev-link" href="#" data-guide-hb="${esc(r.handbook)}">${esc(label || "In the handbook")}</a>`;
+      if (r.supplies) return ` <a class="ev-link" href="#" data-guide-supplies="1">${esc(label || "Open")}</a>`;
+      return "";
+    };
+    const today = isoOf(new Date());
+    const tests = g >= 10 ? ["ACT", "SAT"].flatMap((t) => TEST_DATES.filter((x) => x.test === t && x.late >= today).slice(0, 2)) : [];
+    body.innerHTML =
+      `<div class="chips guide-chips">${[9, 10, 11, 12].map((x) => `<button type="button" class="chip${x === g ? " on" : ""}" data-guide-grade="${x}">${esc(gradeName(x))}</button>`).join("")}</div>` +
+      `<h3 class="guide-h">${esc(guide.headline)}</h3><p class="guide-intro">${esc(guide.intro)}</p>` +
+      `<div class="menu-section"><h3>This year</h3><ul class="guide-list">${guide.todo.map((t) =>
+        `<li><label class="guide-item"><input type="checkbox" data-guide-check="${esc(t.id)}"${mine[t.id] ? " checked" : ""}><span>${esc(t.text)}${linkHtml(t.link)}</span></label></li>`).join("")}</ul></div>` +
+      (g === 12 ? `<div class="menu-section" id="guideGrad" hidden></div>` : "") +
+      `<div class="menu-section" id="guideUpcoming" hidden></div>` +
+      (tests.length ? `<div class="menu-section"><h3>Test dates</h3><ul class="guide-facts">${tests.map((t) =>
+        `<li><b>${esc(t.test)} ${esc(fmtShortDay.format(fromIso(t.d)))}</b><span class="info-sub">Register by ${esc(fmtShortDay.format(fromIso(t.late)))}</span>${linkHtml(TEST_LINKS[t.test], "Register")}</li>`).join("")}</ul></div>` : "") +
+      `<div class="menu-section"><h3>Good to know</h3><ul class="guide-facts">${guide.facts.map((f) =>
+        `<li><b>${esc(f.title)}</b><span class="info-sub">${esc(f.body)}</span>${linkHtml(f.link, "More")}</li>`).join("")}</ul></div>` +
+      `<p class="sheet-hint">Dates and scholarship rules are South Dakota's for 2026-27; the school's own policies are in the handbook.</p>`;
+    body.querySelectorAll("[data-guide-grade]").forEach((b) => b.addEventListener("click", () => openGuideSheet(Number(b.dataset.guideGrade), info)));
+    body.querySelectorAll("[data-guide-check]").forEach((c) => c.addEventListener("change", () => {
+      mine[c.dataset.guideCheck] = c.checked; checks[g] = mine;
+      try { localStorage.setItem(GUIDE_CHECKS, JSON.stringify(checks)); } catch {}
+    }));
+    body.querySelectorAll("[data-guide-hb]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); openHandbookSheet(HIGH_ID, info, "high"); setTimeout(() => { const i = $("hbSearch"); if (i) { i.value = a.dataset.guideHb; i.dispatchEvent(new Event("input")); } }, 900); }));
+    body.querySelectorAll("[data-guide-supplies]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); const r = resolve("supplies"); if (r && r.supplies) openSuppliesSheet(HIGH_ID, r.supplies); }));
+    showSheet(null);
+    const token = String(Date.now());
+    body.dataset.guide = token;
+    // Coming up for this grade, from the school's own calendar.
+    guideFetch(today, plusDays(today, 60)).then((evs) => {
+      if (body.dataset.guide !== token) return;
+      const seen = new Set();
+      const mineEvs = evs.filter((ev) => ev.g && ev.g.includes(g) && !ev.act && !/no school/i.test(ev.t))
+        .sort((a, b) => (a.g.length - b.g.length) || a.s.localeCompare(b.s))
+        .filter((ev) => { const k = compact(ev.t).title; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6)
+        .sort((a, b) => a.s.localeCompare(b.s));
+      const host = $("guideUpcoming");
+      if (!host || !mineEvs.length) return;
+      host.innerHTML = `<h3>Coming up for ${esc(gradeName(g))}</h3><ul class="guide-facts">${mineEvs.map((ev) =>
+        `<li><b>${esc(compact(ev.t).title)}</b><span class="info-sub">${esc(fmtShortDay.format(fromIso(ev.s)))}${ev.time ? ` · ${esc(ev.time)}` : ""}</span></li>`).join("")}</ul>`;
+      host.hidden = false;
+    });
+    if (g === 12) {
+      const yr = new Date().getMonth() >= 6 ? new Date().getFullYear() + 1 : new Date().getFullYear();
+      guideFetch(`${yr}-04-15`, `${yr}-06-20`).then((evs) => {
+        if (body.dataset.guide !== token) return;
+        const grad = evs.find((ev) => /graduation|commencement/i.test(ev.t) && !/practice|rehearsal/i.test(ev.t)) || evs.find((ev) => /graduation|commencement/i.test(ev.t));
+        const host = $("guideGrad");
+        if (!host || !grad) return;
+        const days = Math.ceil((fromIso(grad.s) - fromIso(today)) / 86400000);
+        if (days < 0) return;
+        host.innerHTML = `<p class="guide-count"><b>${days === 0 ? "Today" : `${days} day${days === 1 ? "" : "s"}`}</b> until graduation: ${esc(fmtShortDay.format(fromIso(grad.s)))}${grad.time ? ` at ${esc(grad.time)}` : ""}${grad.where ? `, ${esc(grad.where)}` : ""}</p>`;
+        host.hidden = false;
+      });
+    }
+  }
+
+  /* ---------------- use counts + mistake reports ---------------- */
+
+  // One count per device per feature per day, no identity. Shown only on
+  // the owner page, so the next thing built is the thing people use.
+  const REPORT_API = "/.netlify/functions/report";
+  let useQueue = [];
+  let useTimer = null;
+  function track(feature) {
+    const day = new Date().toISOString().slice(0, 10);
+    const k = `bvl-use:${feature}:${day}`;
+    try { if (localStorage.getItem(k)) return; localStorage.setItem(k, "1"); } catch {}
+    useQueue.push(feature);
+    clearTimeout(useTimer);
+    useTimer = setTimeout(() => {
+      const features = useQueue.splice(0);
+      const body = JSON.stringify({ kind: "use", features });
+      try {
+        if (!(navigator.sendBeacon && navigator.sendBeacon(REPORT_API, new Blob([body], { type: "application/json" })))) {
+          fetch(REPORT_API, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
+        }
+      } catch {}
+    }, 1500);
+  }
+  // Old day-counters are tiny but shouldn't pile up forever.
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    for (const k of Object.keys(localStorage)) if (k.startsWith("bvl-use:") && !k.endsWith(today)) localStorage.removeItem(k);
+  } catch {}
+
+  async function reportMistake(ev, date) {
+    const note = prompt(`What's wrong with "${compact(ev.t).title}"? (wrong school, wrong grade, wrong time, shouldn't be here...)`, "");
+    if (note === null) return;
+    try {
+      await fetch(REPORT_API, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "report", id: ev.id, date, title: ev.t, school: SHORT[ev.sch || schoolId] || "", note }) });
+      track("report");
+      toast("Thanks, we'll look at it");
+    } catch { toast("Couldn't send that; try again later"); }
+  }
+
   /* ---------------- closings bar ---------------- */
 
   // Brandon Valley on KELOLAND's closings list (snow day, late start,
@@ -2467,6 +2849,7 @@
 
   function setTab(t) {
     tab = t;
+    if (t === "school") track("school");
     try { localStorage.setItem(TAB_KEY, t); } catch {}
     for (const [id, name] of [["tabLunch", "lunch"], ["tabEvents", "events"], ["tabSchool", "school"]]) {
       const active = name === t;
@@ -2543,6 +2926,8 @@
   }
   document.addEventListener("visibilitychange", refreshIfVisible);
   loadAlerts();
+  track("open");
+  try { if (localStorage.getItem(ROLE_KEY) === "student") track("student"); } catch {}
   setInterval(refreshIfVisible, 5 * 60 * 1000);
 
   let swRegistration = null;

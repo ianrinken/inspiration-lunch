@@ -5,6 +5,7 @@
 import { getStore } from "@netlify/blobs";
 import digest from "./lib/digest.js";
 import watch from "./lib/watch.js";
+import games from "./lib/games.js";
 
 const { buildDigest, buildGameDay, send, nextSchoolDay } = digest;
 
@@ -19,6 +20,15 @@ export default async () => {
   // mid-September, when the new year's lists get posted.
   const { month, day } = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", month: "numeric", day: "numeric" })
     .formatToParts(new Date()).reduce((o, p) => ((o[p.type] = +p.value), o), {});
+  // Followed games: every hour from 6 am to 10 pm, a cancellation, new
+  // time or new place reaches the phones following that activity.
+  if (hour >= 6 && hour <= 22) {
+    try {
+      const changes = await games.checkGames();
+      const r = await games.notifyChanges(changes, send);
+      console.log(`games: ${changes.length} changed${changes.length ? ` (${changes.slice(0, 3).map(games.line).join("; ")})` : ""}, ${r.sent} notified`);
+    } catch (err) { console.error("games watch:", err && (err.stack || err.message)); }
+  }
   const runUp = (month === 6 && day >= 15) || month === 7 || month === 8 || (month === 9 && day <= 15);
   if (hour === 6 || (runUp && (hour === 12 || hour === 18 || hour === 0))) {
     try {

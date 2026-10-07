@@ -13,7 +13,14 @@ export default async () => {
       calendars: cals.length,
       filled: cals.filter((c) => c.synced).length,
     };
-    return new Response(JSON.stringify({ supplies, mirror }, null, 1), {
+    const w = getStore({ name: "watch" });
+    const games = (await w.get("games", { type: "json" }).catch(() => null)) || null;
+    const closings = (await w.get("closings", { type: "json" }).catch(() => null)) || null;
+    const watches = {
+      games: games ? { at: new Date(games.at).toISOString(), tracked: Object.keys(games.items || {}).length } : null,
+      closings: closings ? { checked: closings.checked ? new Date(closings.checked).toISOString() : null, active: (closings.active || []).length } : null,
+    };
+    return new Response(JSON.stringify({ supplies, mirror, watches }, null, 1), {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" },
     });
   } catch (err) {

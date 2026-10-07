@@ -2510,6 +2510,14 @@
   // newer than the last walkthrough they finished, so nothing is repeated.
   const TOUR_SEEN = "bvl-tour-seen";
   const TOUR = [
+    { since: "2026-10-07", h: "Game changes, straight to your phone",
+      p: "When a game your child follows is cancelled, postponed, moved or put back on, phones with notifications on hear about it within the hour." },
+    { since: "2026-10-07", h: "Weather at bus time and pickup",
+      p: "The lunch card now shows the forecast for 7 am and 3 pm on the day it's about, from the National Weather Service." },
+    { since: "2026-10-07", h: "Food allergies, flagged",
+      p: "Add a child's allergies under Edit. Menu items that contain one get marked, and so does the day's entrée. Allergies never leave your phone." },
+    { since: "2026-10-07", h: "The handbook and a grade guide, in the app",
+      p: "Handbook on the School tab opens the real handbook, searchable. High school parents also get a grade guide: what to do this year, test dates, scholarships. And every day's events now have a Report a mistake link." },
     { since: "2026-10-05", h: "Snow days, late starts, early outs",
       p: "The app watches the KELOLAND closings list. When Brandon Valley is on it, a red bar shows here and phones with notifications on get a push within minutes." },
     { since: "2026-10-01", h: "The School tab",

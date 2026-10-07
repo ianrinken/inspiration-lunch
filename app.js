@@ -1530,8 +1530,14 @@
 
     // One Google calendar per grade (with the school-wide events) and one
     // per activity, so a child's view is one tap, or one per activity.
+    // A child with no activities picked sees every activity in the app, so
+    // their Google calendar is the grade-with-activities one (ga:), not the
+    // grade-only one that pairs with per-activity calendars.
+    const secondary = BVGrades.SPAN[sch][0] >= 5;
     const pieces = kid
-      ? [{ key: `g:${sch}:${kid.grade}`, suffix: " and school-wide events" }, ...kid.acts.map((a) => ({ key: `a:${sch}:${a}`, name: a }))]
+      ? (kid.acts.length || !secondary
+        ? [{ key: `g:${sch}:${kid.grade}`, suffix: " and school-wide events" }, ...kid.acts.map((a) => ({ key: `a:${sch}:${a}`, name: a }))]
+        : [{ key: `ga:${sch}:${kid.grade}`, suffix: ", school-wide events and every activity" }])
       : [{ key: `s:${sch}` }];
     getMirror().then((m) => {
       if (body.dataset.sub !== token) return; // another sheet took over
@@ -2645,7 +2651,7 @@
         { id: "act", text: "Keep one activity going, or try a new one", link: "activities" },
       ],
       facts: [
-        { title: "Restricted minor's permit", body: "Available from 14 and a half after holding an instruction permit and passing a driving test. Driver's ed shortens the wait.", link: "https://www.sd.gov/dps?id=cs_kb_article_view&sysparm_article=KB0043735" },
+        { title: "Restricted minor's permit", body: "After holding an instruction permit for 275 days (about nine months) with a clean record and passing the driving test. Driver's ed shortens the wait.", link: "https://www.sd.gov/dps?id=cs_kb_article_view&sysparm_article=KB0043735" },
         { title: "Opportunity Scholarship coursework", body: "Staying on track means 4 years each of English, math and science. Check the plan each spring.", link: "https://ourdakotadreams.com/k12-students/opportunity-scholarship/" },
       ] },
     11: { headline: "Junior year is testing year",
@@ -2659,7 +2665,7 @@
       ],
       facts: [
         { title: "Opportunity Scholarship", body: "ACT 24 or higher, a 3.0 GPA and the required courses with no grade below C. Or an ACT of 28 with the college readiness benchmarks and no course requirement.", link: "https://ourdakotadreams.com/k12-students/opportunity-scholarship/" },
-        { title: "Dual credit", body: "South Dakota's high school dual credit rate was $80.37 per credit hour in 2026-27. The credit counts in high school and college.", link: "https://www.sdstate.edu/continuing-distance-education/high-school-dual-credit" },
+        { title: "Dual credit", body: "South Dakota high schoolers pay about $80 per credit hour at the state universities, roughly half the regular rate; the state covers the rest. The credit counts in high school and college.", link: "https://sdbor.edu/cost-aid/dual-credit/" },
       ] },
     12: { headline: "Senior year, start to finish",
       intro: "Applications and financial aid in the fall, scholarships in winter, graduation in May.",

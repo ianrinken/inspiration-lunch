@@ -20,7 +20,11 @@ export default async () => {
       games: games ? { at: new Date(games.at).toISOString(), tracked: Object.keys(games.items || {}).length } : null,
       closings: closings ? { checked: closings.checked ? new Date(closings.checked).toISOString() : null, active: (closings.active || []).length } : null,
     };
-    return new Response(JSON.stringify({ supplies, mirror, watches }, null, 1), {
+    const stores = {};
+    for (const name of ["sources", "overrides", "usage", "reports", "push", "family"]) {
+      try { stores[name] = (await getStore({ name }).list()).blobs.length; } catch { stores[name] = null; }
+    }
+    return new Response(JSON.stringify({ supplies, mirror, watches, stores }, null, 1), {
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" },
     });
   } catch (err) {

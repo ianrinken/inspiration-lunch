@@ -37,12 +37,15 @@ const ORDER = [
 // s:<school>, a:<school>:<activity>.
 export async function needed() {
   const schools = [...ORDER, ...Object.keys(events.SCHOOL_NAMES).filter((s) => !ORDER.includes(s))];
-  const grades = [], whole = [], acts = [];
+  const grades = [], whole = [], acts = [], gradesAll = [];
   for (const school of schools) {
     const name = events.SCHOOL_NAMES[school];
     const [lo, hi] = gradesLib.SPAN[school];
     for (let g = lo; g <= hi; g++) {
       grades.push({ key: `g:${school}:${g}`, name: `${name} · ${gradeLabel(g)}`, feed: `${SITE}/feed/${school}/${g}/none/calendar.ics` });
+      // Secondary schools also get the grade plus every activity: the view
+      // of a child with no activities picked.
+      if (lo >= 5) gradesAll.push({ key: `ga:${school}:${g}`, name: `${name} · ${gradeLabel(g)} with activities`, feed: `${SITE}/feed/${school}/${g}/all/calendar.ics` });
     }
     whole.push({ key: `s:${school}`, name: `${name} · All events`, feed: `${SITE}/feed/${school}/all/all/calendar.ics` });
     let list = [];
@@ -51,7 +54,7 @@ export async function needed() {
       acts.push({ key: `a:${school}:${act}`, name: `${name} · ${act}`, feed: `${SITE}/feed/${school}/all/${encodeURIComponent(act)}/calendar.ics?only=1` });
     }
   }
-  return [...grades, ...whole, ...acts];
+  return [...grades, ...gradesAll, ...whole, ...acts];
 }
 
 const cleanEntry = (e) => e && typeof e.id === "string" && /^[\w.-]+@(group\.)?calendar\.google\.com$/.test(e.id)
@@ -75,7 +78,7 @@ export default async (req) => {
       if (!secret || typeof body.secret !== "string" || body.secret !== secret) return json({ error: "forbidden" }, 403);
       const calendars = {};
       for (const [key, entry] of Object.entries(body.calendars || {})) {
-        if (!/^[gas]:/.test(key) || key.length > 200) continue;
+        if (!/^(g|ga|a|s):/.test(key) || key.length > 200) continue;
         const c = cleanEntry(entry);
         if (c) calendars[key] = c;
       }

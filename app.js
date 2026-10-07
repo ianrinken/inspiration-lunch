@@ -2510,23 +2510,23 @@
   // newer than the last walkthrough they finished, so nothing is repeated.
   const TOUR_SEEN = "bvl-tour-seen";
   const TOUR = [
-    { since: "2026-10-07", h: "Game changes, straight to your phone",
+    { since: "2026-10-07", go: "notify", h: "Game changes, straight to your phone",
       p: "When a game your child follows is cancelled, postponed, moved or put back on, phones with notifications on hear about it within the hour." },
-    { since: "2026-10-07", h: "Weather at bus time and pickup",
+    { since: "2026-10-07", go: "lunch", h: "Weather at bus time and pickup",
       p: "The lunch card now shows the forecast for 7 am and 3 pm on the day it's about, from the National Weather Service." },
-    { since: "2026-10-07", h: "Food allergies, flagged",
+    { since: "2026-10-07", go: "kid", h: "Food allergies, flagged",
       p: "Add a child's allergies under Edit. Menu items that contain one get marked, and so does the day's entrée. Allergies never leave your phone." },
-    { since: "2026-10-07", h: "The handbook and a grade guide, in the app",
+    { since: "2026-10-07", go: "school", h: "The handbook and a grade guide, in the app",
       p: "Handbook on the School tab opens the real handbook, searchable. High school parents also get a grade guide: what to do this year, test dates, scholarships. And every day's events now have a Report a mistake link." },
-    { since: "2026-10-05", h: "Snow days, late starts, early outs",
+    { since: "2026-10-05", go: "notify", h: "Snow days, late starts, early outs",
       p: "The app watches the KELOLAND closings list. When Brandon Valley is on it, a red bar shows here and phones with notifications on get a push within minutes." },
-    { since: "2026-10-01", h: "The School tab",
+    { since: "2026-10-01", go: "school", h: "The School tab",
       p: "Bell schedules, the supply list for your child's grade, clubs with their advisors, and the office contact, all inside the app." },
-    { since: "2026-10-02", h: "Calendar sync in one tap",
+    { since: "2026-10-02", go: "kids", h: "Calendar sync in one tap",
       p: "In Edit, tap Subscribe next to a child. Add to iPhone calendar or Add to Google Calendar, both one tap on a phone. Games, changes and cancellations keep flowing on their own." },
-    { since: "2026-10-01", h: "A family code",
+    { since: "2026-10-01", go: "kids", h: "A family code",
       p: "Pick a code in Edit. If a phone ever clears the site's data, or the other parent wants the same setup, the code brings it all back. No account, no names." },
-    { since: "2026-10-01", h: "High schoolers can use it too",
+    { since: "2026-10-01", go: "kids", h: "High schoolers can use it too",
       p: "Student mode gives a high schooler their own schedule and a 7 am ping on game days. Parents keep their own view." },
   ];
   // When this parent last finished a walkthrough. Earlier versions kept a
@@ -2565,6 +2565,14 @@
         closeSheet();
         if (!kids.length) setTimeout(() => openKidsSheet(), 320);
       });
+      // Straight to where this one lives.
+      if (t.go) {
+        const go = document.createElement("button");
+        go.type = "button"; go.className = "sheet-action sheet-action-quiet tour-go";
+        go.textContent = "Show me";
+        go.addEventListener("click", () => { closeSheet(); setTimeout(() => tourGo(t.go), 320); });
+        body.appendChild(go);
+      }
       body.appendChild(next);
       if (!last) {
         const skip = document.createElement("button");
@@ -2575,6 +2583,14 @@
     };
     paint();
     showSheet(null);
+  }
+
+  function tourGo(where) {
+    if (where === "lunch") { $("tabLunch").click(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (where === "school") { $("tabSchool").click(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    if (where === "kid") { if (kids.length && !isStudent()) openKidForm(kids[0]); else openKidsSheet(); return; }
+    openKidsSheet();
+    if (where === "notify") setTimeout(() => { const n = $("notifyToggle"); if (n) n.scrollIntoView({ block: "center", behavior: "smooth" }); }, 450);
   }
 
   let tourDue = false;

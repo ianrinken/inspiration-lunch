@@ -34,7 +34,8 @@ async function everything() {
       const s = getStore({ name: "reports" });
       const { blobs } = await s.list();
       const keys = blobs.map((b) => b.key).sort().reverse().slice(0, 100);
-      return Promise.all(keys.map(async (k) => ({ key: k, ...(await s.get(k, { type: "json" })) })));
+      const list = await Promise.all(keys.map(async (k) => { const r = await s.get(k, { type: "json" }); return r ? { key: k, ...r } : null; }));
+      return list.filter(Boolean);
     })(),
     (async () => {
       const s = getStore({ name: "usage" });

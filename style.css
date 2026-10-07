@@ -848,3 +848,5 @@ details.hb[open] summary::after { content: "–"; }
 .guide-facts .info-sub { display: block; }
 .guide-count { margin: 0; font-size: 1.05rem; line-height: 1.4; }
 .guide-count b { color: var(--bv-red); font-size: 1.5rem; }
+.report-line { margin: 10px 2px 0; font-size: .82rem; color: var(--text-soft); }
+.report-line .ev-report { color: var(--text-soft); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }

@@ -1109,8 +1109,7 @@
     const a = e.target.closest && e.target.closest(".ev-report");
     if (!a || !sheetReportEvents) return;
     e.preventDefault(); e.stopPropagation();
-    const ev = sheetReportEvents.events.find((x, i) => (x.id || String(i)) === a.dataset.report);
-    if (ev) reportMistake(ev, sheetReportEvents.date);
+    reportMistake(sheetReportEvents.events, sheetReportEvents.date);
   }, true);
 
   function openSheet(key, info, mode = "lunch", events = null) {
@@ -1149,13 +1148,13 @@
         }
         // Bound's page for the event: tickets, directions, changes.
         if (ev.url) bits.push(`<a class="ev-link" href="${esc(ev.url)}" target="_blank" rel="noopener">Details</a>`);
-        bits.push(`<a class="ev-link ev-report" href="#" data-report="${esc(id)}">Report a mistake</a>`);
         const sub = bits.length ? `<span class="ev-where">${bits.join(" · ")}</span>` : "";
         return `<li><label class="ev-pick">` +
           `<input type="checkbox" class="ev-check" value="${esc(id)}">` +
           `<span>${label}${sub}</span></label></li>`;
       }).join("");
-      sections.push(`<div class="menu-section"><h3>At school</h3><ul>${rows}</ul></div>`);
+      sections.push(`<div class="menu-section"><h3>At school</h3><ul>${rows}</ul>` +
+        `<p class="report-line">Something wrong here? <a class="ev-report" href="#">Report a mistake</a></p></div>`);
       sheetReportEvents = { date: key, events: dayEvents };
     }
     info = info || { entree: null, sides: [], alternates: [], vegetable: [], fruit: [], milk: [], condiments: [] };
@@ -1889,13 +1888,17 @@
         draft.grade = g; paint();
       })));
       save.classList.toggle("disabled", draft.grade === null);
+      paintAllergies();
+    }
+    function paintAllergies() {
+      if (!$("kAllergy")) return;
+      fill($("kAllergy"), ALLERGENS.map((n) => chip(n, draft.allergies.includes(n), () => {
+        draft.allergies = toggleIn(draft.allergies, n); paintAllergies();
+      })));
     }
     let actsList = [];
     function paintActs() {
       const names = [...new Set([...actsList, ...draft.acts])].sort();
-      fill($("kAllergy"), ALLERGENS.map((n) => chip(n, draft.allergies.includes(n), () => {
-        draft.allergies = toggleIn(draft.allergies, n); paintActs();
-      })));
       fill($("kActs"), names.map((n) => chip(n, draft.acts.includes(n), () => {
         draft.acts = toggleIn(draft.acts, n); paintActs();
       })));
@@ -2567,8 +2570,10 @@
 
   const HB_PREFIX = "bvl-handbook-v1:";
   const handbookLevel = (school) => { const [lo] = BVGrades.SPAN[school]; return lo >= 9 ? "high" : lo >= 7 ? "middle" : lo >= 5 ? "intermediate" : "elementary"; };
-  const niceTitle = (t) => t.replace(/\w[\w'’]*/g, (w) => (w.length <= 3 && w === w.toUpperCase() && !/^(the|and|for|of|at|in|on|to|a)$/i.test(w) ? w : w[0].toUpperCase() + w.slice(1).toLowerCase()))
-    .replace(/^(\w)/, (c) => c.toUpperCase());
+  // "ANTI-BULLYING/HARASSMENT OF STUDENTS" -> "Anti-bullying/harassment of students"; ID, ICU, PTA stay.
+  const KEEP_CAPS = /^(ID|ICU|PTA|PTO|GPA|ACT|SAT|PSAT|NHS|FFA|FCCLA|BV|BVHS|BVMS|BVIS|SD|US|USA|TV|CPR|AED|IEP|ESL|ELL|LGBTQ|FAQ|PE|AP|CTE|FERPA|ADA|HIV|STEM|ISS|OSS|A|B|C|D|E|F)$/;
+  const niceTitle = (t) => t.replace(/[A-Za-z][\w'’]*/g, (w) => (KEEP_CAPS.test(w) ? w : w.toLowerCase()))
+    .replace(/^([^A-Za-z]*)([a-z])/, (m, pre, c) => pre + c.toUpperCase());
   async function getHandbook(which) {
     const k = HB_PREFIX + which;
     try {
@@ -2813,12 +2818,18 @@
     for (const k of Object.keys(localStorage)) if (k.startsWith("bvl-use:") && !k.endsWith(today)) localStorage.removeItem(k);
   } catch {}
 
-  async function reportMistake(ev, date) {
-    const note = prompt(`What's wrong with "${compact(ev.t).title}"? (wrong school, wrong grade, wrong time, shouldn't be here...)`, "");
-    if (note === null) return;
+  // One ask per day: which event, and what's wrong. A leading number picks
+  // the event; without one the whole day goes along as context.
+  async function reportMistake(events, date) {
+    const list = events.slice(0, 9).map((ev, i) => `${i + 1}. ${compact(ev.t).title}`).join("\n");
+    const note = prompt(`What's wrong? Start with the number if it's one event (wrong school, grade, time, shouldn't be here...).\n\n${list}`, "");
+    if (note === null || !note.trim()) return;
+    const m = note.trim().match(/^(\d)[.):\s-]*/);
+    const ev = m && events[Number(m[1]) - 1] ? events[Number(m[1]) - 1] : null;
     try {
       await fetch(REPORT_API, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "report", id: ev.id, date, title: ev.t, school: SHORT[ev.sch || schoolId] || "", note }) });
+        body: JSON.stringify({ kind: "report", id: ev ? ev.id : "", date, title: ev ? ev.t : events.map((x) => compact(x.t).title).join(" / ").slice(0, 160),
+          school: SHORT[(ev && ev.sch) || schoolId] || "", note: m ? note.trim().slice(m[0].length) : note.trim() }) });
       track("report");
       toast("Thanks, we'll look at it");
     } catch { toast("Couldn't send that; try again later"); }

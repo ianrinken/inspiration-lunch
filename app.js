@@ -2571,8 +2571,8 @@
   const HB_PREFIX = "bvl-handbook-v1:";
   const handbookLevel = (school) => { const [lo] = BVGrades.SPAN[school]; return lo >= 9 ? "high" : lo >= 7 ? "middle" : lo >= 5 ? "intermediate" : "elementary"; };
   // "ANTI-BULLYING/HARASSMENT OF STUDENTS" -> "Anti-bullying/harassment of students"; ID, ICU, PTA stay.
-  const KEEP_CAPS = /^(ID|ICU|PTA|PTO|GPA|ACT|SAT|PSAT|NHS|FFA|FCCLA|BV|BVHS|BVMS|BVIS|SD|US|USA|TV|CPR|AED|IEP|ESL|ELL|LGBTQ|FAQ|PE|AP|CTE|FERPA|ADA|HIV|STEM|ISS|OSS|A|B|C|D|E|F)$/;
-  const niceTitle = (t) => t.replace(/[A-Za-z][\w'’]*/g, (w) => (KEEP_CAPS.test(w) ? w : w.toLowerCase()))
+  const KEEP_CAPS = /^(ID|ICU|PTA|PTO|GPA|ACT|SAT|PSAT|NHS|FFA|FCCLA|BV|BVHS|BVMS|BVIS|SD|US|USA|TV|CPR|AED|IEP|ESL|ELL|LGBTQ|FAQ|PE|AP|CTE|FERPA|ADA|HIV|STEM|ISS|OSS)$/;
+  const niceTitle = (t) => t.replace(/[A-Za-z][\w'’]*/g, (w, at, str) => (KEEP_CAPS.test(w) || (w.length === 1 && str[at + 1] === ")") ? w : w.toLowerCase()))
     .replace(/^([^A-Za-z]*)([a-z])/, (m, pre, c) => pre + c.toUpperCase());
   async function getHandbook(which) {
     const k = HB_PREFIX + which;

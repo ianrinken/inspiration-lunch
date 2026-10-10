@@ -873,6 +873,7 @@
     "Know what's happening at school for each of your kids, every day": "Sepa lo que pasa en la escuela de cada uno de sus hijos, todos los días",
     "For families at every Sioux Falls public school, kindergarten through 12th grade. Free, no account.": "Para las familias de todas las escuelas públicas de Sioux Falls, desde kínder hasta el grado 12. Gratis, sin cuenta.",
     "Conferences, after-school care, sports physicals, ACT dates and scholarships": "Conferencias, cuidado después de clases, exámenes físicos deportivos, fechas del ACT y becas",
+    "Conferences, supply lists, sports physicals, ACT dates and scholarships": "Conferencias, listas de útiles, exámenes físicos deportivos, fechas del ACT y becas",
     "School about {a} to {b}": "Clases aprox. de {a} a {b}",
     "{school} doesn't publish its hours; these are typical for Sioux Falls elementary schools. Call {phone} to check.": "{school} no publica su horario; este es el horario común de las primarias de Sioux Falls. Llame al {phone} para confirmarlo.",
     "New school this year?": "¿Escuela nueva este año?",

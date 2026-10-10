@@ -691,7 +691,7 @@
           ${promise(ICONS.clock, t("Tomorrow at a glance"), t("Late starts, days off, lunch and games, for each of your kids"))}
           ${promise(ICONS.alert, t("Know when plans change"), t("Closings, late starts and moved games, flagged when you open the app. Phone alerts if you want them."))}
           ${promise(ICONS.event, t("Their games on your phone's calendar"), t("It updates on its own"))}
-          ${promise(ICONS.star, t("What their grade needs, and when"), t("Conferences, after-school care, sports physicals, ACT dates and scholarships"))}
+          ${promise(ICONS.star, t("What their grade needs, and when"), t("Conferences, supply lists, sports physicals, ACT dates and scholarships"))}
         </ul>
         <button class="btn primary block" data-action="add-kid">${t("Add your student")}</button>
         <button class="btn block" data-action="demo" style="margin-top:8px">${t("See an example family")}</button>
@@ -1900,7 +1900,7 @@
       const hits = d.sections.filter((sec) => !needle || sec.title.toLowerCase().includes(needle) || sec.text.toLowerCase().includes(needle));
       $("hbBody").innerHTML = (hits.length ? hits.map((sec) => `<details class="fold"${needle ? " open" : ""}><summary>${esc(nice(tx(sec.title)))}</summary><p style="line-height:1.55;white-space:pre-line">${esc(tx(sec.text))}</p></details>`).join("")
         : `<p class="empty-note">${t("Nothing in this handbook mentions \"{q}\".", { q: esc(q) })}</p>`) +
-        `<p class="fine">${enNote("Handbook text from the district, in English.", d.sections.slice(0, 3).map((x) => x.text))}${t("Read from the district's {title} PDF, checked daily.", { title: esc(d.title) })} <a href="${esc(d.source)}" target="_blank" rel="noopener">${t("Open the PDF")}</a></p>`;
+        `${enNote("Handbook text from the district, in English.", d.sections.slice(0, 3).map((x) => x.text))}<p class="fine">${t("Read from the district's {title} PDF, checked daily.", { title: esc(d.title) })} <a href="${esc(d.source)}" target="_blank" rel="noopener">${t("Open the PDF")}</a></p>`;
     };
     paint(section || "");
     if (section) $("hbSearch").value = section;

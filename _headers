@@ -2,7 +2,11 @@
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Permissions-Policy: geolocation=(), camera=(), microphone=()
+
+/admin.html
+  X-Robots-Tag: noindex
 
 /icons/*
   Cache-Control: public, max-age=604800
@@ -10,3 +14,6 @@
 # Lets the old netlify.app origin verify the custom domain is really live
 /manifest.webmanifest
   Access-Control-Allow-Origin: *
+
+/sw.js
+  Cache-Control: no-cache

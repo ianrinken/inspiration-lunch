@@ -1,10 +1,24 @@
 {
   "name": "brandon-valley-lunch",
   "private": true,
-  "description": "Brandon Valley Lunch: static PWA plus Netlify Functions",
+  "description": "Brandon Valley Lunch: static PWA plus Netlify Functions, built on the Sioux Falls Parent template",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "@netlify/blobs": "^11.1.2",
-    "pdfjs-dist": "^4.10.38",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "devDependencies": {
+    "axe-core": "^4.13.0",
+    "playwright": "^1.63.0"
+  },
+  "scripts": {
+    "lint": "npx --yes eslint@8 --no-eslintrc -c tests/eslintrc.json app.js shared.js data.js i18n.js handbooks-es.js handbooks.js overrides.js sw.js dev-server.js netlify/functions/*.js netlify/functions/lib/*.js tests/*.js",
+    "test:unit": "node tests/unit.js && node tests/unit-menu.js && node tests/unit-school.js && node tests/unit-events.js",
+    "test:journeys": "node tests/journeys.js",
+    "test": "npm run lint && npm run test:unit && npm run test:journeys",
+    "test:live": "BASE=https://brandonvalleylunch.com node tests/journeys.js",
+    "sweep": "node tests/sweep.js",
+    "deploy": "./scripts/deploy.sh"
   }
 }

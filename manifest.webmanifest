@@ -1,11 +1,11 @@
 {
   "name": "Brandon Valley Lunch",
   "short_name": "BV Lunch",
-  "description": "Daily school lunch menus for Brandon Valley School District, Brandon SD",
+  "description": "Lunch, school days, games and grade-by-grade guidance for Brandon Valley families, JK-12.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#A8181A",
+  "background_color": "#faf7f2",
   "theme_color": "#A8181A",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },

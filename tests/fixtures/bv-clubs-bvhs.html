@@ -1,0 +1,703 @@
+<!doctype html>
+<!--Created April 2021-->
+<!--Copyright 2012-2025 Chuck Henson-->
+<!--Copyright 2016-2025 Kris Jones-->
+<html lang="en">
+
+<head>
+  <!--Required meta tags-->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!--Bootstrap CSS-->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+  <!--Brandon Valley Custom Style Sheet-->
+  <link rel="stylesheet" href="../District HTML Resources/css/BV_V3.css">
+  <!--Bootstrap Icon Font CDN-->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+  <!--jquery-->
+  <script src="https://code.jquery.com/jquery-3.6.3.js" integrity="sha256-nQLuAZGRRcILA+6dMBOvcRh5Pe310sBpanc6+QBmyVM=" crossorigin="anonymous"></script>
+
+  <!--Font Awesome Icons-->
+  <script src="https://kit.fontawesome.com/6b8b306dc4.js" crossorigin="anonymous"></script>
+  <!--Reusable Navbar and Footer-->
+  <script src="../District HTML Resources/js/loader.js"></script>
+  <!--Full Calendar-->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.6.0/main.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.6.0/main.js"></script>
+  <!--Public Album-->
+  <script src="../District HTML Resources/js/photos.js" async></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'resourceTimelineWeek'
+            });
+            calendar.render();
+        });
+    </script>
+
+    <title>Clubs and Orgs | Brandon Valley High School</title>
+    <link rel="shortcut icon" href="../District Images/icon4.ico">
+
+    <!--Top Image-->
+    <!--!!DON'T TOUCH THIS!!-->
+    <style>
+        /*!!DON'T TOUCH THIS!!*/
+        .hero-image {
+            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("./images/BVHS.jpg");
+        }
+
+        /*!!DON'T TOUCH THIS!!*/
+    </style>
+    <!--!!DON'T TOUCH THIS!!-->
+    <!--END of Top Image-->
+
+    <!--Header-->
+    <div class="hero-image">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="top-banner">
+                        <p align="Right"><strong>
+                                <font size="7" color="white">
+                                    BRANDON VALLEY HIGH SCHOOL </font>
+                            </strong><br>
+                            <font size="4" color="white">
+                                CLUBS AND ORGANIZATIONS | BRANDON VALLEY SCHOOL DISTRICT</font>
+                        </p><br><br><br>
+                        <div class="row">
+                            <h5 class="text-center"><strong>
+                                    <font size="5" color="white">RESPECTFUL | RESPONSIBLE | SAFE | KIND | ACTIVE
+                                        LEARNERS</font>
+                                </strong></H6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-RXM2MLXQ3S"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-RXM2MLXQ3S');
+    </script>
+
+</head>
+
+<body>
+    <!--Navigation bar-->
+    <nav data-replacement="navbar.html">
+    </nav>
+    <!--end Navigation bar-->
+    <!--Return to Top Button-->
+    <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button>
+    <script>
+        //Get the button
+        var mybutton = document.getElementById("myBtn");
+
+        // When the user scrolls down 20px from the top of the document, show the button
+        window.onscroll = function () { scrollFunction() };
+
+        function scrollFunction() {
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                mybutton.style.display = "block";
+            } else {
+                mybutton.style.display = "none";
+            }
+        }
+
+        // When the user clicks on the button, scroll to the top of the document
+        function topFunction() {
+            document.body.scrollTop = 0;
+            document.documentElement.scrollTop = 0;
+        }
+    </script>
+    <!--End of Return to Top Button-->
+
+    <div class="container">
+        <div class="row text-center">
+            <div class="col-md-offset-0 col-md-12">
+                <!--Staff Navigation Buttons-->
+                <div class="container">
+                    <div class="row row-cols-1 row-cols-lg-3"
+                        style="margin-top: 10px; margin-left: 0px; margin-right: 0px; row-gap: 10px;">
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#TATU" role="button"
+                        style="white-space:nowrap;">Anti-NicoTEENS</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#Art" role="button"
+                                style="white-space:nowrap;">Art Club</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#CreativeMinds" role="button"
+                                style="white-space:nowrap;">Creative Minds</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#Best" role="button"
+                                style="white-space:nowrap;">Best Buddies</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#Cinema" role="button"
+                                style="white-space:nowrap;">Cinema Club</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#DECABusiness" role="button"
+                                style="white-space:nowrap;">DECA Business Club</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#Drama" role="button"
+                                style="white-space:nowrap;">Drama Club</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#FCA" role="button"
+                                style="white-space:nowrap;">FCA</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#FFA" role="button"
+                                style="white-space:nowrap;">FFA</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#First" role="button"
+                                style="white-space:nowrap;">First Priority</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#HOSA" role="button"
+                                style="white-space:nowrap;">HOSA</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#Math" role="button"
+                                style="white-space:nowrap;">Math NHS</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#Mentor" role="button"
+                                style="white-space:nowrap;">BV Mentoring Program</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#NHS" role="button"
+                                style="white-space:nowrap;">NHS</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#Oral" role="button"
+                                style="white-space:nowrap;">Oral Interp</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#Public" role="button"
+                                style="white-space:nowrap;">Public Speaking</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#Quiz" role="button"
+                                style="white-space:nowrap;">Quiz Bowl</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#SALSA" role="button"
+                                style="white-space:nowrap;">SALSA</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvred btn-lg btn-block" href="#Student" role="button"
+                                style="white-space:nowrap;">Student Council</a>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <a class="btn-bvgrey btn-lg btn-block" href="#Trap" role="button"
+                                style="white-space:nowrap;">Trapshooting</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br>
+
+        <div class="container">
+            <div class="row">
+                <div class="col-md-offset-0 col-md-12">
+                    <div class="row row-cols-1 row-cols-md-2 g-4">
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="#Art">Art Club</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Art Club is an inclusive sister organization to Creative 
+                                        Minds that does not require an audition to join. Students explore creative 
+                                        projects, build skills, and participate in occasional community art events 
+                                        in a fun, relaxed environment.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Chad Nelson</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="#CreativeMinds">Creative Minds</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Creative Minds empowers passionate art students to explore their 
+                                        creativity, develop new skills, and share their artwork with others. Through 
+                                        collaborative events, exhibitions, and community outreach, we make art that 
+                                        inspires, connects, and gives back.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Chad Nelson</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="#Best">Best Buddies</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Buddies is a program that builds one-to-one friendships between
+                                        people with and without disabilities, offering social mentoring while improving
+                                        the quality of life and level of inclusion for a population that is often
+                                        isolated and excluded. Through their participation, people with disabilities
+                                        form meaningful connections with their peers, gain self confidence and self
+                                        esteem, and share interests, experiences, and activities that many other
+                                        individuals enjoy.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisors: Kelly Neeman, Victoria Orren, Maggie Dady
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="Cinema">Cinema Club</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Cinema Club meets during Chad Nelson’s lunch period to watch 
+                                        and discuss films that go beyond surface-level entertainment. Students explore 
+                                        cinematic storytelling, visual language, and the art of film through engaging 
+                                        conversation and analysis.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisors: Chad Nelson</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="DECABusiness">DECA Business Club</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">DECA is a business organization that prepares emerging leaders 
+                                        and entrepreneurs in marketing, finance, hospitality and management. Participation 
+                                        in DECA furthers development skills in leadership, management skills, civic 
+                                        consciousness, job responsibility, motivation to excel, good work habits, 
+                                        critical thinking and problem solving. In addition to ongoing meetings and 
+                                        events at BVHS, DECA members may have the opportunity to participate in 
+                                        local and international conferences. DECA is open to members of all grade 
+                                        levels.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisors: Katie Kennett</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="Drama">Drama Club</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Drama Club takes trips to different plays, then later discusses
+                                        everything about the play.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisors: Melanie Sittig</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="FCA">Fellowship of Christian Athletes</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">FCA is Fellowship of Christian Athletes. It is a Christian group 
+                                        that meets on Sunday nights at 7pm or Friday mornings at 7:15am at the high school. 
+                                        The vision of the international organization of FCA is "to see the world transformed 
+                                        by Jesus Christ through the influence of coaches and athletes." Our FCA huddle plays 
+                                        games, discusses life lessons from sports, and works on building up each athlete's 
+                                        personal relationship with Jesus Christ on a daily basis.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Natasha Presler</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="FFA">FFA</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">The FFA is an organization that competes in many different
+                                        career development events (CDE). Fall CDE’s: Ag Broadcasting, Ag communications,
+                                        As issues, Ag Sales, Creed Speaking, Extemporaneous Speaking, Job Interview, Jr.
+                                        Parliamentary Procedure, Marketing Plan, Prepared Public Speaking, and
+                                        Parliamentary Procedure. Spring CDE’s: Ag Business Management, Agronomy,
+                                        Floriculture, Horse Evaluation and Selection, Meats Evaluation and Technology,
+                                        Natural Resources, Range Plant ID, Ag Mechanics, Dairy Cattle, Food Science and
+                                        Technology, Livestock Evaluation, Milk Quality and Products, Nursery/Landscape,
+                                        and Vet Science. The FFA events put on events such as tractor drives, bowling
+                                        competitions, petting zoo’s, and we participate in National FFA week. The FFA
+                                        Puts on one fundraiser during the year; Fruit Sales.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Justin Lovrien</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="First">First Priority</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">First Priority is a student-led Christian group that allows
+                                        students to gather together on Tuesday mornings for food, fellowship, and fun!
+                                    </p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Derek Outland</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="HOSA">HOSA</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">HOSA is 100% healthcare! This organization helps promote career 
+                                        opportunities within the healthcare industry while training students to deliver quality 
+                                        healthcare to all people. HOSA meets bi-monthly and offers several opportunities 
+                                        for students. Listen to professionals discuss their current health careers; 
+                                        explore various health-related career options; and practice healthcare skills 
+                                        in a competitive event held in the spring. This group is open to all grades!</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Lisa Fuccello</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="Math">Math NHS</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Students in Math National Honor Society are recognized for
+                                        outstanding achievement and curiosity in the field of mathematics. Students who
+                                        have completed Algebra and Geometry with at least a B average are eligible to
+                                        become members. Math NHS students travel to academic competitions at regional
+                                        colleges and universities. Members also offer daily tutoring at Brandon Valley
+                                        Middle School and help high school students prepare for semester tests.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Chris White</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="Mentor">BV Mentoring Program</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Please contact Mrs. Telkamp for more information about being
+                                        a mentor or a tutor.</p>
+                                    <ul class="list">
+                                        <li>The BV Mentoring Program matches a high school student with a middle school, 
+                                            intermediate, or elementary student to help make positive changes in academics, 
+                                            be a positive role model, and create positive relationships. Mentors may be 
+                                            assigned to work with a specific student or help a teacher with activities in 
+                                            their classroom. Students must be earning all C's or higher, and have a free 
+                                            period, lunch period, or study hall to participate. Students also must be able 
+                                            to transport themselves to their respective mentor school. Contact 
+                                            Mrs. Telkamp for more details!</li>
+                                    </ul>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Kate Telkamp</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="NHS">National Honor Society</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">National Honor Society is a national organization which recognizes 
+                                        outstanding scholarship, leadership, and volunteerism. In the fall of their junior 
+                                        or senior year, students with a GPA of 3.4 or higher are notified of their academic 
+                                        eligibility and will be invited to apply for admittance into NHS. Applications for 
+                                        admittance require proven leadership experiences and community service experience 
+                                        (six hours of service done within one year from applying). In addition, the character 
+                                        of each nominee is reviewed by the faculty. Incidences of academic dishonesty or 
+                                        violations of law that resulted in nonparticipation of extra-curricular activities 
+                                        will be taken into account during the character review. Students will be personally 
+                                        notified if their application is accepted and an induction ceremony into the group 
+                                        will occur in December.  Once you are inducted into NHS, you remain a member 
+                                        unless you are dismissed due to outstanding circumstances.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisors: Michelle Stemwedel</div>
+                                        <!--<div class="col text-end"><a href="https://forms.gle/fk6FcfyK1SBDKRY16"
+                                                class="link-danger"><b>Application</b></a></div>-->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="Oral">Oral Interpretation</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Oral Interpretation is a performance activity that allows
+                                        students to perform plays and other pieces of literature for an audience using
+                                        just voice and body. No props or costumes are allowed; the focus is on creating
+                                        a character and/or a scene. Students may perform by themselves or with groups of
+                                        other students. The performances are then entered into competitive tournaments.
+                                        In the fall semester, a class is offered to prepare students for performances
+                                        and competition. There is also the opportunity to work after school for students
+                                        who want to compete but are unable to take the class.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Gina Koehn</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="Public">Public Speaking</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Students who are interested in competitive public speaking can
+                                        work on extemporaneous speaking and original oratory. Both are activities in
+                                        which students research and write speeches on either current events or a topic
+                                        of their choice and present these speeches in a competitive setting. Students
+                                        interested in this can take the oral interpretation class and use that class
+                                        time to prepare for their speeches or can work independently after school to
+                                        prepare.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Gina Koehn</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="Quiz">Quiz Bowl</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Quiz Bowl is an academic extra-curricular activity for students
+                                        in grades 9-12. High School participants meet one morning and one afternoon per
+                                        week to study for upcoming tournaments. For more information on lettering,
+                                        participation, etc., please contact Chris White at <a
+                                            href="mailto:Christopher.R.White@k12.sd.us">Christopher.R.White@k12.sd.us</a>.
+                                        Students at the high school level will participate in 7 or 8 local tournaments.
+                                    </p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Chris White</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="SALSA">SALSA</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">SALSA, made up of 1500+ members from the four Sioux Falls area
+                                        high schools, is an organization focused on volunteerism. The HELP!Line Center
+                                        facilitates group meetings and links high school students to volunteer
+                                        opportunities in the community through this program. Volunteering enables
+                                        students to explore careers and increase awareness of community needs. Meetings
+                                        at Brandon Valley are held the first Tuesday of each month at 7:00 am in the
+                                        Community Room.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Leah Lockner</div>
+                                        <div class="col text-end"><a
+                                                href="http://helplinecenter.org/volunteer-services/salsa/"
+                                                class="link-danger"><b>Website</b></a></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="Student">Student Council</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Student Council representatives are elected by their class in
+                                        the spring preceding their governing school year. As an elected representative,
+                                        the primary responsibility is to bring the views and concerns of your class to
+                                        the council meeting. At the council meeting you must make decisions based on
+                                        your wisdom and judgment of the situation as well as the views and concerns of
+                                        the class. Once a council decision has been made, it is the responsibility of
+                                        the representative to support the decision, keeping in mind that whatever is
+                                        adopted by a council could, however, be changed at a later date. Meetings are
+                                        held at the beginning of each month.</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisors: Jordan Paula</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="TATU">Anti-NicoTEENS</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Anti-NicoTEENS is a group that focuses on educating student about 
+                                        the dangers of tobacco, nicotine and vaping. Members work on creating educational 
+                                        lessons and teach these lessons to the 5th grade students in our district. Meetings 
+                                        are held on Wednesday mornings at 7:35 AM in room 205. Listen to announcements for 
+                                        upcoming meetings and events! Everyone is welcome! <a href="https://bvhscounselors.weebly.com/anti-nicoteens.html">Website</a>
+                                    </p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisors: Kara Likness and Ranae Duncan - Carroll Institute Prevention Counselor.
+                                        </div>
+                                        <!--<div class="col text-end"><a href="https://youtu.be/Zv2p77nkSZg"
+                                                class="link-danger"><b>Video</b></a></div>-->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--Begin Club Card-->
+                        <div class="col">
+                            <div class="card">
+                                <div class="card-header text-left" style="padding: 15px; padding-bottom: 5px">
+                                    <h4 style="color: #A8181A" id="Trap">Trapshooting</h4>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">The Brandon Valley High School Trap team is open to students in
+                                        grades 6-12th grade, as long as they have completed a gun safety course. One of
+                                        the largest teams in the state, we complete on Tuesday and Thursday nights at Garretson
+                                        Sportsmen’s Club from 4:30 – 7:00. The season runs from the first week in April
+                                        through the last week in May. Contact Justin Lovrien (<a
+                                            href="mailto:Justin.Lovrien@k12.sd.us">Justin.Lovrien@k12.sd.us</a>) with
+                                        any questions!</p>
+                                </div>
+                                <div class="card-footer">
+                                    <div class="row">
+                                        <div class="col">Advisor: Justin Lovrien</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!--End Club Card-->
+                        <!--End of Club Groups-->
+                    </div>
+                </div>
+            </div>
+            <br>
+
+            <hr class="divider">
+        </div>
+    </div>
+</body>
+<footer>
+    <!--Footer-->
+    <nav data-replacement="./footer.html"></nav>
+    <!--End of Footer-->
+    <!-- Optional JavaScript; choose one of the two! -->
+    <!-- Option 1: Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+  </footer>
+  </html>

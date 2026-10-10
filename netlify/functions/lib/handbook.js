@@ -4,14 +4,17 @@
  * and each title reappears as its own line where the section starts.
  */
 
-const HANDBOOKS = {
-  district: ["District handbook", "https://brandonvalley.k12.sd.us/district%20documents/Handbooks/@DistrictHandbook.pdf"],
-  elementary: ["Elementary handbook", "https://brandonvalley.k12.sd.us/district%20documents/Handbooks/@ElementaryHandbook.pdf"],
-  intermediate: ["Intermediate handbook", "https://brandonvalley.k12.sd.us/district%20documents/Handbooks/@IntermediateHandbook.pdf"],
-  middle: ["Middle School handbook", "https://brandonvalley.k12.sd.us/district%20documents/Handbooks/@MiddleSchoolHandbook.pdf"],
-  high: ["High School handbook", "https://brandonvalley.k12.sd.us/district%20documents/Handbooks/@HighSchoolHandbook.pdf"],
-  activities: ["Activities handbook", "https://brandonvalley.k12.sd.us/district%20documents/Handbooks/@ActivitiesHandbook.pdf"],
+// Titles here; the PDF addresses live in data.js (DISTRICT.handbooks) so the
+// app and this reader can never disagree about which file is which.
+const TITLES = {
+  district: "District handbook",
+  elementary: "Elementary handbook",
+  intermediate: "Intermediate handbook",
+  middle: "Middle School handbook",
+  high: "High School handbook",
+  activities: "Activities handbook",
 };
+const HANDBOOKS = Object.fromEntries(Object.entries(require("../../../data.js").DISTRICT.handbooks).map(([k, url]) => [k, [TITLES[k] || `${k} handbook`, url]]));
 
 // Glyphs the PDF fonts mislabel (ligatures) and spacing clean-up.
 const GLYPHS = { "ƞ": "tf", "Ɵ": "ti", "Ʃ": "tt", "ﬀ": "ff", "ﬁ": "fi", "ﬂ": "fl", "ﬃ": "ffi", "ﬄ": "ffl", "­": "", "​": "", "﻿": "" };
@@ -19,7 +22,7 @@ const fix = (s) => s.replace(/[ƞƟƩﬀﬁﬂﬃﬄ­​﻿]/g, (c) => GLYPHS[c
 
 async function extractLines(bytes) {
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const doc = await getDocument({ data: new Uint8Array(bytes), useSystemFonts: true, isEvalSupported: false }).promise;
+  const doc = await getDocument({ data: new Uint8Array(bytes), useSystemFonts: true, isEvalSupported: false, verbosity: 0 }).promise;
   const lines = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);

@@ -1,0 +1,15 @@
+[
+  {
+    "title": "Brandon Valley Bank",
+    "status": "Closed",
+    "type": "Business",
+    "updated": "2026-01-12T05:40:00-06:00"
+  },
+  {
+    "title": "Brandon Valley School District",
+    "status": "Two hours late",
+    "details": "No morning preschool",
+    "type": "School",
+    "updated": "2026-01-12T05:45:00-06:00"
+  }
+]

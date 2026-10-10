@@ -44,7 +44,7 @@ function mergeLines(items, tol) {
 
 async function parseSupplyPdf(bytes, debug = false) {
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const doc = await getDocument({ data: new Uint8Array(bytes), useSystemFonts: true, isEvalSupported: false }).promise;
+  const doc = await getDocument({ data: new Uint8Array(bytes), useSystemFonts: true, isEvalSupported: false, verbosity: 0 }).promise;
   const sections = [];
   for (let p = 1; p <= Math.min(doc.numPages, 4); p++) {
     const page = await doc.getPage(p);

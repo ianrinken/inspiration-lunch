@@ -1,37 +1,43 @@
 [build]
-  publish = "."
+  command = "node scripts/build.js"
+  publish = "dist"
   functions = "netlify/functions"
 
-# The push library can't be bundled by esbuild (dynamic requires), so ship
-# it alongside the functions as plain node_modules.
 [functions]
-  included_files = ["node_modules/**"]
+  node_bundler = "esbuild"
+  # Shared modules the functions require from the project root.
+  included_files = ["shared.js", "data.js", "overrides.js", "i18n.js", "handbooks.js", "grades.js"]
+  # pdfjs is loaded with a dynamic import (handbook and supply-list PDFs), so
+  # the bundler cannot inline it; ship the package next to the functions.
+  external_node_modules = ["pdfjs-dist"]
 
-# Repo housekeeping files aren't part of the site.
-[[redirects]]
-  from = "/package.json"
-  to = "/index.html"
-  status = 404
-  force = true
-[[redirects]]
-  from = "/package-lock.json"
-  to = "/index.html"
-  status = 404
-  force = true
-[[redirects]]
-  from = "/netlify.toml"
-  to = "/index.html"
-  status = 404
-  force = true
-[[redirects]]
-  from = "/netlify/*"
-  to = "/index.html"
-  status = 404
-  force = true
+[functions."sync"]
+  schedule = "*/30 * * * *"
 
-# Clean calendar-feed addresses (Google's "add by URL" wants a .ics path).
-# /feed/<school>/<grade or all>/<activities or all>/calendar.ics
+[functions."notify"]
+  schedule = "0 * * * *"
+
+[functions."alerts"]
+  # Closings and early dismissals: every 10 minutes; the function sits out 11 PM to 5 AM Central.
+  schedule = "*/10 * * * *"
+
+[functions."backup"]
+  schedule = "20 9 * * *"
+
+[functions."drift"]
+  # 4:40 AM Central (DST) / 3:40 AM (winter): after the night's quiet hours.
+  schedule = "40 9 * * *"
+
+[functions."weekly"]
+  # Monday 8 AM Central (DST) / 7 AM (winter).
+  schedule = "0 13 * * 1"
+
+
+# Calendar subscriptions: a plain .ics address for calendar apps. Both the
+# template form (/feed/<token>/calendar.ics) and the older Brandon Valley
+# form (/feed/<school>/<grade>/<activities>/calendar.ics) land here.
 [[redirects]]
-  from = "/feed/:school/:grade/:acts/calendar.ics"
+  from = "/feed/*"
   to = "/.netlify/functions/events"
   status = 200
+  force = true

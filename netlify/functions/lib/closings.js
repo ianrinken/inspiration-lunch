@@ -1,20 +1,23 @@
 /* School closings, late starts and early dismissals.
  *
  * South Dakota schools report these to KELOLAND, whose site has a plain
- * JSON list behind its closings page. We watch it every few minutes, keep
- * the Brandon Valley entries, and when one appears or changes, push it to
- * every phone that has notifications on and show it as a bar in the app.
- * Nothing is sent when a closing is cleared; the bar simply goes away.
+ * JSON list behind its closings page. The district has no alert-banner API,
+ * so this list is Brandon Valley's "alert banners": each entry about the
+ * district becomes { id, html, at } in the same shape the Sioux Falls relay
+ * returns, and the app's shared.js alertKind() reads the wording
+ * ("closed", "two hours late", "early dismissal") exactly as it does there.
+ *
+ * The list is empty on an ordinary day. Entries for the bank, the church
+ * and the bowling alley that share the name are left out.
  */
+const crypto = require("crypto");
+const { UA } = require("./sources.js");
 
-const { getStore } = require("@netlify/blobs");
-
-const SOURCE = "https://www.keloland.com/wp-json/nxd_app/v1/closings_alerts";
+const DISTRICT = require("../../../data.js").DISTRICT;
+const SOURCE = DISTRICT.closingsJson || "https://www.keloland.com/wp-json/nxd_app/v1/closings_alerts";
+const LABEL = DISTRICT.name || "Brandon Valley School District";
 // The district, not the bank, the church or the bowling alley.
 const OURS = /brandon\s*valley(?:\s+(?:school|schools|public schools|school district|sd|dist\.?|csd))?\s*$|brandon\s*valley\s+(?:school|schools|public|district|elementary|intermediate|middle|high)/i;
-const KEY = "closings";
-
-const store = () => getStore({ name: "watch", consistency: "strong" });
 
 // Every string inside an entry, however it is shaped.
 function strings(v, out = []) {
@@ -28,7 +31,15 @@ const pick = (item, keys) => {
   for (const k of keys) if (typeof item[k] === "string" && item[k].trim()) return item[k].trim();
   return "";
 };
-const clean = (s) => s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+const clean = (s) => String(s || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// A timestamp inside the entry, if KELO gives one; ISO 8601 when readable.
+function whenOf(item) {
+  const cand = pick(item, ["updated", "updated_at", "modified", "date", "time", "timestamp", "created", "created_at", "post_date", "post_modified"]);
+  const d = cand ? new Date(/^\d{10}$/.test(cand) ? +cand * 1000 : cand) : null;
+  return d && !isNaN(d) ? d.toISOString() : null;
+}
 
 // The Brandon Valley entries, read as "name: status (details)". The field
 // names are whatever KELO uses; the readers below try the usual ones and
@@ -42,19 +53,29 @@ function findOurs(items) {
     const all = strings(item);
     if (!all.some((s) => OURS.test(clean(s)))) continue;
     const named = clean(pick(item, ["name", "title", "organization", "org", "org_name", "school", "label"]));
-    const name = named || clean(all.find((s) => OURS.test(clean(s))) || "Brandon Valley");
+    const name = named || clean(all.find((s) => OURS.test(clean(s))) || LABEL);
     // Category words ("School", "Business") are not a status.
     const GENERIC = /^(school|schools|business|church|daycare|government|other|organization)$/i;
     const status = clean(pick(item, ["status", "closing_status", "closingStatus", "state", "message", "details", "description", "note", "notes", "text", "type"]).replace(GENERIC, ""));
-    const rest = all.map(clean).filter((s) => s && s !== name && s !== status && !GENERIC.test(s) && !/^https?:\/\//.test(s) && !/^\d{4}-\d\d-\d\d/.test(s) && s.length < 140);
-    const text = status && status !== name ? `${name}: ${status}` : named ? `${name}: ${rest.join(" · ") || "see KELOLAND closings"}` : name;
-    out.push({ name, status, text, detail: status ? rest.slice(0, 3).join(" · ") : "" });
+    const rest = all.map(clean).filter((s) => s && s !== name && s !== status && !GENERIC.test(s) && !/^https?:\/\//.test(s) && !/^\d{4}-\d\d-\d\d/.test(s) && !/^\d{10}$/.test(s) && s.length < 140);
+    // No status field: whatever else the entry says is the status.
+    const text = status && status !== name ? `${name}: ${status}` : rest.length ? `${name}: ${rest.join(" · ")}` : `${name}: see KELOLAND closings`;
+    out.push({ name, status, text, detail: status ? rest.slice(0, 3).join(" · ") : "", at: whenOf(item) });
   }
   return out;
 }
 
+// One entry as the app's alert banner. The id is a fingerprint of the words,
+// so a change (late start becomes closed) is a new alert and a repeat is not.
+function toBanner(entry, now = new Date()) {
+  const what = entry.status || entry.text.replace(/^[^:]*:\s*/, "");
+  const html = `<b>${esc(LABEL)}:</b> ${esc(what)}${entry.detail ? ` (${esc(entry.detail)})` : ""}`;
+  const id = "kelo-" + crypto.createHash("sha256").update(`${LABEL}|${what}|${entry.detail}`).digest("hex").slice(0, 16);
+  return { id, html, at: entry.at || now.toISOString() };
+}
+
 async function fetchOurs() {
-  const r = await fetch(SOURCE, { headers: { "User-Agent": "brandonvalleylunch.com closings watch", Accept: "application/json" } });
+  const r = await fetch(SOURCE, { headers: { "User-Agent": UA, Accept: "application/json" } });
   if (!r.ok) throw new Error(`kelo ${r.status}`);
   const raw = await r.json();
   const ours = findOurs(raw);
@@ -64,48 +85,9 @@ async function fetchOurs() {
   return ours;
 }
 
-const hashOf = (ours) => ours.map((o) => o.text + "|" + o.detail).sort().join("\n");
-
-// What the app shows: the current entries, or none.
-async function current() {
-  return (await store().get(KEY, { type: "json" })) || { active: [], hash: "", since: null, checked: null };
+// What the relay and the scheduled check both call: the live banners.
+async function banners() {
+  return (await fetchOurs()).map((e) => toBanner(e));
 }
 
-// One check: fetch, compare with last time, remember. Returns the entries
-// that are new or changed (to be announced) and the full current list.
-async function check() {
-  const ours = await fetchOurs();
-  const prev = await current();
-  const hash = hashOf(ours);
-  const changed = hash !== prev.hash;
-  const seen = new Set((prev.active || []).map((o) => o.text + "|" + o.detail));
-  const fresh = ours.filter((o) => !seen.has(o.text + "|" + o.detail));
-  await store().setJSON(KEY, {
-    active: ours, hash, checked: Date.now(),
-    since: ours.length ? (changed || !prev.since ? Date.now() : prev.since) : null,
-  });
-  return { fresh, active: ours, changed };
-}
-
-// Tell every phone with notifications on. One push per device per change.
-async function announce(entries, sendFn) {
-  if (!entries.length) return 0;
-  const push = getStore({ name: "push", consistency: "strong" });
-  const { blobs } = await push.list();
-  const body = entries.map((e) => e.text + (e.detail ? ` (${e.detail})` : "")).join("\n");
-  let sent = 0;
-  for (const { key } of blobs) {
-    const record = await push.get(key, { type: "json" });
-    if (!record || !record.sub) continue;
-    try {
-      await sendFn(record, { title: "Brandon Valley Schools", body, url: "/", tag: "closing" });
-      sent++;
-    } catch (err) {
-      if (err && (err.statusCode === 404 || err.statusCode === 410)) await push.delete(key);
-      else console.error("closing push:", err && err.message);
-    }
-  }
-  return sent;
-}
-
-module.exports = { findOurs, fetchOurs, check, current, announce, SOURCE };
+module.exports = { findOurs, fetchOurs, banners, toBanner, SOURCE, OURS };

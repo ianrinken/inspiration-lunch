@@ -1,40 +1,48 @@
 # Brandon Valley Lunch
 
-Installable web app (PWA) showing daily school lunch menus for the
-**Brandon Valley School District** (Brandon, SD): a Today card with the current
-hot entrée, plus a clickable Mon–Fri calendar. A school picker covers all 8
-buildings (default: Inspiration Elementary — most elementaries share a menu,
-but Brandon Elementary's rotation can differ, so menus stay per-school).
+One place for a Brandon Valley School District family's school day: lunch,
+days off, games and what each grade needs, for every building from junior
+kindergarten to 12th grade. Live at https://brandonvalleylunch.com.
 
-- Live data from the LINQ Connect public API, fetched month-by-month straight
-  from the browser (the API sends `Access-Control-Allow-Origin: *`, and the AWS
-  WAF only blocks non-browser clients — so **no proxy is needed**).
-- Last successful fetch for each month is cached in `localStorage`, so the app
-  works offline / during API hiccups, with a "last updated" note.
-- Service worker caches the app shell for offline launches; manifest + iOS meta
-  tags make it install cleanly on iPhone and Android home screens.
-- Branding matches the district: Brandon Valley cardinal red `#A8181A`.
+Built on the district template that also runs Sioux Falls Parent (the app
+this replaced in October 2026 is the git tag `old-app`). The two
+sites deploy separately but share the same shape, so improvements move
+between them by copying files, and a new district starts from either.
 
-Official menu: https://linqconnect.com/public/menu/L36JZQ
+## What a district is, in this codebase
 
-## Hosting
+- `data.js`: the district file. Schools (id, level, grades, contact, bell
+  times, source ids), the district calendar, school years, the grade guide,
+  level facts, test dates, state events, costs.
+- Three source readers in `netlify/functions/`: `menu.js` (here: LINQ
+  Connect), `events.js` (here: each school's Google Calendar plus the
+  district's Bound calendar, with `grades.js` for grade rules), `school.js`
+  (here: the district's plain-HTML site, its handbook and supply-list PDFs,
+  KELOLAND's closings list). Each emits the same JSON the template app reads.
+- `handbooks.js`: bell schedules, attendance steps and key rules per level.
+- Everything else (app.js, shared.js, i18n.js, the other functions, tests)
+  is the template and should stay close to Sioux Falls Parent.
 
-Live at **https://brandonvalleylunch.com** (bvlunch.netlify.app hops there automatically) — a Netlify site connected to
-this repo (github.com/ianrinken/inspiration-lunch). Every push to `main`
-auto-deploys; there is no build step (Netlify publishes the repo root as-is).
+## Brandon Valley specifics
 
-To update: edit, commit, `git push`. Netlify redeploys in ~30 seconds.
+- `mirror.mjs` + `tools/google-mirror.gs`: public Google Calendars kept by a
+  script in the owner's Google account, so phones can add a child's calendar
+  in one tap. Calendar keys use the LINQ building id so existing calendars
+  survive.
+- Family codes and notification records saved by the app before October
+  2026 (by LINQ id, grade and activity names) are read in today's shape on
+  the fly (`family.js normalizeRecord`); the app migrates its own
+  localStorage once (`migrateOldApp` in app.js).
+- Legacy calendar feed paths (`/feed/<school>/<grade>/<activities>/calendar.ics`)
+  keep working for iPhones that subscribed earlier.
 
-## Add to home screen
+## Run, test, deploy
 
-- **iPhone:** open the URL in Safari → Share → *Add to Home Screen*.
-- **Android:** open in Chrome → ⋮ menu → *Add to Home screen* (or the install prompt).
+- `node dev-server.js . 8431` serves the app with the functions in-process.
+- `npm test`: lint, unit tests (template + menu + school + events), browser journeys.
+- `npm run sweep`: taps every control at 375 and 320 px, English and Spanish.
+- `npm run deploy`: tests, sweep, deploy to the bvlunch site, live journeys.
 
-## Notes
-
-- Future months return empty data until the district publishes them; the app
-  shows "Menu not posted yet" and rechecks automatically.
-- Menu data refreshes in the background whenever it's older than 12 hours.
-- If LINQ Connect ever starts blocking cross-origin browser requests, add a
-  tiny Cloudflare Worker that forwards requests with browser-like headers and
-  point `API_BASE` in `app.js` at it.
+Environment on the Netlify site: `VAPID_PRIVATE_KEY`, `ADMIN_KEY`,
+`MIRROR_SECRET`, `ANTHROPIC_API_KEY` (Ask and live Spanish), and for owner
+email `RESEND_API_KEY`, `ALERT_EMAIL`, `ALERT_FROM`.

@@ -1,73 +1,79 @@
 /* Last-good copies of every upstream source.
  *
- * Bound, the schools' Google Calendars and the district site all have bad
- * minutes: a timeout, a 5xx, or Bound's firewall answering a bot challenge
- * instead of the feed. Without this, a bad minute reaches a parent as an
- * empty calendar. With it, the last copy that looked right is served
- * instead, and the failure is only a line in the log.
+ * Bound sits behind a firewall that sometimes answers with a bot challenge
+ * (HTTP 202, empty body) instead of the calendar. A challenge must never
+ * reach a parent as "no events", so every source is validated, and the
+ * last copy that passed validation is kept. Readers get the saved copy
+ * while it is fresh, a live fetch when it isn't, and the saved copy again
+ * (marked stale) if the live fetch fails.
  *
- * Works in both kinds of Netlify function: v2 (ESM) functions get Blobs
- * automatically; v1 (exports.handler) functions must call connectLambda
- * first, which events.js and school.js do. With no Blobs at all (local
- * runs) it degrades to a plain fetch with an in-memory memo.
+ * Storage: Netlify Blobs in production; a folder on disk anywhere else
+ * (local preview, tests), so the same code runs in both.
  */
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const crypto = require("crypto");
 
-const { getStore } = require("@netlify/blobs");
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36";
 
-const TIMEOUT_MS = 9000;
-const MEMO_MS = 60 * 1000;       // one copy per source per minute per instance
-const memo = new Map();          // url -> { body, at }
-
-const key = (url) => url.replace(/[^a-z0-9]+/gi, "_").slice(0, 180);
-
-function store() {
-  try { return getStore({ name: "sources" }); } catch { return null; }
-}
-
-// Does this look like the real thing? An ICS must carry a calendar; HTML
-// and JSON must not be a firewall interstitial; nothing may be empty.
-function looksRight(url, body, res) {
-  if (!body || body.length < 40) return false;
-  if (res && res.headers.get("x-amzn-waf-action")) return false;
-  if (/\.ics\b|\/ical\b/i.test(url) || /text\/calendar/i.test(res ? res.headers.get("content-type") || "" : "")) {
-    return /BEGIN:VCALENDAR/.test(body);
+function blobStore() {
+  if (!process.env.NETLIFY_BLOBS_CONTEXT) return null;
+  try {
+    const { getStore } = require("@netlify/blobs");
+    return getStore({ name: "sources" });
+  } catch {
+    return null;
   }
-  if (/<title>\s*(just a moment|attention required|access denied)/i.test(body)) return false;
-  return true;
 }
 
-async function live(url, headers) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { headers, signal: ctrl.signal });
-    const body = await res.text();
-    if (!res.ok || !looksRight(url, body, res)) throw new Error(`upstream ${res.status}${res.headers.get("x-amzn-waf-action") ? " (bot challenge)" : ""}`);
-    return body;
-  } finally { clearTimeout(t); }
+const dir = process.env.SFP_CACHE_DIR || path.join(os.tmpdir(), "sfp-sources");
+const fileKey = (key) => path.join(dir, key.replace(/[^a-z0-9._-]/gi, "_") + ".json");
+
+async function load(key) {
+  const blobs = blobStore();
+  if (blobs) return (await blobs.get(key, { type: "json" })) || null;
+  try { return JSON.parse(fs.readFileSync(fileKey(key), "utf8")); } catch { return null; }
+}
+async function save(key, record) {
+  const blobs = blobStore();
+  if (blobs) return blobs.setJSON(key, record);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(fileKey(key), JSON.stringify(record));
 }
 
-// The source's text: live when it's good, the saved copy when it isn't.
-async function fetchText(url, headers = {}) {
-  const m = memo.get(url);
-  if (m && Date.now() - m.at < MEMO_MS) return m.body;
-  const s = store();
+async function fetchLive(url, accept) {
+  const res = await fetch(url, { headers: { "User-Agent": UA, Accept: accept || "*/*" } });
+  if (res.headers.get("x-amzn-waf-action")) throw new Error("firewall challenge");
+  if (res.status !== 200) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
+
+/**
+ * key: storage key; url: source; valid(text) -> bool; maxAgeMs: how long a
+ * saved copy counts as fresh; force: skip the saved copy (the scheduled sync).
+ * Returns { body, at, stale, changed }.
+ */
+async function getSource(key, url, { valid, maxAgeMs = 30 * 60 * 1000, force = false, accept } = {}) {
+  const saved = await load(key);
+  if (!force && saved && Date.now() - saved.at < maxAgeMs) return { body: saved.body, at: saved.at, stale: false };
   try {
-    const body = await live(url, headers);
-    memo.set(url, { body, at: Date.now() });
-    if (s) s.set(key(url), body, { metadata: { at: Date.now(), url } }).catch(() => {});
-    return body;
+    const body = await fetchLive(url, accept);
+    if (valid && !valid(body)) throw new Error("failed validation");
+    const hash = crypto.createHash("sha256").update(body).digest("hex");
+    // First sighting is not a change; only a different fingerprint is.
+    const changed = !!(saved && saved.hash && saved.hash !== hash);
+    await save(key, { at: Date.now(), hash, body, changedAt: changed ? Date.now() : (saved && saved.changedAt) || null });
+    return { body, at: Date.now(), stale: false, changed };
   } catch (err) {
-    let saved = null;
-    if (s) { try { saved = await s.getWithMetadata(key(url)); } catch { saved = null; } }
-    if (saved && saved.data) {
-      const age = Math.round((Date.now() - ((saved.metadata && saved.metadata.at) || 0)) / 60000);
-      console.warn(`sources: ${url} failed (${err.message}); serving copy from ${age} min ago`);
-      memo.set(url, { body: saved.data, at: Date.now() });
-      return saved.data;
-    }
+    if (saved) return { body: saved.body, at: saved.at, stale: true, error: String(err.message || err) };
     throw err;
   }
 }
 
-module.exports = { fetchText, looksRight };
+async function getMeta(key) {
+  const saved = await load(key);
+  return saved ? { at: saved.at, changedAt: saved.changedAt || null, hash: saved.hash } : null;
+}
+
+module.exports = { getSource, getMeta, load, save, UA };

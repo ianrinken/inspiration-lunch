@@ -1,0 +1,49 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "globals": {
+    "SFSHARED": "readonly",
+    "SFDATA": "readonly",
+    "SFHANDBOOKS": "readonly",
+    "SFI18N": "readonly",
+    "SFOVERRIDES": "readonly"
+  },
+  "rules": {
+    "no-undef": "error",
+    "no-unused-vars": [
+      "warn",
+      {
+        "args": "none"
+      }
+    ],
+    "no-use-before-define": [
+      "error",
+      {
+        "functions": false,
+        "classes": true,
+        "variables": false
+      }
+    ],
+    "no-redeclare": "error",
+    "no-dupe-keys": "error",
+    "no-unreachable": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "sw.js"
+      ],
+      "env": {
+        "serviceworker": true
+      }
+    }
+  ]
+}

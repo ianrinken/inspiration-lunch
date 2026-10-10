@@ -1,69 +1,32 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex, nofollow">
-  <title>Brandon Valley Lunch · Owner</title>
-  <link rel="icon" href="favicon.ico">
+  <meta name="robots" content="noindex">
+  <title>Brandon Valley Lunch admin</title>
+  <link rel="stylesheet" href="style.css">
   <style>
-    :root { --red: #A8181A; --bg: #faf7f2; --surface: #fff; --text: #2b2a28; --soft: #6b6760; --line: #e8e2d8; }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    main { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
-    h1 { font-size: 1.3rem; margin: 0 0 4px; }
-    h1 span { color: var(--red); }
-    h2 { font-size: 1rem; margin: 28px 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--soft); }
-    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
-    .muted { color: var(--soft); }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    input, textarea { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; min-width: 0; }
-    input[type=text] { flex: 1; }
-    button { font: inherit; font-weight: 600; padding: 8px 14px; border: 0; border-radius: 999px; background: var(--red); color: #fff; cursor: pointer; }
-    button.quiet { background: #f3efe8; color: var(--text); }
-    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-    th, td { text-align: right; padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-    th:first-child, td:first-child { text-align: left; }
-    .scroll { overflow-x: auto; }
-    .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #f3efe8; font-size: .8rem; margin-right: 6px; }
-    .ok { color: #1f7a3a; } .bad { color: var(--red); }
-    .note { white-space: pre-wrap; }
-    .stat { display: inline-block; min-width: 140px; margin: 4px 18px 4px 0; }
-    .stat b { display: block; font-size: 1.4rem; }
-    #status { margin: 8px 0; color: var(--soft); }
+    main { padding-bottom: 40px; }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { text-align: left; padding: 8px 6px; border-top: 1px solid var(--border); vertical-align: top; }
+    .report { padding: 12px 0; border-top: 1px solid var(--border); }
+    .report:first-child { border-top: 0; }
+    .report p { line-height: 1.45; }
   </style>
 </head>
 <body>
-<main>
-  <h1>Brandon Valley <span>Lunch</span> · Owner</h1>
-  <p class="muted">Reports from parents, what gets used, the mirror and the watches, and your corrections. Nothing here is public.</p>
-  <div class="card row">
-    <input type="password" id="key" placeholder="Owner key" autocomplete="off">
-    <button id="load">Open</button>
-    <span id="status"></span>
-  </div>
-  <div id="app" hidden>
-    <h2>Right now</h2>
-    <div class="card" id="now"></div>
-    <h2>Reports from parents</h2>
-    <div id="reports"></div>
-    <h2>Use, last 14 days <span class="muted">(devices per day, no identities)</span></h2>
-    <div class="card scroll" id="usage"></div>
-    <h2>Corrections in force</h2>
-    <div id="overrides"></div>
-    <div class="card">
-      <p class="muted">Add a correction by hand: the event id is in a report, or in the Details link in the app.</p>
-      <div class="row">
-        <input type="text" id="oId" placeholder="event id" style="max-width:120px">
-        <input type="text" id="oDate" placeholder="date YYYY-MM-DD (optional)" style="max-width:220px">
-        <input type="text" id="oTitle" placeholder="new title (optional)">
-        <input type="text" id="oGrades" placeholder="grades, e.g. 9,10 (optional)" style="max-width:220px">
-        <label><input type="checkbox" id="oHide"> hide</label>
-        <button id="oAdd">Add</button>
-      </div>
+  <header class="app-header"><div class="header-inner"><h1 class="brand">Brandon Valley <span>Lunch</span> admin</h1></div></header>
+  <main>
+    <div class="view">
+      <form id="keyForm" class="card field">
+        <label class="field-label" for="key">Admin key</label>
+        <input class="text-input" id="key" type="password" autocomplete="current-password">
+        <button class="btn primary">Show reports and usage</button>
+      </form>
+      <div id="out" class="view"></div>
     </div>
-  </div>
-</main>
-<script src="admin.js"></script>
+  </main>
+  <script src="admin.js"></script>
 </body>
 </html>

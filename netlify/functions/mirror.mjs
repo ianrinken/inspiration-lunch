@@ -11,10 +11,12 @@
  *   GET  ?list=1   the calendars the script should keep: key, name, feed
  *   GET            the ids the script has reported (what the app reads)
  *   POST           the script's report { secret, calendars }
+ *
+ * Keys and feed addresses use each school's LINQ id, as the first app did,
+ * so the calendars the script already built are kept rather than rebuilt.
  */
 import { getStore } from "@netlify/blobs";
 import events from "./events.js";
-import gradesLib from "../../grades.js";
 
 const SITE = "https://brandonvalleylunch.com";
 const store = () => getStore({ name: "mirror", consistency: "strong" });
@@ -26,32 +28,32 @@ const gradeLabel = (g) => (g === -1 ? "Junior kindergarten" : g === 0 ? "Kinderg
 
 // Secondary schools first: that's where activities live and where the
 // phone-only Google users were stuck.
-const ORDER = [
-  "ffc1d3ff-8e8d-ec11-8df7-c6813137b210", "2e94e37a-8f8d-ec11-8df7-eb7b319a32d1", "82b0714f-8f8d-ec11-8df7-d30e05c96286",
-];
+const ORDER = ["bvhs", "bvms", "bvis"];
 
 // Every calendar the script should keep, in the order it should get to
 // them: every grade at every school first (so each child's view works
 // within the first few hours), then whole schools, then activities. Keys
-// are stable so a calendar survives renames: g:<school>:<grade>,
-// s:<school>, a:<school>:<activity>.
+// are stable so a calendar survives renames: g:<linq>:<grade>,
+// ga:<linq>:<grade>, s:<linq>, a:<linq>:<activity>.
 export async function needed() {
-  const schools = [...ORDER, ...Object.keys(events.SCHOOL_NAMES).filter((s) => !ORDER.includes(s))];
+  const schools = [...ORDER, ...Object.keys(events.SCHOOLS).filter((s) => !ORDER.includes(s))];
   const grades = [], whole = [], acts = [], gradesAll = [];
-  for (const school of schools) {
-    const name = events.SCHOOL_NAMES[school];
-    const [lo, hi] = gradesLib.SPAN[school];
+  for (const id of schools) {
+    const school = events.SCHOOLS[id];
+    const key = school.linq || id;
+    const name = school.name;
+    const [lo, hi] = school.grades;
     for (let g = lo; g <= hi; g++) {
-      grades.push({ key: `g:${school}:${g}`, name: `${name} · ${gradeLabel(g)}`, feed: `${SITE}/feed/${school}/${g}/none/calendar.ics` });
+      grades.push({ key: `g:${key}:${g}`, name: `${name} · ${gradeLabel(g)}`, feed: `${SITE}/feed/${key}/${g}/none/calendar.ics` });
       // Secondary schools also get the grade plus every activity: the view
       // of a child with no activities picked.
-      if (lo >= 5) gradesAll.push({ key: `ga:${school}:${g}`, name: `${name} · ${gradeLabel(g)} with activities`, feed: `${SITE}/feed/${school}/${g}/all/calendar.ics` });
+      if (lo >= 5) gradesAll.push({ key: `ga:${key}:${g}`, name: `${name} · ${gradeLabel(g)} with activities`, feed: `${SITE}/feed/${key}/${g}/all/calendar.ics` });
     }
-    whole.push({ key: `s:${school}`, name: `${name} · All events`, feed: `${SITE}/feed/${school}/all/all/calendar.ics` });
+    whole.push({ key: `s:${key}`, name: `${name} · All events`, feed: `${SITE}/feed/${key}/all/all/calendar.ics` });
     let list = [];
-    try { list = await events.activitiesFor(school); } catch { /* a school without activities is fine */ }
+    try { list = await events.activitiesFor(id); } catch { /* a school without activities is fine */ }
     for (const act of list) {
-      acts.push({ key: `a:${school}:${act}`, name: `${name} · ${act}`, feed: `${SITE}/feed/${school}/all/${encodeURIComponent(act)}/calendar.ics?only=1` });
+      acts.push({ key: `a:${key}:${act}`, name: `${name} · ${act}`, feed: `${SITE}/feed/${key}/all/${encodeURIComponent(act)}/calendar.ics?only=1` });
     }
   }
   return [...grades, ...gradesAll, ...whole, ...acts];

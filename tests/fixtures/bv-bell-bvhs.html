@@ -1,0 +1,137 @@
+<!doctype html>
+<!--Created April 2021-->
+<!--Copyright 2012-2025 Chuck Henson-->
+<!--Copyright 2016-2025 Kris Jones-->
+<html lang="en">
+
+<head>
+  <!--Required meta tags-->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!--Bootstrap CSS-->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+  <!--Brandon Valley Custom Style Sheet-->
+  <link rel="stylesheet" href="../District HTML Resources/css/BV_V3.css">
+  <!--Bootstrap Icon Font CDN-->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+  <!--jquery-->
+  <script src="https://code.jquery.com/jquery-3.6.3.js" integrity="sha256-nQLuAZGRRcILA+6dMBOvcRh5Pe310sBpanc6+QBmyVM=" crossorigin="anonymous"></script>
+
+  <!--Font Awesome Icons-->
+  <script src="https://kit.fontawesome.com/6b8b306dc4.js" crossorigin="anonymous"></script>
+  <!--Reusable Navbar and Footer-->
+  <script src="../District HTML Resources/js/loader.js"></script>
+  <!--Full Calendar-->
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.6.0/main.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.6.0/main.js"></script>
+  <!--Public Album-->
+  <script src="../District HTML Resources/js/photos.js" async></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var calendarEl = document.getElementById('calendar');
+      var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'resourceTimelineWeek'
+      });
+      calendar.render();
+    });
+  </script>
+
+  <title>Schedule | Brandon Valley High School</title>
+  <link rel="shortcut icon" href="../District Images/icon4.ico">
+
+  <!--Top Image-->
+  <!--!!DON'T TOUCH THIS!!-->
+  <style>
+    /*!!DON'T TOUCH THIS!!*/
+    .hero-image {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("./images/BVHS.jpg");
+    }
+    /*!!DON'T TOUCH THIS!!*/
+  </style>
+  <!--!!DON'T TOUCH THIS!!-->
+  <!--END of Top Image-->
+
+  <!--Header Text-->
+  <div class="hero-image">
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col-md-12">
+          <div class="top-banner">
+            <p align="Right"><strong>
+                <font size="7" color="white">
+                  BRANDON VALLEY HIGH SCHOOL </font>
+              </strong><br>
+              <font size="4" color="white">
+                BELL SCHEDULE | BRANDON VALLEY SCHOOL DISTRICT</font>
+            </p><br><br><br>
+            <div class="row">
+              <h5 class="text-center"><strong>
+                  <font size="5" color="white">RESPECTFUL | RESPONSIBLE | SAFE | KIND | ACTIVE LEARNERS</font>
+                </strong></h5>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RXM2MLXQ3S"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-RXM2MLXQ3S');
+  </script>
+  <!--END Header Text-->
+</head>
+
+<body>
+  <!--Navigation bar-->
+  <nav data-replacement="navbar.html">
+  </nav>
+  <!--end Navigation bar-->
+  <!--Return to Top Button-->
+  <button onclick="topFunction()" id="myBtn" title="Go to top">Top</button>
+  <script>
+    //Get the button
+    var mybutton = document.getElementById("myBtn");
+    // When the user scrolls down 20px from the top of the document, show the button
+    window.onscroll = function () { scrollFunction() };
+    function scrollFunction() {
+      if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+        mybutton.style.display = "block";
+      } else {
+        mybutton.style.display = "none";
+      }
+    }
+    //When the user clicks on the button, scroll to the top of the document
+    function topFunction() {
+      document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+    }
+  </script>
+  <!--End of Return to Top Button-->
+  <div class="container">
+    <!-- Schedule Info -->
+    <br>
+    <div class="row text-center">
+      <img alt="Schedule" class="img-fluid" src="./Images/BVHSBell26-27.jpg"></a>
+    </div>
+    <!--End of Schedule Info-->
+    <hr class="featurette-divider">
+  </div>
+
+</body>
+<footer>
+  <!--Footer-->
+  <nav data-replacement="./footer.html"></nav>
+  <!--End of Footer-->
+  <!-- Optional JavaScript; choose one of the two! -->
+  <!-- Option 1: Bootstrap Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+</footer>
+</html>

@@ -828,7 +828,9 @@ button.action { text-align: left; font: inherit; color: inherit; cursor: pointer
 .lang-pill { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface); font: inherit; font-weight: 700; color: var(--navy-2); }
 .welcome h2 { font-family: var(--display); font-weight: 800; font-size: clamp(1.5rem, 6.4vw, 1.9rem); line-height: 1.15; letter-spacing: -.01em; text-align: left; margin: 4px 0 10px; }
 .welcome-sub { color: var(--text-soft); text-align: left; margin: 0 0 22px; }
-.welcome-promises { list-style: none; padding: 0; margin: 0 0 26px; display: flex; flex-direction: column; gap: 18px; text-align: left; }
+.welcome-private { text-align: left; line-height: 1.5; margin: 0 0 18px; padding: 12px 14px; border-radius: 12px; background: var(--navy-soft); border: 1.5px solid var(--navy-2); }
+.welcome-private b { font-weight: 800; }
+.welcome-promises { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-direction: column; gap: 18px; text-align: left; }
 .welcome-promises li { display: flex; gap: 12px; align-items: flex-start; }
 .welcome-promises .ico { width: 28px; height: 28px; color: var(--navy-2); }
 .welcome-promises b { display: block; font-size: 1.05rem; }

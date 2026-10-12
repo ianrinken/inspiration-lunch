@@ -693,13 +693,14 @@
           ${promise(ICONS.event, t("Their games on your phone's calendar"), t("It updates on its own"))}
           ${promise(ICONS.star, t("What their grade needs, and when"), t("Conferences, supply lists, sports physicals, ACT dates and scholarships"))}
         </ul>
+        <p class="welcome-private"><b>${t("No private information needed.")}</b> ${t("You pick a grade and a school. A first name is optional, and anything you type stays on this phone. No account, no email, no phone number.")}</p>
         <button class="btn primary block" data-action="add-kid">${t("Add your student")}</button>
         <button class="btn block" data-action="demo" style="margin-top:8px">${t("See an example family")}</button>
         <div class="welcome-more">
           <button class="link-btn" data-action="new-family">${t("New to Brandon Valley schools? Start here")}</button>
           <button class="link-btn" data-action="restore">${t("Restore with a family code")}</button>
         </div>
-        <p class="privacy-note">${t("Takes about a minute. Names stay on this phone.")}</p>
+        <p class="privacy-note">${t("Takes about a minute.")}</p>
       </div>`;
   }
   // Each label is in its own language, so a parent can always find it.

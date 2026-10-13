@@ -33,7 +33,10 @@ function normalizeRecord(rec) {
   const kids = rec.kids.map((k, i) => {
     const school = BY_LINQ[k.school] || (SCHOOLS.has(k.school) ? k.school : null);
     if (!school || !Number.isInteger(k.grade)) return null;
-    return { id: String(k.id || `m${i}${Math.random().toString(36).slice(2, 7)}`).replace(/[^a-z0-9]/gi, "").slice(0, 16), school,
+    // Old records carried no ids: make one that is the same on every load,
+    // so phones that already hold these students recognize them.
+    let h = 5381; for (const ch of `${school}|${k.grade}|${i}`) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;
+    return { id: String(k.id || `m${i}${h.toString(36)}`).replace(/[^a-z0-9]/gi, "").slice(0, 16), school,
       // The old app saved the school year the grade belonged to (its start
       // year); the save date is the fallback.
       classOf: (Number.isInteger(k.year) ? k.year + 1 : yearEnd) + (12 - k.grade), follows: (k.acts || []).map((a) => ({ act: String(a).slice(0, 60), level: "" })) };

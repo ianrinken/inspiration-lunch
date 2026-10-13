@@ -251,6 +251,7 @@
     if (migrated && !demo) store.set(KIDS_KEY, kids.map(({ grade, graduated, ...k }) => k));
   }
   hydrateKids();
+  if (!demo) repairFromOldApp();
   let activeKidId = store.get(KID_KEY, null);
   const saveKids = () => {
     if (demo) return; // the example family is never saved
@@ -2863,8 +2864,16 @@
   // phone's own names, lunch lines and allergies.
   function mergeFamily(remote, extras = {}) {
     const local = new Map(kids.map((k) => [k.id, k]));
+    // Records saved by the app before October 2026 carried no student ids,
+    // so a remote student can be this phone's own student under a new id:
+    // the same school and class is the same child.
+    const spare = kids.filter((k) => !remote.some((r) => r.id === k.id));
+    const twin = (r) => { const i = spare.findIndex((k) => k.school === r.school && k.classOf === r.classOf); return i < 0 ? null : spare.splice(i, 1)[0]; };
+    const wasActive = kids.find((k) => k.id === activeKidId);
+    let nextActive = null;
     kids = remote.map((r) => {
-      const l = local.get(r.id) || {};
+      const l = local.get(r.id) || twin(r) || {};
+      if (wasActive && l === wasActive) nextActive = r.id;
       const x = extras[r.id] || {};
       // Names, lunch lines and allergies never travel through the server, so
       // a student restored by code (or added on another phone) arrives
@@ -2874,7 +2883,32 @@
     });
     hydrateKids();
     store.set(KIDS_KEY, kids.map(({ grade, graduated, ...k }) => k));
+    if (nextActive) { activeKidId = nextActive; store.set(KID_KEY, activeKidId); }
     if (!kids.some((k) => k.id === activeKidId)) activeKidId = kids[0] ? kids[0].id : null;
+  }
+  // Phones that pulled their family code before the twin matching above
+  // existed lost names and allergies and were asked to finish setup again.
+  // The old app's own copy is still on the phone: take the details back.
+  function repairFromOldApp() {
+    if (!kids.some((k) => k.needsDetails)) return false;
+    let old = [];
+    try { old = JSON.parse(localStorage.getItem("bvl-kids") || "[]"); } catch { return false; }
+    if (!Array.isArray(old) || !old.length) return false;
+    const ALLERGY = { Eggs: "Egg", "Tree Nuts": "Tree nuts" };
+    const today = ymd(new Date());
+    const spare = old.map((k) => ({ school: BY_LINQ[k.school] || k.school, classOf: Number.isInteger(k.year) ? k.year + 1 + (12 - k.grade) : SH.classFor(k.grade, today), allergies: (k.allergies || []).map((a) => ALLERGY[a] || a).filter((a) => ALLERGENS.includes(a)) }));
+    let fixed = false;
+    for (const k of kids) {
+      if (!k.needsDetails) continue;
+      const i = spare.findIndex((o) => o.school === k.school && o.classOf === k.classOf);
+      if (i < 0) continue;
+      const o = spare.splice(i, 1)[0];
+      if (!k.allergies || !k.allergies.length) k.allergies = o.allergies;
+      delete k.needsDetails;
+      fixed = true;
+    }
+    if (fixed) store.set(KIDS_KEY, kids.map(({ grade, graduated, ...k }) => k));
+    return fixed;
   }
   async function pullFamily() {
     if (!family) return false;

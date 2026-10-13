@@ -724,6 +724,7 @@
       ${finishSetupHtml()}
       ${activitiesCheckHtml()}
       <div id="changedBox"></div>
+      ${hintHtml("today")}
       <section class="answer" aria-live="polite">
         <p class="answer-when" id="answerWhen">${esc(cap(fmtLong(td)))}</p>
         <h2 class="answer-line" id="answerLine">${t("Checking the schools")}</h2>
@@ -799,6 +800,24 @@
 
   // "Right now": a short checklist that fits the time of year, worked out
   // from the district calendar so it repeats every year without new code.
+  /* ---------------- first-time hints ---------------- */
+  // One quiet line at the top of each tab, shown until the parent closes it
+  // or does the thing it describes. Never more than one on screen, never a
+  // pop-up. The example family and empty phones skip them.
+  const HINT_KEY = "sfp-hints";
+  const HINTS = {
+    today: "Tap the lunch line for the full menu. Tap the hours for the bell schedule.",
+    lunch: "Tap any day for every line and the allergens.",
+    calendar: "For {name} shows their grade and teams. All of {school} shows everything.",
+    guide: "This changes with the grade. Add another student to see theirs.",
+    school: "The handbook and supply lists are read into the app. Forms and links are the school's website.",
+  };
+  const hintDone = (id) => { const h = store.get(HINT_KEY, {}); if (h[id]) return; h[id] = todayYmd(); store.set(HINT_KEY, h); };
+  function hintHtml(id, vars = {}) {
+    if (demo || !kids.length || store.get(HINT_KEY, {})[id]) return "";
+    return `<div class="hint" role="note"><p>${esc(t(HINTS[id], vars))}</p><button class="install-close" data-action="hint-done" data-hint="${id}" aria-label="${t("Dismiss")}">&times;</button></div>`;
+  }
+
   const SEASON_KEY = "sfp-season";
   function seasonFor(td) {
     const year = SH.schoolYearFor(SCHOOL_YEARS, td);
@@ -1408,6 +1427,7 @@
     const week = lunchWeek;
     const days = [0, 1, 2, 3, 4].map((i) => addDays(week, i));
     v.innerHTML = `
+      ${hintHtml("lunch")}
       <div class="pager">
         <button class="pager-btn" data-week="-1" aria-label="${t("Previous week")}">${PREV}</button>
         <button class="pager-label" data-week="0" title="${t("This week")}">${t("{a} to {b}", { a: esc(fmtMonthDay(days[0])), b: esc(fmtMonthDay(days[4])) })}</button>
@@ -1502,14 +1522,43 @@
     const label = (k) => (lang === "es"
       ? (/^Lunch - /.test(k) ? `${t("Lunch")}, ${dietLow(k.replace(/^Lunch - /, ""))}` : tt(k))
       : k === "Lunch" ? "Lunch" : k.replace(/^Lunch - /, "Lunch, ").replace(/Free$/, "free"));
-    const section = (k) => `
+    // One dish per row; the allergens the district lists sit under it, in
+    // red when the student avoids one.
+    const item = (i, hero) => {
+      const f = flagged(kid, i);
+      const all = (i.a || []).map((a) => t(a));
+      const note = f.length ? `<span class="flag-note">${t("Contains {list}: flagged for {name}", { list: esc(f.map((a) => t(a)).join(", ").toLowerCase()), name: esc(kidName(kid)) })}</span>`
+        : all.length ? `<span class="item-note">${esc(all.join(", "))}</span>` : "";
+      return `<li class="${hero ? "hero-item" : ""}${f.length ? " flag" : ""}">${esc(dish(i.n))}${note}</li>`;
+    };
+    const group = (title, items, hero = false) => (items.length ? `<div class="menu-section"><h3>${esc(title)}</h3><ul>${items.map((i, n) => item(i, hero && n === 0)).join("")}</ul></div>` : "");
+    // The same shape every day: the main entrée with what comes with it,
+    // the standing alternates, then the Garden Bar, milk and condiments.
+    const groups = (items) => {
+      const of = (type) => items.filter((i) => i.t === type);
+      const entrees = of("ENTREES"), bfast = of("BREAKFAST");
+      return [
+        bfast.length ? group(t("Breakfast"), bfast, true) : "",
+        entrees.length ? group(t("Main entrée"), [entrees[0], ...of("SIDES")], true) : group(t("Sides"), of("SIDES")),
+        group(t("Or choose instead"), entrees.slice(1)),
+        group(t("Grains"), of("GRAINS")),
+        group(t("Garden Bar · Vegetables"), of("VEGETABLES")),
+        group(t("Garden Bar · Fruit"), of("FRUIT")),
+        group(t("Milk"), of("MILK")),
+        group(t("Condiments"), of("OTHER")),
+        group(t("Also on the line"), items.filter((i) => !["ENTREES", "BREAKFAST", "SIDES", "GRAINS", "VEGETABLES", "FRUIT", "MILK", "OTHER"].includes(i.t))),
+      ].join("");
+    };
+    const line = (k, showName) => `
       <div class="menu-line ${kid.diet && k === `Lunch - ${kid.diet}` ? "mine" : ""}">
-        <p class="section-label" style="margin:0">${esc(label(k))}${kid.diet && k === `Lunch - ${kid.diet}` ? ` <span class="tag grade">${t("{name}'s line", { name: esc(kidName(kid)) })}</span>` : ""}</p>
-        ${lines[k].map((i) => { const f = flagged(kid, i); return `<div class="menu-item ${f.length ? "flag" : ""}"><b>${esc(dish(i.n))}</b>${f.length ? `<span class="flag-note">${t("Contains {list}: flagged for {name}", { list: esc(f.map((a) => t(a)).join(", ").toLowerCase()), name: esc(kidName(kid)) })}</span>` : ""}${i.a ? `<span>${t("Contains {list}", { list: esc(i.a.map((a) => t(a)).join(", ").toLowerCase()) })}</span>` : ""}</div>`; }).join("")}
+        ${showName ? `<p class="menu-line-name">${esc(label(k))}${kid.diet && k === `Lunch - ${kid.diet}` ? ` <span class="tag grade">${t("{name}'s line", { name: esc(kidName(kid)) })}</span>` : ""}</p>` : ""}
+        ${groups(lines[k])}
       </div>`;
+    // The student's own lunch line leads without a heading of its own; the
+    // breakfast line and any other line are named.
     openSheet(cap(fmtLong(d)), `
-      ${order.slice(0, 2).map(section).join("")}
-      ${order.length > 2 ? `<details class="fold"><summary>${t("Other lines")}</summary>${order.slice(2).map(section).join("")}</details>` : ""}
+      ${order.slice(0, 2).map((k, n) => line(k, n > 0 || k !== "Lunch")).join("")}
+      ${order.length > 2 ? `<details class="fold"><summary>${t("Other lines")}</summary>${order.slice(2).map((k) => line(k, true)).join("")}</details>` : ""}
       <p class="fine">${t("Allergens are the ones the district lists for each item in LINQ Connect. Talk with the school nurse about severe allergies.")}</p>
       ${reportLink({ type: "menu", title: "Lunch menu", date: d, school: kid.school })}`);
   }
@@ -1524,6 +1573,7 @@
     const key = calMonth;
     const start = monthStart(key), end = monthEnd(key);
     v.innerHTML = `
+      ${hintHtml("calendar", { name: kidName(kid), school: SCHOOLS[kid.school].short })}
       <div class="seg" role="group" aria-label="${t("Whose events")}">
         <button data-calmode="mine" aria-pressed="${calMode === "mine"}">${t("For {name}", { name: esc(kidName(kid)) })}</button>
         <button data-calmode="all" aria-pressed="${calMode === "all"}">${t("All of {school}", { school: esc(SCHOOLS[kid.school].short) })}</button>
@@ -1611,6 +1661,7 @@
       : l === "supplies" ? `<button class="link-btn" data-action="supplies-sheet">${label}</button>`
       : `<a class="link-btn" href="${esc(linkFor(l))}" target="_blank" rel="noopener">${label}${outIcon()}</a>`);
     v.innerHTML = `
+      ${hintHtml("guide")}
       <div><h2 class="view-title">${esc(ge ? ge.headline : g.headline)}</h2><p class="view-sub">${s.level === "hs" ? t("{name}, {grade} at {school}. Class of {year}.", { name: esc(kidName(kid)), grade: gradeName(kid.grade), school: esc(s.short), year: kid.classOf }) : t("{name}, {grade} at {school}.", { name: esc(kidName(kid)), grade: gradeName(kid.grade), school: esc(s.short) })}</p></div>
       ${kid.grade === 12 && gradDays >= 0 ? `<article class="card grad-card" style="${kidStyle(kid)}"><div class="big">${gradDays === 0 ? t("Today") : t(gradDays === 1 ? "{n} day" : "{n} days", { n: gradDays })}</div><p>${t("until graduation: {date}", { date: esc(fmtLong(grad.d)) })}${grad.times[kid.school] ? ` ${t("at {time}", { time: esc(grad.times[kid.school]) })}` : ""}${grad.venue ? `, ${esc(grad.venue)}` : ""}</p></article>` : ""}
       <p class="muted">${esc(ge ? ge.intro : g.intro)}</p>
@@ -1718,6 +1769,7 @@
     ].filter(Boolean).map((l) => ({ ...l, label: t(l.label), note: t(l.note) }));
 
     v.innerHTML = `
+      ${hintHtml("school")}
       <article class="card school-hero" style="${kidStyle(kid)}">
         <h2>${esc(s.name)}</h2>
         ${s.principal ? `<p>${s.mascot ? t("{mascot}. Principal {name}.", { mascot: esc(s.mascot), name: esc(s.principal) }) : t("Principal {name}.", { name: esc(s.principal) })}</p>` : ""}
@@ -2467,6 +2519,7 @@
       <button class="btn block" data-action="notifications">${pushPrefs && pushPrefs.on ? t("Notifications: on") : t("Notifications")}</button>
       <button class="btn block" data-action="share-setup">${t("Set up another parent's phone")}</button>
       ${langToggle("btn block")}
+      <button class="btn block" data-action="whats-new">${t("What's new")}</button>
       ${family ? `<div class="code-box"><p class="section-label" style="margin:0">${t("Your family code")}</p><p class="family-code">${esc(family.code.slice(0, 4))}-${esc(family.code.slice(4))}</p><p class="fine">${t("Write this down. If this phone is reset, enter it on the welcome screen to bring your students and teams back.")}</p></div>` : ""}
       <p class="privacy-note">${t("Saved only on this phone.")}</p>`);
   }
@@ -3231,6 +3284,7 @@
     if (ds.tab) { if (!el.closest(".tab-bar")) cameFrom = tab; goTab(ds.tab); return; }
     if (ds.kid && el.classList.contains("kid-chip")) { activeKidId = ds.kid; store.set(KID_KEY, activeKidId); renderCalendar.scrolled = false; render(); return; }
     if (ds.goto) {
+      if (el.classList.contains("day-status-line")) hintDone("today");
       if (ds.filter) { calFilter = ds.filter; calMode = "mine"; }
       const card = el.closest("[data-kidcard]");
       if (card) { activeKidId = card.dataset.kidcard; store.set(KID_KEY, activeKidId); }
@@ -3249,13 +3303,13 @@
     if (ds.sched !== undefined) { schedIndex = Number(ds.sched); schedPicked = true; render(); return; }
     if (ds.page) { if (el.tagName === "A") e.preventDefault(); openPage(ds.page); return; }
     if (ds.news) { openNews(ds.news, ds.newsSchool); return; }
-    if (ds.menu) { const card = el.closest("[data-kidcard]"); openMenu(ds.menu, card ? card.dataset.kidcard : null); return; }
+    if (ds.menu) { const card = el.closest("[data-kidcard]"); hintDone(card ? "today" : "lunch"); openMenu(ds.menu, card ? card.dataset.kidcard : null); return; }
     if (ds.post) { openPost(ds.post); return; }
     if (ds.askgo) { askGo(ds.askgo); return; }
     if (ds.hit !== undefined) { const h = searchHits[Number(ds.hit)]; if (h) openHit(h); return; }
     if (ds.doc) { openDoc(ds.doc); return; }
     if (ds.calfilter) { calFilter = ds.calfilter; render(); return; }
-    if (ds.calmode) { calMode = ds.calmode; store.set(CAL_MODE_KEY, calMode); render(); return; }
+    if (ds.calmode) { hintDone("calendar"); calMode = ds.calmode; store.set(CAL_MODE_KEY, calMode); render(); return; }
     if (ds.month) { calMonth = ds.month === "0" ? monthKey(todayYmd()) : addMonths(calMonth, Number(ds.month)); renderCalendar.scrolled = ds.month !== "0"; render(); return; }
     if (ds.week) { const t = todayYmd(); lunchWeek = ds.week === "0" ? mondayOf(isWeekend(t) ? addDays(t, 2) : t) : addDays(lunchWeek, 7 * Number(ds.week)); render(); return; }
     if (draft && el.classList.contains("choice")) {
@@ -3313,7 +3367,10 @@
       if (ds.action === "add-kid") { demo = false; store.del(DEMO_KEY); kids = store.get(KIDS_KEY, []) || []; hydrateKids(); render(); openEditor(null); return; }
       toast(t("Add your own student to turn this on")); return;
     }
+    if (["handbook", "supplies-sheet", "forms"].includes(ds.action)) hintDone("school");
+    if (["add-kid"].includes(ds.action)) hintDone("guide");
     switch (ds.action) {
+      case "hint-done": hintDone(ds.hint); el.closest(".hint")?.remove(); break;
       case "add-kid": openEditor(null); break;
       case "edit-kid": openEditor(kids.find((k) => k.id === ds.kid)); break;
       case "save-kid": saveDraft(); break;

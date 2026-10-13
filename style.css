@@ -470,6 +470,9 @@ button.row:hover .row-v b, button.row:focus-visible .row-v b { text-decoration: 
   margin-bottom: 14px; font-size: .92rem; font-weight: 600;
 }
 .install-banner p { flex: 1; min-width: 0; }
+/* First-time hints: one line, in place, closes for good. */
+.hint { display: flex; align-items: center; gap: 6px; background: var(--surface-2); border-left: 3px solid var(--gold); border-radius: 12px; padding: 6px 2px 6px 14px; margin: 0 0 14px; font-size: .92rem; font-weight: 600; color: var(--text); }
+.hint p { flex: 1; min-width: 0; margin: 0; line-height: 1.4; }
 .install-btn { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 0; background: var(--navy-2); color: #fff; font-weight: 700; }
 .install-close { width: 44px; height: 44px; border: 0; background: none; font-size: 1.4rem; flex: none; }
 .toast {
@@ -587,11 +590,20 @@ button.action { text-align: left; font: inherit; color: inherit; cursor: pointer
 .bell-title { font-weight: 700; padding: 6px 0 0 !important; }
 .tap-card { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .tap-card:hover { box-shadow: var(--shadow), 0 0 0 1.5px var(--kid) inset; }
+/* The full day's menu: named sections, one dish per row, the main entrée
+   on its own tinted row. */
 .menu-line { display: flex; flex-direction: column; }
-.menu-line + .menu-line { margin-top: 14px; }
-.menu-item { padding: 8px 0; border-top: 1px solid var(--border); }
-.menu-item b { display: block; font-weight: 700; }
-.menu-item span { color: var(--text-soft); font-size: .88rem; }
+.menu-line + .menu-line { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--border); }
+.fold .menu-line:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.menu-line-name { font-family: var(--display); font-weight: 800; font-size: 1.05rem; margin: 0 0 10px; }
+.menu-section { margin-bottom: 16px; }
+.menu-section h3 { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .09em; color: var(--navy-2); margin: 0 0 7px; }
+.menu-section ul { list-style: none; margin: 0; padding: 0; }
+.menu-section li { font-size: .95rem; padding: 9px 13px; margin-bottom: 6px; background: var(--surface-2); border-radius: 11px; line-height: 1.35; }
+.menu-section li.hero-item { background: var(--navy-soft); border: 1px solid color-mix(in srgb, var(--navy-2) 25%, transparent); font-weight: 700; }
+.menu-section li.flag { color: var(--navy-2); font-weight: 700; }
+.menu-section .flag-note, .menu-section .item-note { display: block; font-weight: 400; font-size: .8rem; line-height: 1.4; }
+.menu-section .item-note { color: var(--text-soft); }
 .alert-bar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .alert-banner { background: #fff4dc; border: 1.5px solid #e0a43a; color: #4a2f00; border-radius: 14px; padding: 12px 14px; }
 .alert-kicker { font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; }

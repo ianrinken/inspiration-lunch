@@ -83,7 +83,7 @@ async function overflow(page) {
     if (await page.locator("#view-today .kid-sum [data-menu]").count()) {
       await page.locator("#view-today .kid-sum [data-menu]").first().click();
       await page.waitForTimeout(500);
-      check("Today's lunch line opens the full menu in one tap", (await page.locator("#sheet .menu-item").count()) > 0);
+      check("Today's lunch line opens the full menu in one tap", (await page.locator("#sheet .menu-section li").count()) > 0);
       await page.locator("#sheetClose").click();
     }
 
@@ -98,7 +98,7 @@ async function overflow(page) {
     await page.waitForTimeout(800);
     if (await page.locator("#view-lunch [data-menu]").count()) {
       await page.locator("#view-lunch [data-menu]").first().click();
-      check("full menu opens", await page.locator("#sheet .menu-item").count() > 0);
+      check("full menu opens", await page.locator("#sheet .menu-section li").count() > 0);
       await page.goBack();
       await page.waitForTimeout(300);
       check("back button closes the sheet", await page.locator("#sheet").isHidden());

@@ -1049,6 +1049,11 @@
   Object.assign(es, {
     "Ask": "Preguntar",
     "Ask a question": "Haga una pregunta",
+    "Ask BV": "Pregunte a BV",
+    "Ask BV a question": "Hágale una pregunta a BV",
+    "Type a question, get the answer": "Escriba una pregunta y reciba la respuesta",
+    "Type a question the way you'd ask a person: when is the next game, what's for lunch Thursday, can my child bring medicine. Ask BV answers from what's in the app.": "Escriba una pregunta como se la haría a una persona: cuándo es el próximo partido, qué hay de almuerzo el jueves, si mi hijo puede llevar medicina. Pregunte a BV responde con lo que hay en la aplicación.",
+    "Type a question the way you'd ask a person. Ask BV answers from what's in this app, with a button to where it lives.": "Escriba una pregunta como se la haría a una persona. Pregunte a BV responde con lo que hay en esta aplicación, con un botón al lugar donde está.",
     "Have a question?": "¿Tiene una pregunta?",
     "Type it here and get the answer": "Escríbala aquí y reciba la respuesta",
     "Type your question": "Escriba su pregunta",

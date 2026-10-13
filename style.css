@@ -724,6 +724,11 @@ button.action { text-align: left; font: inherit; color: inherit; cursor: pointer
   html[lang="es"] .app-header.branded .header-ask { padding: 0 12px; }
   html[lang="es"] .app-header.branded .header-ask svg { margin: 0; }
 }
+@media (max-width: 359px) {
+  .app-header.branded .header-ask span { display: none; }
+  .app-header.branded .header-ask { padding: 0 12px; }
+  .app-header.branded .header-ask svg { margin: 0; }
+}
 .add-another { margin-top: -4px; }
 .pin-banner { position: relative; background: var(--navy-soft); border: 1.5px solid var(--navy-2); border-radius: 14px; padding: 12px 48px 12px 14px; line-height: 1.45; }
 .pin-banner .install-close { position: absolute; top: 4px; right: 4px; }

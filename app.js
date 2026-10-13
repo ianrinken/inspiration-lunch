@@ -760,7 +760,7 @@
       <button class="task" data-goto="calendar">${ICONS.event}<span>${t("Games and events")}</span></button>
       ${call}
     </nav>
-    <button class="ask" data-action="search">${ICONS.chat}<span class="ask-label"><b>${t("Have a question?")}</b><span>${t("Type it here and get the answer")}</span></span></button>`;
+    <button class="ask" data-action="search">${ICONS.chat}<span class="ask-label"><b>${t("Ask BV")}</b><span>${t("Type a question, get the answer")}</span></span></button>`;
   }
 
   // One sentence for the whole family: what kind of day it is.
@@ -2599,7 +2599,7 @@
     qs.push(t("What's for lunch tomorrow?"));
     qs.push(t("When are parent-teacher conferences?"));
     if (qs.length < 3) qs.push(act.some((k) => SCHOOLS[k.school].level === "es") ? t("Can my child bring medicine to school?") : t("When is the next day off?"));
-    return `<p>${t("Type a question the way you'd ask a person. The answer comes from what's in this app, with a button to where it lives.")}</p>
+    return `<p>${t("Type a question the way you'd ask a person. Ask BV answers from what's in this app, with a button to where it lives.")}</p>
       <p class="section-label">${t("Try one")}</p>
       <div class="ask-tries">${qs.slice(0, 3).map((q) => `<button class="ask-try" data-action="ask-try" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>`;
   }
@@ -2644,7 +2644,7 @@
     $("searchInput").focus();
     checkAsk().then((ok) => {
       if (!ok || !$("askBtn")) return;
-      $("sheetTitle").textContent = t("Ask a question");
+      $("sheetTitle").textContent = t("Ask BV");
       $("searchInput").placeholder = t("Type your question");
       $("askBtn").hidden = false;
       $("askStart").innerHTML = askStartHtml();
@@ -3137,7 +3137,7 @@
     { since: "2026-10-10", go: "today", h: "A new look, same app", p: "Today shows each child's day at a glance: hours, lunch, games and anything that changed. Lunch, Calendar, Guide and School each have their own tab." },
     { since: "2026-10-10", go: "students", h: "Names, if you want them", p: "Give each child a first name or nickname under Students. It stays on this phone and never reaches a server." },
     { since: "2026-10-10", go: "guide", h: "A guide for every grade", p: "What to do this year, dates that matter, and what the district's handbooks say, from junior kindergarten to senior year." },
-    { since: "2026-10-10", go: "search", h: "Ask a question", p: "Type it the way you'd ask a person: when is the next game, what's for lunch Thursday, can my child bring medicine. The answer comes from what's in the app." },
+    { since: "2026-10-10", go: "search", h: "Ask BV", p: "Type a question the way you'd ask a person: when is the next game, what's for lunch Thursday, can my child bring medicine. Ask BV answers from what's in the app." },
     { since: "2026-10-10", go: "lang", h: "En español", p: "Toca Español en Students para ver la aplicación en español." },
   ];
   const wnSeen = () => store.get(WN_KEY, migrated ? "2000-01-01" : "");

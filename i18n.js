@@ -1077,7 +1077,7 @@
     "Picture": "Imagen",
     "Email": "Correo",
     "KELOLAND closings list": "Lista de cierres de KELOLAND",
-    "For families at every Brandon Valley school, junior kindergarten through 12th grade. Free, no account.": "Para las familias de todas las escuelas de Brandon Valley, de pre-kínder a 12.º grado. Gratis, sin cuenta.",
+    "For families at every Brandon Valley school, junior kindergarten through 12th grade. No account needed.": "Para las familias de todas las escuelas de Brandon Valley, de pre-kínder a grado 12. Sin necesidad de cuenta.",
     "New to Brandon Valley schools? Start here": "¿Nuevos en las escuelas de Brandon Valley? Empiece aquí",
     "Check your family information in Skyward Family Access": "Revise la información de su familia en Skyward Family Access",
     "Add money to the lunch account in LINQ Connect": "Agregue dinero a la cuenta de almuerzo en LINQ Connect",

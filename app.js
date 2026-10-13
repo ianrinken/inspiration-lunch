@@ -686,7 +686,7 @@
       <div class="welcome card">
         <div class="welcome-top">${langToggle("lang-pill")}</div>
         <h2>${t("Know what's happening at school for each of your kids, every day")}</h2>
-        <p class="welcome-sub">${t("For families at every Brandon Valley school, junior kindergarten through 12th grade. Free, no account.")}</p>
+        <p class="welcome-sub">${t("For families at every Brandon Valley school, junior kindergarten through 12th grade. No account needed.")}</p>
         <ul class="welcome-promises">
           ${promise(ICONS.clock, t("Tomorrow at a glance"), t("Late starts, days off, lunch and games, for each of your kids"))}
           ${promise(ICONS.alert, t("Know when plans change"), t("Closings, late starts and moved games, flagged when you open the app. Phone alerts if you want them."))}

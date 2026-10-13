@@ -14,13 +14,15 @@
 const crypto = require("crypto");
 const { openStore } = require("./store.js");
 
-const MODEL = "claude-opus-5-5";
+// Haiku: the cheapest current model; translation of short school strings
+// does not need more. It has no server-side fallback, so none is requested.
+const MODEL = "claude-haiku-5-5";
 const CHUNK_CHARS = 6000; // per request; long news articles get their own
 const MAX_ITEMS = 60;
 // Calls to Claude per day across everyone. New content is a few dozen calls a
 // day; this ceiling keeps a runaway (or a flood of new pages) from becoming an
 // open-ended bill. Past it, strings stay in English until tomorrow.
-const DAILY_CALLS = 400;
+const DAILY_CALLS = 300;
 const memory = new Map(); // per warm instance: english -> spanish
 
 const SYSTEM = `You translate school information for parents in Brandon, South Dakota (the Brandon Valley School District, near Sioux Falls), from English into clear, warm Latin American Spanish that a parent reads on a phone.
@@ -64,11 +66,9 @@ async function underDailyCap() {
 
 async function callClaude(list) {
   if (!(await underDailyCap())) throw new Error("daily translation cap reached");
-  const res = await client().beta.messages.create({
+  const res = await client().messages.create({
     model: MODEL,
     max_tokens: 16000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
     output_config: {
       effort: "low",
       format: {

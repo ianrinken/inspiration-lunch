@@ -16,8 +16,11 @@ const SHARED = require("../../shared.js");
 const SFDATA = require("../../data.js");
 const HANDBOOKS = require("../../handbooks.js");
 
-const MODEL = "claude-opus-5-5";
-const DAILY_CAP = 600; // questions per day across all families: a cost ceiling
+// Haiku: the cheapest current model, and plenty for answers grounded in the
+// family context below. No server-side fallback exists for it, so a refusal
+// is handled here.
+const MODEL = "claude-haiku-5-5";
+const DAILY_CAP = 400; // questions per day across all families: a cost ceiling
 const GO = ["today", "lunch", "calendar", "guide", "school", "absence", "staff", "forms", "subscribe", "notifications", "students", "search"];
 
 // Where things are in the app, so answers can say "School tab, Report an absence".
@@ -150,7 +153,7 @@ exports.handler = async (event) => {
   if (!kids.length) return json(400, { error: "No students" });
   const history = (Array.isArray(body.history) ? body.history : []).slice(-3)
     .map((h) => ({ q: String(h.q || "").slice(0, 300), a: String(h.a || "").slice(0, 800) })).filter((h) => h.q && h.a);
-  if (await overLimit(event, "ask", 150, 60)) return tooMany();
+  if (await overLimit(event, "ask", 40, 60)) return tooMany();
   if (!(await underDailyCap())) return json(429, { error: "The assistant is busy today. Search still works." });
 
   const context = await familyContext(kids, lang);
@@ -163,11 +166,9 @@ exports.handler = async (event) => {
     messages.push({ role: "user", content: `Question: ${i + 1 < history.length ? history[i + 1].q : q}` });
   }
   try {
-    const res = await getClient().beta.messages.create({
+    const res = await getClient().messages.create({
       model: MODEL,
-      max_tokens: 2000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      max_tokens: 1500,
       output_config: {
         effort: "low",
         format: {

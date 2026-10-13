@@ -44,5 +44,5 @@ between them by copying files, and a new district starts from either.
 - `npm run deploy`: tests, sweep, deploy to the bvlunch site, live journeys.
 
 Environment on the Netlify site: `VAPID_PRIVATE_KEY`, `ADMIN_KEY`,
-`MIRROR_SECRET`, `ANTHROPIC_API_KEY` (Ask and live Spanish), and for owner
+`MIRROR_SECRET`, `ANTHROPIC_API_KEY` (Ask and live Spanish, both on Haiku with daily caps), and for owner
 email `RESEND_API_KEY`, `ALERT_EMAIL`, `ALERT_FROM`.

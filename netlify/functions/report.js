@@ -80,6 +80,8 @@ exports.handler = async (event) => {
       const store = openStore("usage");
       const day = centralDay();
       const u = (await store.get(day)) || { phones: 0, installed: 0, bySchool: {} };
+      // A first look at a school with no student yet is a look, not a set-up phone.
+      if (body.preview === true) { u.previews = (u.previews || 0) + 1; await store.set(day, u); return json(200, { ok: true }); }
       u.phones++;
       if (body.installed) u.installed++;
       for (const s of (Array.isArray(body.schools) ? body.schools : []).slice(0, 8)) if (SCHOOLS.has(s)) u.bySchool[s] = (u.bySchool[s] || 0) + 1;

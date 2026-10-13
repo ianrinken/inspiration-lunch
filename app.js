@@ -694,6 +694,9 @@
         <div class="welcome-top">${langToggle("lang-pill")}</div>
         <h2>${t("Know what's happening at school for each of your kids, every day")}</h2>
         <p class="welcome-sub">${t("For families at every Brandon Valley school, junior kindergarten through 12th grade. No account needed.")}</p>
+        <p class="field-label" style="margin-bottom:8px">${t("Pick a school to see it now")}</p>
+        <div class="choice-grid school-pick">${["hs", "ms", "is", "es"].flatMap((lv) => Object.values(SCHOOLS).filter((x) => x.level === lv)).map((x) => `<button class="choice" data-action="preview-school" data-school="${esc(x.id)}"><span class="dot" style="background:${x.brand.primary}"></span>${esc(x.short)}</button>`).join("")}</div>
+        <p class="section-label" style="margin:18px 0 10px">${t("With a student added")}</p>
         <ul class="welcome-promises">
           ${promise(ICONS.clock, t("Tomorrow at a glance"), t("Late starts, days off, lunch and games, for each of your kids"))}
           ${promise(ICONS.alert, t("Know when plans change"), t("Closings, late starts and moved games, flagged when you open the app. Phone alerts if you want them."))}
@@ -732,6 +735,7 @@
       ${activitiesCheckHtml()}
       <div id="changedBox"></div>
       ${hintHtml("today")}
+      ${addStudentNudgeHtml()}
       <section class="answer" aria-live="polite">
         <p class="answer-when" id="answerWhen">${esc(cap(fmtLong(td)))}</p>
         <h2 class="answer-line" id="answerLine">${t("Checking the schools")}</h2>
@@ -822,6 +826,26 @@
   // One quiet line at the top of each tab, shown until the parent closes it
   // or does the thing it describes. Never more than one on screen, never a
   // pop-up. The example family and empty phones skip them.
+  // How many times this phone has opened the app: the add-a-student nudge
+  // gets firmer after a few looks without a student.
+  const OPENS_KEY = "sfp-opens";
+  const NUDGE_OFF_KEY = "sfp-nudge-off"; // "I don't have a student here", for a month
+  const opens = (store.get(OPENS_KEY, 0) || 0) + 1;
+  store.set(OPENS_KEY, opens);
+  function addStudentNudgeHtml() {
+    if (demo || !kids.length || kids.some((k) => !k.fan)) return "";
+    const off = store.get(NUDGE_OFF_KEY, "");
+    if (off && addDays(off, 30) > todayYmd()) return "";
+    const school = SCHOOLS[kids[0].school].short;
+    if (opens < 3) return `<button class="nudge-row" data-action="add-kid"><span><b>${t("Have a student at {school}? Add them.", { school: esc(school) })}</b><span class="sub">${t("Their grade, lunch line, teams and alerts, all in one place.")}</span></span>${CHEVRON}</button>`;
+    return `<article class="card finish-setup nudge-card">
+      <p class="finish-title">${t("Add your student")}</p>
+      <p>${t("You're looking at {school} without a student set up. Add one to get their grade's dates, their lunch line and allergens, their teams, and alerts when plans change.", { school: esc(school) })}</p>
+      <div class="sheet-actions"><button class="btn primary block" data-action="add-kid">${t("Add your student")}</button>
+      <button class="btn block" data-action="nudge-off">${t("I don't have a student here")}</button></div>
+    </article>`;
+  }
+
   const HINT_KEY = "sfp-hints";
   const HINTS = {
     today: "Tap the lunch line for the full menu. Tap the hours for the bell schedule.",
@@ -1166,19 +1190,34 @@
   // follow, nothing about a school day.
   async function fillFanCard(kid, token, el0, banner) {
     const td = todayYmd();
-    let events = null, evErr = false;
-    try { events = await getEvents(kid.school, td, addDays(td, 30)); } catch { evErr = true; }
+    const day = focusDay(kid);
+    let events = null, evErr = false, menu = null;
+    await Promise.all([
+      getEvents(kid.school, td, addDays(td, 30)).then((e) => (events = e)).catch(() => (evErr = true)),
+      kid.preview ? getMenu(kid.school, day, day).then((m) => (menu = m)).catch(() => {}) : Promise.resolve(),
+    ]);
     if (token !== tokens.today) return null;
     const el = el0();
     if (!el) return null;
-    const mine = evErr ? [] : groupEvents(sortEvents(events.filter((e) => e.d >= td && mineFilter(kid, e) && e.cat !== "noschool")));
+    // Nothing followed yet: the whole school's games and nights, so the
+    // first look shows what the app does.
+    const pick = (kid.follows || []).length ? (e) => mineFilter(kid, e) : (e) => allFilter(kid, e) && e.cat !== "practice" && !/\bmeals?\b/i.test(e.title);
+    const mine = evErr ? [] : groupEvents(sortEvents(events.filter((e) => e.d >= td && pick(e) && e.cat !== "noschool")));
+    const lunch = (() => {
+      if (!kid.preview || !menu || offReason(day)) return "";
+      const l = lunchLine(menu.byDay.get(day), "");
+      if (!l) return "";
+      menuStore.set(`${kid.school}|${day}`, menu.byDay.get(day));
+      return `<p class="sum-label">${esc(cap(relLabel(day) || fmtShort(day)))}</p><div class="sched"><button class="srow tap" data-menu="${esc(day)}"><span class="when">${t("Lunch")}</span><span class="what">${esc(describeMeal(l.items).main)}</span></button></div>`;
+    })();
     const row = (e) => {
       const level = e.parts ? levelsLine(e).join(" · ") : e.level && !/^(High School|HS )/.test(e.level) ? tt(e.level) : "";
       const sub = [e.t && !e.parts ? fmtTime(e.t) : "", level].filter(Boolean).join(", ");
       return `<button class="srow tap" data-ev="${esc(e.id)}"><span class="when">${esc(fmtShort(e.d))}</span><span class="what">${esc(evTitle(e))}${e.home === true ? `, ${t("home")}` : e.home === false ? `, ${t("away")}` : ""}${e.x ? ` <span class="tag x">${t("Cancelled")}</span>` : ""}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span></button>`;
     };
     el.innerHTML = `${banner}
-      ${evErr ? `<p class="empty-note">${t("Calendar unavailable right now")}</p>` : mine.length ? `<p class="sum-label">${t("Coming up")}</p><div class="sched">${mine.slice(0, 5).map(row).join("")}</div>` : `<p class="empty-note">${t("Nothing scheduled in the next 30 days for what you follow.")}</p>`}
+      ${lunch}
+      ${evErr ? `<p class="empty-note">${t("Calendar unavailable right now")}</p>` : mine.length ? `<p class="sum-label">${(kid.follows || []).length ? t("Coming up") : t("Coming up at {school}", { school: esc(SCHOOLS[kid.school].short) })}</p><div class="sched">${mine.slice(0, 5).map(row).join("")}</div>` : `<p class="empty-note">${t("Nothing scheduled in the next 30 days for what you follow.")}</p>`}
       <div class="sum-foot"><button class="link-btn" data-action="follow" data-kid="${esc(kid.id)}">${t((kid.follows || []).length ? "Change what you follow" : "Pick teams and activities to follow")}</button></div>`;
     return { kid, mine, day: td, off: null, changed: null };
   }
@@ -2628,7 +2667,9 @@
     const day = todayYmd();
     if (store.get("sfp-ping", "") === day || !kids.length || demo) return;
     store.set("sfp-ping", day);
-    fetch(REPORT_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "ping", schools: [...new Set(kids.map((k) => k.school))], installed: isStandalone }) }).catch(() => {});
+    const body = JSON.stringify({ action: "ping", schools: [...new Set(kids.map((k) => k.school))], installed: isStandalone, preview: kids.every((k) => k.preview) });
+    // sendBeacon survives a two-second glance that closes the app.
+    if (!(navigator.sendBeacon && navigator.sendBeacon(REPORT_API, new Blob([body], { type: "application/json" })))) fetch(REPORT_API, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
   }
 
   /* ----- search across the app ----- */
@@ -3109,7 +3150,8 @@
 
   let draft = null;
   function openEditor(kid, fan = false) {
-    draft = kid ? { ...kid, follows: [...(kid.follows || [])], allergies: [...(kid.allergies || [])] } : { id: `k${Date.now().toString(36)}`, name: "", school: "", grade: null, diet: "", follows: [], allergies: [], isNew: true, ...(fan ? { fan: true } : {}) };
+    const pv = !kid && !fan ? kids.find((k) => k.preview) : null;
+    draft = kid ? { ...kid, follows: [...(kid.follows || [])], allergies: [...(kid.allergies || [])] } : { id: `k${Date.now().toString(36)}`, name: "", school: pv ? pv.school : "", grade: null, diet: "", follows: [], allergies: [], isNew: true, ...(fan ? { fan: true } : {}) };
     renderEditor();
   }
   // Following a school without a student: pick the school, then the teams.
@@ -3190,6 +3232,15 @@
       if (kids[i].school !== kid.school) kid.follows = [];
       kids[i] = kid;
     } else kids.push(kid);
+    // A first look at a school ("Pick a school to see it now") stands in
+    // until a student is added: its teams move to a student at that school.
+    if (!kid.fan) {
+      for (const pv of kids.filter((k) => k.preview)) {
+        if (pv.school === kid.school) { for (const f of pv.follows || []) if (!kid.follows.some((x) => x.act === f.act)) kid.follows.push(f); }
+        if (pv.school === kid.school || !(pv.follows || []).length) kids = kids.filter((k) => k !== pv);
+        else delete pv.preview;
+      }
+    }
     activeKidId = kid.id;
     store.set(KID_KEY, activeKidId);
     saveKids();
@@ -3318,7 +3369,7 @@
     { since: "2026-10-10", go: "guide", h: "A guide for every grade", p: "What to do this year, dates that matter, and what the district's handbooks say, from junior kindergarten to senior year." },
     { since: "2026-10-10", go: "search", h: "Ask BV", p: "Type a question the way you'd ask a person: when is the next game, what's for lunch Thursday, can my child bring medicine. Ask BV answers from what's in the app." },
     { since: "2026-10-10", go: "lang", h: "En español", p: "Toca Español en Students para ver la aplicación en español." },
-    { since: "2026-10-13", go: "students", h: "Follow a school without a student", p: "Grandparents, alumni and neighbors can follow a school's games, concerts and school nights. Under Students, tap Follow a school without a student." },
+    { since: "2026-10-12", go: "students", h: "Follow a school without a student", p: "Grandparents, alumni and neighbors can follow a school's games, concerts and school nights. Under Students, tap Follow a school without a student." },
   ];
   const wnSeen = () => store.get(WN_KEY, migrated ? "2000-01-01" : "");
   const wnDue = () => WHATS_NEW.filter((c) => c.since > (wnSeen() || "9999"));
@@ -3401,7 +3452,7 @@
     if (ds.calmode) { hintDone("calendar"); calMode = ds.calmode; store.set(CAL_MODE_KEY, calMode); render(); return; }
     if (ds.month) { calMonth = ds.month === "0" ? monthKey(todayYmd()) : addMonths(calMonth, Number(ds.month)); renderCalendar.scrolled = ds.month !== "0"; render(); return; }
     if (ds.week) { const t = todayYmd(); lunchWeek = ds.week === "0" ? mondayOf(isWeekend(t) ? addDays(t, 2) : t) : addDays(lunchWeek, 7 * Number(ds.week)); render(); return; }
-    if (draft && el.classList.contains("choice")) {
+    if (draft && el.classList.contains("choice") && !ds.action) {
       if (ds.allergy !== undefined) {
         const i = draft.allergies.indexOf(ds.allergy);
         if (i >= 0) draft.allergies.splice(i, 1); else draft.allergies.push(ds.allergy);
@@ -3462,6 +3513,21 @@
     switch (ds.action) {
       case "hint-done": hintDone(ds.hint); el.closest(".hint")?.remove(); break;
       case "add-fan": demo = false; store.del(DEMO_KEY); kids = store.get(KIDS_KEY, []) || []; hydrateKids(); render(); openEditor(null, true); break;
+      case "preview-school": {
+        demo = false; store.del(DEMO_KEY);
+        kids = store.get(KIDS_KEY, []) || [];
+        hydrateKids();
+        if (!kids.some((k) => k.school === ds.school)) kids.push({ id: `k${Date.now().toString(36)}`, name: "", school: ds.school, classOf: null, diet: "", follows: [], allergies: [], fan: true, preview: true, addedAt: todayYmd() });
+        hydrateKids();
+        activeKidId = kids.find((k) => k.school === ds.school).id;
+        store.set(KID_KEY, activeKidId);
+        saveKids();
+        goTab("today");
+        render();
+        window.scrollTo(0, 0);
+        break;
+      }
+      case "nudge-off": store.set(NUDGE_OFF_KEY, todayYmd()); el.closest(".nudge-card")?.remove(); for (const k of kids) if (k.preview) delete k.preview; saveKids(); break;
       case "add-kid": openEditor(null); break;
       case "edit-kid": openEditor(kids.find((k) => k.id === ds.kid)); break;
       case "save-kid": saveDraft(); break;
@@ -3684,7 +3750,7 @@
   });
 
   writeLocalNames();
-  setTimeout(pingUsage, 3000);
+  pingUsage();
   if (kids.length) setTimeout(keepData, 4000);
   const setupHash = /^#(setup|family)=/.test(location.hash);
   const hashTab = setupHash ? "" : location.hash.slice(1);

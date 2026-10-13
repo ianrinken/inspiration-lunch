@@ -67,7 +67,7 @@ async function overflow(page) {
     await page.locator("#kidName").fill("Maya");
     // Grade first: it decides which schools are listed.
     await page.locator('.choice[data-grade="11"]').click();
-    await page.locator('.choice[data-school="bvhs"]').click();
+    await page.locator('#sheet .choice[data-school="bvhs"]').click();
     await page.locator('[data-action="save-kid"]').click();
     await page.locator(".follow-toggle", { hasText: /^Volleyball$/ }).waitFor({ timeout: 15000 });
     await page.locator(".follow-toggle", { hasText: /^Volleyball$/ }).click();
@@ -163,7 +163,7 @@ async function overflow(page) {
       check("school list waits for a grade", await young.locator("#schoolField .choice").count() === 0);
       await young.locator('.choice[data-grade="0"]').click();
       check("kindergarten lists the 5 elementary schools", await young.locator("#schoolField .choice").count() === 5);
-      await young.locator('.choice[data-school="ies"]').click();
+      await young.locator('#sheet .choice[data-school="ies"]').click();
       await young.locator('[data-action="save-kid"]').click();
       await young.locator('#sheet [data-action="save-follow"], #sheet [data-action="close-sheet"]').first().waitFor({ timeout: 15000 }).catch(() => {});
       await young.locator("#sheetClose").click().catch(() => {});

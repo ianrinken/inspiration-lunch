@@ -148,7 +148,7 @@ exports.handler = async (event) => {
   if (q.length < 2) return json(400, { error: "Ask a question" });
   const lang = body.lang === "es" ? "es" : "en";
   const kids = (Array.isArray(body.kids) ? body.kids : []).slice(0, 6)
-    .filter((k) => k && SFDATA.SCHOOLS[k.school] && Number.isInteger(k.grade) && k.grade >= 0 && k.grade <= 12)
+    .filter((k) => k && SFDATA.SCHOOLS[k.school] && Number.isInteger(k.grade) && k.grade >= -1 && k.grade <= 12)
     .map((k) => ({ school: k.school, grade: k.grade, follows: (Array.isArray(k.follows) ? k.follows : []).slice(0, 12).map((f) => String(f).slice(0, 60)) }));
   if (!kids.length) return json(400, { error: "No students" });
   const history = (Array.isArray(body.history) ? body.history : []).slice(-3)

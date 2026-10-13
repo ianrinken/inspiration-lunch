@@ -515,6 +515,9 @@ button.row.tap::after, button.row[data-goto]::after, a.row.tap::after {
 .filter-chips .level-chip[aria-pressed="true"] { border-color: var(--accent, var(--navy-2)); background: color-mix(in srgb, var(--accent, var(--navy-2)) 10%, var(--surface)); }
 .cal-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .cal-foot { margin-top: 10px; }
+.plain-list { list-style: none; margin: 0 0 6px; padding: 0; }
+.plain-list li { padding: 8px 0; border-top: 1px solid var(--border); font-weight: 600; }
+.plain-list li:first-child { border-top: 0; }
 /* The month's controls stay in reach while the list scrolls to today. */
 .cal-head { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 4px 0 8px; margin: -4px 0 6px; }
 #kidBar:not([hidden]) ~ main .cal-head { top: 56px; }
@@ -827,6 +830,7 @@ button.action { text-align: left; font: inherit; color: inherit; cursor: pointer
 /* The four things parents come to do: one row under the day line, before
    the cards, so none of them needs a scroll. */
 .tasks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0 14px; }
+.tasks.one { grid-template-columns: minmax(0, 1fr); max-width: 240px; }
 .answer .tasks .task { flex-direction: row; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 8px 10px; font-size: .9rem; line-height: 1.2; border-radius: 999px; }
 .answer .tasks .task .ico { width: 20px; height: 20px; flex: none; }
 .task { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-height: 84px; padding: 14px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); font: inherit; font-weight: 700; color: var(--text); text-align: left; text-decoration: none; line-height: 1.25; }

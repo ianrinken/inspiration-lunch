@@ -60,8 +60,8 @@ async function familyContext(kids, lang) {
   for (const [i, k] of kids.entries()) {
     const s = SFDATA.SCHOOLS[k.school];
     if (!s) continue;
-    const kid = { school: k.school, grade: k.grade, follows: k.follows.map((act) => ({ act, level: "" })) };
-    out.push(`\n## Child ${i + 1}: ${k.grade === -1 ? "junior kindergarten" : k.grade === 0 ? "kindergarten" : `grade ${k.grade}`} at ${s.name}${k.follows.length ? `; follows ${k.follows.join(", ")}` : ""}`);
+    const kid = { school: k.school, grade: k.grade, fan: k.fan, follows: k.follows.map((act) => ({ act, level: "" })) };
+    out.push(k.fan ? `\n## Following ${s.name} (no student there)${k.follows.length ? `; follows ${k.follows.join(", ")}` : ""}` : `\n## Child ${i + 1}: ${k.grade === -1 ? "junior kindergarten" : k.grade === 0 ? "kindergarten" : `grade ${k.grade}`} at ${s.name}${k.follows.length ? `; follows ${k.follows.join(", ")}` : ""}`);
     // Upcoming for this child: their grade, their teams, the district dates.
     try {
       const end = SHARED.addDays(today, 21);
@@ -69,8 +69,8 @@ async function familyContext(kids, lang) {
       const mine = SHARED.sortEvents(SHARED.mergeDistrict(SFDATA.DISTRICT_CALENDAR, all, today, SHARED.addDays(today, 60), k.grade).filter((e) => SHARED.mineFilter(kid, e)));
       out.push("Coming up for this child:", ...mine.slice(0, 30).map((e) => `- ${e.d}${e.to ? ` to ${e.to}` : ""}${e.t ? ` ${e.t}` : ""}: ${e.x ? "CANCELLED " : ""}${e.title}${e.level ? ` (${e.level})` : ""}${e.venue ? `, ${e.venue}` : ""}`));
     } catch { out.push("(Calendar unavailable right now.)"); }
-    for (const d of SHARED.deadlinesFor(SFDATA, k.grade, today, SHARED.addDays(today, 90))) out.push(`- Deadline ${d.d}: ${d.key.replace(/\{(\w+)\}/g, (m, v) => d.vars[v] || "")}`);
-    const g = SFDATA.GUIDE[k.grade];
+    if (!k.fan) for (const d of SHARED.deadlinesFor(SFDATA, k.grade, today, SHARED.addDays(today, 90))) out.push(`- Deadline ${d.d}: ${d.key.replace(/\{(\w+)\}/g, (m, v) => d.vars[v] || "")}`);
+    const g = k.fan ? null : SFDATA.GUIDE[k.grade];
     if (g) out.push(`Grade guide "${g.headline}": ${g.intro} Checklist: ${g.todo.map((x) => x.text).join("; ")}. Facts: ${g.facts.map((f) => `${f.title}: ${f.body}`).join(" ")}`);
     if (seen.has(k.school)) continue;
     seen.add(k.school);
@@ -148,8 +148,8 @@ exports.handler = async (event) => {
   if (q.length < 2) return json(400, { error: "Ask a question" });
   const lang = body.lang === "es" ? "es" : "en";
   const kids = (Array.isArray(body.kids) ? body.kids : []).slice(0, 6)
-    .filter((k) => k && SFDATA.SCHOOLS[k.school] && Number.isInteger(k.grade) && k.grade >= -1 && k.grade <= 12)
-    .map((k) => ({ school: k.school, grade: k.grade, follows: (Array.isArray(k.follows) ? k.follows : []).slice(0, 12).map((f) => String(f).slice(0, 60)) }));
+    .filter((k) => k && SFDATA.SCHOOLS[k.school] && (k.fan === true || (Number.isInteger(k.grade) && k.grade >= -1 && k.grade <= 12)))
+    .map((k) => ({ school: k.school, grade: k.fan === true ? null : k.grade, fan: k.fan === true, follows: (Array.isArray(k.follows) ? k.follows : []).slice(0, 12).map((f) => String(f).slice(0, 60)) }));
   if (!kids.length) return json(400, { error: "No students" });
   const history = (Array.isArray(body.history) ? body.history : []).slice(-3)
     .map((h) => ({ q: String(h.q || "").slice(0, 300), a: String(h.a || "").slice(0, 800) })).filter((h) => h.q && h.a);

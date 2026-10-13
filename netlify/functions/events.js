@@ -624,22 +624,24 @@ exports.handler = async (event) => {
       if (!fam) return { statusCode: 404, body: "Calendar not found" };
     }
     const sid = fam ? fam.school : schoolId;
+    // Following a school without a student: no grade, just the teams.
+    const fan = fam ? fam.fan === true : q.fan === "1";
     const classOf = fam ? fam.classOf : Number(q.classOf);
-    const grade = classOf ? SHARED.gradeOf(classOf, today) : Number(q.grade);
-    if (!SCHOOLS[sid] || !(grade >= SCHOOLS[sid].grades[0] && grade <= SCHOOLS[sid].grades[1])) return { statusCode: 400, body: "Bad request" };
+    const grade = fan ? null : classOf ? SHARED.gradeOf(classOf, today) : Number(q.grade);
+    if (!SCHOOLS[sid] || (!fan && !(grade >= SCHOOLS[sid].grades[0] && grade <= SCHOOLS[sid].grades[1]))) return { statusCode: 400, body: "Bad request" };
     const start = SHARED.addDays(today, -14), end = SHARED.addDays(today, 400);
     try {
-      const kid = { school: sid, grade, follows: fam ? fam.follows : SHARED.decodeFollows(q.follows) };
+      const kid = { school: sid, grade, fan, follows: fam ? fam.follows : SHARED.decodeFollows(q.follows) };
       const all = (await loadSchool(sid)).filter((ev) => inRange(ev, start, end));
       let mine = SHARED.sortEvents(SHARED.mergeDistrict(SFDATA.DISTRICT_CALENDAR, all, start, end, grade).concat(SHARED.stateFor(SFDATA.STATE_EVENTS, kid, start, end)).filter((ev) => SHARED.mineFilter(kid, ev)));
-      let name = grade >= 9 ? `${SCHOOLS[sid].name}, class of ${SHARED.classFor(grade, today)}` : `${gradeName(grade)} · ${SCHOOLS[sid].name}`;
+      let name = fan ? `${SCHOOLS[sid].name}` : grade >= 9 ? `${SCHOOLS[sid].name}, class of ${SHARED.classFor(grade, today)}` : `${gradeName(grade)} · ${SCHOOLS[sid].name}`;
       // Subscribed in Spanish: titles, levels and places in Spanish (saved
       // translations; anything not ready yet stays English until next refresh).
       if (q.lang === "es") {
         const es = await toSpanish(mine.flatMap((ev) => [ev.title, ev.level, ev.venue]).filter(Boolean), { budgetMs: 4000 });
         const tr = (s) => (s && es[s.trim()]) || s;
         mine = mine.map((ev) => ({ ...ev, title: tr(ev.title), level: tr(ev.level), venue: tr(ev.venue) }));
-        name = `${SCHOOLS[sid].name}, promoción ${SHARED.classFor(grade, today)}`;
+        name = fan ? `${SCHOOLS[sid].name}` : `${SCHOOLS[sid].name}, promoción ${SHARED.classFor(grade, today)}`;
       }
       return { statusCode: 200, headers: ICS_FEED_HEADERS, body: toIcs(mine, SCHOOLS[sid].name, name, q.lang === "es" ? "CANCELADO: " : undefined) };
     } catch (err) {

@@ -56,6 +56,16 @@
   // A student's own view: school days, their grade's events, their teams.
   function mineFilter(kid, ev) {
     if (ev.district) return true;
+    // Someone following a school without a student there: their teams,
+    // the whole-school nights and days off. Nothing tied to a grade.
+    if (kid.fan) {
+      if (ev.cat === "practice" || /\bmeals?\b/i.test(ev.title)) return false;
+      if (ev.act) return follows(kid, ev) || (SCHOOLWIDE.test(ev.title.replace(/^[^:]+:\s*/, "")) && !/Competitive/i.test(ev.act));
+      if (ev.g) return false;
+      if (ev.cat === "noschool") return true;
+      if (ev.cat === "school") return HIGHLIGHT.test(ev.title);
+      return false;
+    }
     // School-wide nights are sometimes filed under a club ("Student Council:
     // Homecoming Dance"); every student sees those, not just members.
     // Middle school teams are by grade: a 7th grader's team, not the 8th's.
@@ -177,7 +187,7 @@
   // school, grade and teams only. Names never leave the phone.
   function encodeFeed(kid) {
     const f = (kid.follows || []).map((x) => (x.level ? `${x.act}~${x.level}` : x.act)).join("|");
-    return { school: kid.school, classOf: String(kid.classOf), follows: f };
+    return kid.fan ? { school: kid.school, fan: "1", follows: f } : { school: kid.school, classOf: String(kid.classOf), follows: f };
   }
   function decodeFollows(s) {
     return String(s || "").split("|").filter(Boolean).slice(0, 40).map((x) => {

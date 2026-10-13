@@ -80,7 +80,7 @@ async function buildDigest(record, cache = {}) {
   const kids = await kidsFor(record);
   const lines = [];
   for (const k of kids) {
-    const grade = SHARED.gradeOf(k.classOf, day);
+    const grade = k.fan ? null : SHARED.gradeOf(k.classOf, day);
     if (grade > 12) continue;
     const kid = { ...k, grade };
     const off = offReason(day);
@@ -114,7 +114,7 @@ async function buildWeekAhead(record, cache = {}) {
   const lines = [];
   const dayName = (d) => { const n = new Date(`${d}T12:00:00Z`).toLocaleDateString(w.locale, { weekday: "short", timeZone: "UTC" }); return n.charAt(0).toUpperCase() + n.slice(1); };
   for (const k of kids) {
-    const grade = SHARED.gradeOf(k.classOf, start);
+    const grade = k.fan ? null : SHARED.gradeOf(k.classOf, start);
     if (grade > 12) continue;
     const kid = { ...k, grade };
     const all = (await eventsFor(k.school, cache)).filter((e) => (e.to || e.d) >= start && e.d <= end);

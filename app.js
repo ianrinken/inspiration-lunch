@@ -236,9 +236,11 @@
   // today, so everyone moves up on July 1 without the parent doing a thing.
   function hydrateKids() {
     const t = todayYmd();
-    kids = kids.filter((k) => k && SCHOOLS[k.school] && (Number.isInteger(k.classOf) || GUIDE[k.grade]));
+    kids = kids.filter((k) => k && SCHOOLS[k.school] && (k.fan || Number.isInteger(k.classOf) || GUIDE[k.grade]));
     let migrated = false;
     for (const k of kids) {
+      // Following a school without a student: no grade, never graduates.
+      if (k.fan) { k.classOf = null; k.grade = null; k.graduated = false; if (!k.allergies) k.allergies = []; continue; }
       // Older saves stored a grade; convert it once and save the class, or
       // the grade would never move up.
       if (!Number.isInteger(k.classOf)) { k.classOf = SH.classFor(k.grade, t); migrated = true; }
@@ -275,7 +277,11 @@
     caches.open("sfp-local").then((c) => c.put("/__names", new Response(JSON.stringify(names), { headers: { "Content-Type": "application/json" } }))).catch(() => {});
   }
   const activeKid = () => kids.find((k) => k.id === activeKidId) || kids[0] || null;
-  const kidName = (k) => k.name || t("Student {n}", { n: kids.indexOf(k) + 1 });
+  const kidName = (k) => k.name || (k.fan ? SCHOOLS[k.school].short : t("Student {n}", { n: kids.indexOf(k) + 1 }));
+  // "Following Football and Band" / "Following the school" for a follower.
+  const followsText = (k) => { const n = (k.follows || []).map((f) => tt(f.act)); return n.length ? t("Following {list}", { list: n.length > 3 ? `${n.slice(0, 3).join(", ")} +${n.length - 3}` : n.join(", ") }) : t("Following the school"); };
+  // The line under a name: school and grade, or what a follower follows.
+  const kidMeta = (k) => (k.fan ? followsText(k) : `${schoolLabel(SCHOOLS[k.school])}, ${gradeText(k)}`);
   const ordinal = (g) => (g === -1 ? "JK" : g === 0 ? "K" : `${g}${g === 1 ? "st" : g === 2 ? "nd" : g === 3 ? "rd" : "th"}`);
   // "11th grade" / "grado 11"; the short form is for chips and buttons.
   // Grade 0 is kindergarten, -1 junior kindergarten.
@@ -497,7 +503,7 @@
     if (kid) {
       const s = SCHOOLS[kid.school];
       for (const [k, v] of Object.entries({ "--accent": b.primary, "--accent-2": b.secondary, "--accent-on": b.onPrimary })) root.setProperty(k, v);
-      $("schoolBrand").innerHTML = `${logoTile(kid.school)}<span class="school-brand-text"><h1 class="school-brand-name">${esc(schoolLabel(s))}</h1><span class="school-brand-kid">${esc(kidName(kid))}, ${esc(gradeText(kid))}</span></span>`;
+      $("schoolBrand").innerHTML = `${logoTile(kid.school)}<span class="school-brand-text"><h1 class="school-brand-name">${esc(schoolLabel(s))}</h1><span class="school-brand-kid">${kid.fan ? esc(followsText(kid)) : `${esc(kidName(kid))}, ${esc(gradeText(kid))}`}</span></span>`;
     } else {
       for (const k of ["--accent", "--accent-2", "--accent-on"]) root.removeProperty(k);
     }
@@ -677,7 +683,7 @@
     $("kidChips").classList.toggle("compact", kids.length > 2);
     $("kidChips").innerHTML = kids.map((kid) => `
       <button class="kid-chip" data-kid="${esc(kid.id)}" aria-pressed="${kid === k}" style="${kidStyle(kid)}">
-        <span class="dot"></span>${esc(kidName(kid))}<span class="chip-sub">${esc(SCHOOLS[kid.school].short)}, ${kid.graduated ? t("graduated") : gradeShort(kid.grade)}</span>
+        <span class="dot"></span>${esc(kidName(kid))}<span class="chip-sub">${kid.fan ? t("following") : `${esc(SCHOOLS[kid.school].short)}, ${kid.graduated ? t("graduated") : gradeShort(kid.grade)}`}</span>
       </button>`).join("");
   }
 
@@ -700,6 +706,7 @@
         <div class="welcome-more">
           <button class="link-btn" data-action="new-family">${t("New to Brandon Valley schools? Start here")}</button>
           <button class="link-btn" data-action="restore">${t("Restore with a family code")}</button>
+          <button class="link-btn" data-action="add-fan">${t("No student? Follow a school's games and events")}</button>
         </div>
         <p class="privacy-note">${t("Takes about a minute.")}</p>
       </div>`;
@@ -717,7 +724,7 @@
     const v = $("view-today");
     const token = bump("today");
     const td = todayYmd();
-    const kidHead = (k) => `<div class="kid-banner">${logoTile(k.school)}<span class="kid-banner-text"><span class="kid-name">${esc(kidName(k))}</span><span class="kid-meta">${esc(schoolLabel(SCHOOLS[k.school]))}, ${esc(gradeText(k))}</span></span></div>`;
+    const kidHead = (k) => `<div class="kid-banner">${logoTile(k.school)}<span class="kid-banner-text"><span class="kid-name">${esc(kidName(k))}</span><span class="kid-meta">${esc(kidMeta(k))}</span></span></div>`;
     // The answer first ("A normal school day for both"), each student's day
     // under it, then the four things parents come to do.
     v.innerHTML = `
@@ -759,8 +766,9 @@
       : `<button class="task" data-action="call-pick">${ICONS.phone}<span>${t("Call the school")}</span></button>`;
     // Lunch and the calendar have their own tabs; the two things a parent
     // needs in a hurry sit right under the day line.
-    return `<nav class="tasks" aria-label="${t("Things to do")}">
-      <button class="task" data-action="absence-pick">${ICONS.absent}<span>${t("Report an absence")}</span></button>
+    const students = active.some((k) => !k.fan);
+    return `<nav class="tasks${students ? "" : " one"}" aria-label="${t("Things to do")}">
+      ${students ? `<button class="task" data-action="absence-pick">${ICONS.absent}<span>${t("Report an absence")}</span></button>` : ""}
       ${call}
     </nav>`;
   }
@@ -768,9 +776,17 @@
     ? `<button class="ask" data-action="search">${ICONS.chat}<span class="ask-label"><b>${t("Ask BV")}</b><span>${t("Type a question, get the answer")}</span></span></button>` : "");
 
   // One sentence for the whole family: what kind of day it is.
-  function fillAnswer(results) {
+  function fillAnswer(all) {
     const line = $("answerLine"), when = $("answerWhen");
-    if (!line || !results.length) return;
+    const results = all.filter((r) => !r.kid.fan);
+    if (!line || !all.length) return;
+    if (!results.length) {
+      const schools = [...new Set(all.map((r) => SCHOOLS[r.kid.school].short))];
+      when.textContent = cap(fmtLong(todayYmd()));
+      line.textContent = t("Following {list}", { list: schools.join(` ${t("and")} `) });
+      line.classList.remove("warn");
+      return;
+    }
     const day = results[0].day;
     // "Today, Friday, October 9" / "Tomorrow, ..."; a later day is just its
     // date, since the date already starts with the weekday.
@@ -817,6 +833,7 @@
   const hintDone = (id) => { const h = store.get(HINT_KEY, {}); if (h[id]) return; h[id] = todayYmd(); store.set(HINT_KEY, h); };
   function hintHtml(id, vars = {}) {
     if (demo || !kids.length || store.get(HINT_KEY, {})[id]) return "";
+    if (id === "today" && !kids.some((k) => !k.fan)) return "";
     return `<div class="hint" role="note"><p>${esc(t(HINTS[id], vars))}</p><button class="install-close" data-action="hint-done" data-hint="${id}" aria-label="${t("Dismiss")}">&times;</button></div>`;
   }
 
@@ -1012,12 +1029,13 @@
     const school = kid.school;
     const s = SCHOOLS[school];
     const el0 = () => document.querySelector(`[data-kidcard="${CSS.escape(kid.id)}"]`);
-    const banner = `<div class="kid-banner">${logoTile(school)}<span class="kid-banner-text"><span class="kid-name">${esc(kidName(kid))}</span><span class="kid-meta">${esc(schoolLabel(s))}, ${esc(gradeText(kid))}</span></span></div>`;
+    const banner = `<div class="kid-banner">${logoTile(school)}<span class="kid-banner-text"><span class="kid-name">${esc(kidName(kid))}</span><span class="kid-meta">${esc(kidMeta(kid))}</span></span></div>`;
     if (kid.graduated) {
       const el = el0();
       if (el) el.innerHTML = `${banner}<p class="empty-note">${t("Graduated. Congratulations. Remove {name} under Students when you're ready.", { name: esc(kidName(kid)) })}</p>`;
       return null;
     }
+    if (kid.fan) return fillFanCard(kid, token, el0, banner);
     const day = focusDay(kid);
     const horizon = addDays(day, 14);
     const off = offReason(day);
@@ -1144,6 +1162,27 @@
   }
 
 
+  // A follower's card: the next games and school nights for what they
+  // follow, nothing about a school day.
+  async function fillFanCard(kid, token, el0, banner) {
+    const td = todayYmd();
+    let events = null, evErr = false;
+    try { events = await getEvents(kid.school, td, addDays(td, 30)); } catch { evErr = true; }
+    if (token !== tokens.today) return null;
+    const el = el0();
+    if (!el) return null;
+    const mine = evErr ? [] : groupEvents(sortEvents(events.filter((e) => e.d >= td && mineFilter(kid, e) && e.cat !== "noschool")));
+    const row = (e) => {
+      const level = e.parts ? levelsLine(e).join(" · ") : e.level && !/^(High School|HS )/.test(e.level) ? tt(e.level) : "";
+      const sub = [e.t && !e.parts ? fmtTime(e.t) : "", level].filter(Boolean).join(", ");
+      return `<button class="srow tap" data-ev="${esc(e.id)}"><span class="when">${esc(fmtShort(e.d))}</span><span class="what">${esc(evTitle(e))}${e.home === true ? `, ${t("home")}` : e.home === false ? `, ${t("away")}` : ""}${e.x ? ` <span class="tag x">${t("Cancelled")}</span>` : ""}${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span></button>`;
+    };
+    el.innerHTML = `${banner}
+      ${evErr ? `<p class="empty-note">${t("Calendar unavailable right now")}</p>` : mine.length ? `<p class="sum-label">${t("Coming up")}</p><div class="sched">${mine.slice(0, 5).map(row).join("")}</div>` : `<p class="empty-note">${t("Nothing scheduled in the next 30 days for what you follow.")}</p>`}
+      <div class="sum-foot"><button class="link-btn" data-action="follow" data-kid="${esc(kid.id)}">${t((kid.follows || []).length ? "Change what you follow" : "Pick teams and activities to follow")}</button></div>`;
+    return { kid, mine, day: td, off: null, changed: null };
+  }
+
   // Students that came back by family code (or from another phone) without
   // their name, lunch line and allergies, which only ever live on a phone.
   // Each fall a 5th grader becomes a 6th grader at a middle school (and an
@@ -1195,7 +1234,7 @@
     </article>`;
   }
   function finishSetupHtml() {
-    const todo = kids.filter((k) => k.needsDetails && !k.graduated);
+    const todo = kids.filter((k) => k.needsDetails && !k.graduated && !k.fan);
     if (!todo.length) return movingUpHtml();
     return `<article class="card finish-setup">
       <p class="finish-title">${t("Finish setting up this phone")}</p>
@@ -1279,7 +1318,7 @@
   // where things are, shown for seven days or until the parent closes it.
   const WELCOME_KEY = "sfp-welcomed";
   function firstWeekHtml(kid) {
-    if (!kid.addedAt || kid.graduated || addDays(kid.addedAt, 7) < todayYmd() || store.get(WELCOME_KEY, {})[kid.id]) return "";
+    if (kid.fan || !kid.addedAt || kid.graduated || addDays(kid.addedAt, 7) < todayYmd() || store.get(WELCOME_KEY, {})[kid.id]) return "";
     const td = todayYmd();
     const soon = SH.deadlinesFor({ DEADLINES, TEST_DATES, TEST_LINKS }, kid.grade, addDays(td, 15), addDays(td, 60)).slice(0, 2);
     return `<article class="card first-week" style="${kidStyle(kid)}">
@@ -1634,6 +1673,32 @@
 
   /* ----- Guide ----- */
 
+  // The Guide for someone following a school: what they follow, the next
+  // few weeks of it, and the state tournaments for those sports.
+  async function renderFanGuide(kid, v, token) {
+    const s = SCHOOLS[kid.school];
+    const td = todayYmd();
+    const list = (kid.follows || []).map((f) => `<li>${esc(tt(f.act))}${f.level ? ` <span class="tag grade">${esc(tt(f.level))}</span>` : ""}</li>`).join("");
+    v.innerHTML = `
+      <div><h2 class="view-title">${t("Following {school}", { school: esc(s.short) })}</h2><p class="view-sub">${t("Games, performances and school nights, without a student set up.")}</p></div>
+      <article class="card">
+        <p class="section-label">${t("What you follow")}</p>
+        ${list ? `<ul class="plain-list">${list}</ul>` : `<p class="empty-note">${t("Nothing yet. Pick teams and activities and their dates show up on Today and in the calendar.")}</p>`}
+        <div class="sheet-actions"><button class="btn primary block" data-action="follow" data-kid="${esc(kid.id)}">${t((kid.follows || []).length ? "Change what you follow" : "Pick teams and activities to follow")}</button></div>
+      </article>
+      <p class="section-label">${t("Next six weeks")}</p>
+      <article class="card" id="fanUpcoming"><p class="loading">${t("Loading calendar")}</p></article>
+      <article class="card">
+        <p class="section-label">${t("Also here")}</p>
+        <p class="muted">${t("The Calendar tab has every game and school night. The School tab has the office, tickets and the school's own pages. Students at the top adds a student if you have one.")}</p>
+      </article>`;
+    let events;
+    try { events = await getEvents(kid.school, td, addDays(td, 42)); } catch { if (token === tokens.guide && $("fanUpcoming")) $("fanUpcoming").innerHTML = errorNote(t("the calendar")); return; }
+    if (token !== tokens.guide || !$("fanUpcoming")) return;
+    const mine = groupEvents(sortEvents(mergeDistrict(events, td, addDays(td, 42), null, kid).concat(SH.stateFor(STATE_EVENTS, kid, td, addDays(td, 60))).filter((e) => e.d >= td && mineFilter(kid, e) && e.cat !== "noschool" && !e.district)));
+    $("fanUpcoming").innerHTML = mine.length ? mine.slice(0, 12).map((e) => eventRow(e, { heads: true, byDate: true, showGrade: false })).join("") : `<p class="empty-note">${t("Nothing scheduled yet for what you follow.")}</p>`;
+  }
+
   async function renderGuide() {
     const kid = activeKid();
     const v = $("view-guide");
@@ -1645,6 +1710,7 @@
         <button class="btn block" data-action="edit-kid" data-kid="${esc(kid.id)}">${t("Edit or remove")}</button>`;
       return;
     }
+    if (kid.fan) return renderFanGuide(kid, v, token);
     const g = GUIDE[kid.grade];
     // Spanish guide text lives in i18n.js, keyed by checklist id and fact order.
     const ge = (lang === "es" && window.SFI18N && SFI18N.guideEs && SFI18N.guideEs[kid.grade]) || null;
@@ -1874,7 +1940,8 @@
         <li><b>${t("Meals")}</b><span>${t("Lunch accounts and free or reduced meal applications are in LINQ Connect, any time of year.")}</span>
           <a class="link-btn" href="${esc(LINK("Free and reduced meals"))}" target="_blank" rel="noopener">${t("Free and reduced meals")}</a></li>
         <li><b>${t("Add your student here")}</b><span>${t("Once you know the school, this app sets everything else up.")}</span>
-          <button class="btn primary block" data-action="add-kid">${t("Add a student")}</button></li>
+          <button class="btn primary block" data-action="add-kid">${t("Add a student")}</button>
+      <button class="link-btn" data-action="add-fan" style="margin:6px 0 10px">${t("Follow a school without a student")}</button></li>
       </ol>`);
   }
 
@@ -2518,7 +2585,7 @@
     openSheet(t("Students"), `
       <div>${kids.map((k) => `
         <div class="student-row">
-          <span class="who"><span class="dot" style="background:${SCHOOLS[k.school].brand.primary}"></span><span><b>${esc(kidName(k))}</b><br><span class="muted">${esc(SCHOOLS[k.school].short)}, ${esc(gradeText(k))}</span></span></span>
+          <span class="who"><span class="dot" style="background:${SCHOOLS[k.school].brand.primary}"></span><span><b>${esc(kidName(k))}</b><br><span class="muted">${k.fan ? esc(followsText(k)) : `${esc(SCHOOLS[k.school].short)}, ${esc(gradeText(k))}`}</span></span></span>
           <span class="actions"><button class="small-btn" data-action="edit-kid" data-kid="${esc(k.id)}">${t("Edit")}</button></span>
         </div>`).join("")}</div>
       <button class="btn primary block" data-action="add-kid">${t("Add a student")}</button>
@@ -2674,7 +2741,7 @@
     if (q.length < 2) return;
     box.hidden = false;
     box.innerHTML = `<p class="loading">${t("Finding the answer")}</p>`;
-    const kidsOut = activeKids().map((k) => ({ school: k.school, grade: k.grade, follows: (k.follows || []).map((f) => f.act) }));
+    const kidsOut = activeKids().map((k) => ({ school: k.school, grade: k.grade, fan: !!k.fan, follows: (k.follows || []).map((f) => f.act) }));
     let out;
     try {
       const r = await fetch(ASK_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q, lang, kids: kidsOut, history: askHistory }) });
@@ -2891,7 +2958,7 @@
   const FAMILY_API = "/.netlify/functions/family";
   // FAMILY_KEY is declared near the top, beside the other storage keys.
   let family = store.get(FAMILY_KEY, null); // { code, updatedAt }
-  const familyKids = () => kids.map(({ id, school, classOf, follows }) => ({ id, school, classOf, follows: follows || [] }));
+  const familyKids = () => kids.map(({ id, school, classOf, follows, fan }) => ({ id, school, classOf, follows: follows || [], ...(fan ? { fan: true } : {}) }));
   // The server's per-address limit, reached when a crowd shares one network.
   const BUSY_NETWORK = "Lots of families are setting up on this network right now. Try again in a few minutes.";
   async function familyCall(body) {
@@ -3041,12 +3108,27 @@
   let pendingSetup = null;
 
   let draft = null;
-  function openEditor(kid) {
-    draft = kid ? { ...kid, follows: [...(kid.follows || [])], allergies: [...(kid.allergies || [])] } : { id: `k${Date.now().toString(36)}`, name: "", school: "", grade: null, diet: "", follows: [], allergies: [], isNew: true };
+  function openEditor(kid, fan = false) {
+    draft = kid ? { ...kid, follows: [...(kid.follows || [])], allergies: [...(kid.allergies || [])] } : { id: `k${Date.now().toString(36)}`, name: "", school: "", grade: null, diet: "", follows: [], allergies: [], isNew: true, ...(fan ? { fan: true } : {}) };
     renderEditor();
+  }
+  // Following a school without a student: pick the school, then the teams.
+  function renderFanEditor() {
+    const d = draft;
+    const levels = [["hs", "High school"], ["ms", "Middle school"], ["is", "Intermediate"], ["es", "Elementary"]];
+    const groups = levels.map(([lv, label]) => { const list = Object.values(SCHOOLS).filter((x) => x.level === lv); return list.length ? `<p class="field-label" style="margin-top:10px">${t(label)}</p><div class="choice-grid">${list.map((x) => `<button class="choice" data-school="${esc(x.id)}" aria-pressed="${d.school === x.id}"><span class="dot" style="background:${x.brand.primary}"></span>${esc(x.short)}</button>`).join("")}</div>` : ""; }).join("");
+    openSheet(d.isNew ? t("Follow a school") : t("Following {school}", { school: esc(SCHOOLS[d.school].short) }), `
+      <p class="muted">${t("For grandparents, alumni and neighbors: games, concerts and school nights, with no student set up. Pick the school, then the teams and activities.")}</p>
+      <div class="field">${groups}</div>
+      <div class="sheet-actions">
+        <button class="btn primary block" data-action="save-kid" ${d.school ? "" : "disabled"}>${d.isNew ? t("Next: teams and activities") : t("Save changes")}</button>
+        ${d.isNew ? "" : `<button class="btn block" data-action="follow" data-kid="${esc(d.id)}">${t("Teams and activities ({n})", { n: (d.follows || []).length })}</button>
+        <button class="btn block" data-action="remove-kid" data-kid="${esc(d.id)}">${t("Stop following")}</button>`}
+      </div>`);
   }
   function renderEditor() {
     const d = draft;
+    if (d.fan) return renderFanEditor();
     const choice = (attr, val, label, extra = "") => `<button class="choice" data-${attr}="${esc(val)}" aria-pressed="${String(d[attr]) === String(val)}">${extra}${esc(label)}</button>`;
     openSheet(d.isNew ? t("Add a student") : t("Edit {name}", { name: kidName(kids.find((k) => k.id === d.id) || d) }), `
       <label class="field"><span class="field-label">${t("First name or nickname")}</span>
@@ -3095,11 +3177,11 @@
   }
   function saveDraft() {
     const d = draft;
-    if (!d || !d.school || d.grade === null || d.grade === undefined) return;
+    if (!d || !d.school || (!d.fan && (d.grade === null || d.grade === undefined))) return;
     d.name = ($("kidName")?.value || d.name || "").trim().slice(0, 24);
     const { isNew, ...kid } = d;
     delete kid.needsDetails; // saving the editor fills in the details
-    kid.classOf = SH.classFor(kid.grade, todayYmd());
+    kid.classOf = kid.fan ? null : SH.classFor(kid.grade, todayYmd());
     kid.graduated = false;
     if (isNew) kid.addedAt = todayYmd();
     const i = kids.findIndex((k) => k.id === kid.id);
@@ -3183,9 +3265,9 @@
         ${picked.map((a) => levelChips(a, picked.length > 1 ? word(a) : "")).join("")}
       </div>`;
     }).join("");
-    $("sheetTitle").textContent = t("{name}'s teams and activities", { name: kidName(kid) });
+    $("sheetTitle").textContent = kid.fan ? t("Teams and activities to follow") : t("{name}'s teams and activities", { name: kidName(kid) });
     $("sheetBody").innerHTML = `
-      <p class="muted">${t("Pick what {name} is in. Their games, meets and performances show up on Today and in the calendar.", { name: esc(kidName(kid)) })}</p>
+      <p class="muted">${kid.fan ? t("Pick what you want to follow at {school}. Games, meets and performances show up on Today and in the calendar.", { school: esc(SCHOOLS[kid.school].short) }) : t("Pick what {name} is in. Their games, meets and performances show up on Today and in the calendar.", { name: esc(kidName(kid)) })}</p>
       <div>${rows || `<p class="empty-note">${t("No activities are scheduled yet.")}</p>`}</div>
       <div class="sheet-actions" style="position:sticky;bottom:0;background:var(--surface);padding-top:8px">
         <button class="btn primary block" data-action="save-follow">${fd.follows.length ? t(fd.follows.length === 1 ? "Save {n} activity" : "Save {n} activities", { n: fd.follows.length }) : fd.afterAdd ? t("Skip for now") : t("Save")}</button>
@@ -3236,6 +3318,7 @@
     { since: "2026-10-10", go: "guide", h: "A guide for every grade", p: "What to do this year, dates that matter, and what the district's handbooks say, from junior kindergarten to senior year." },
     { since: "2026-10-10", go: "search", h: "Ask BV", p: "Type a question the way you'd ask a person: when is the next game, what's for lunch Thursday, can my child bring medicine. Ask BV answers from what's in the app." },
     { since: "2026-10-10", go: "lang", h: "En español", p: "Toca Español en Students para ver la aplicación en español." },
+    { since: "2026-10-13", go: "students", h: "Follow a school without a student", p: "Grandparents, alumni and neighbors can follow a school's games, concerts and school nights. Under Students, tap Follow a school without a student." },
   ];
   const wnSeen = () => store.get(WN_KEY, migrated ? "2000-01-01" : "");
   const wnDue = () => WHATS_NEW.filter((c) => c.since > (wnSeen() || "9999"));
@@ -3334,6 +3417,7 @@
         }
       }
       if (ds.diet !== undefined) draft.diet = ds.diet;
+      if (draft.fan) { renderFanEditor(); return; }
       syncEditor();
       return;
     }
@@ -3377,6 +3461,7 @@
     if (["add-kid"].includes(ds.action)) hintDone("guide");
     switch (ds.action) {
       case "hint-done": hintDone(ds.hint); el.closest(".hint")?.remove(); break;
+      case "add-fan": demo = false; store.del(DEMO_KEY); kids = store.get(KIDS_KEY, []) || []; hydrateKids(); render(); openEditor(null, true); break;
       case "add-kid": openEditor(null); break;
       case "edit-kid": openEditor(kids.find((k) => k.id === ds.kid)); break;
       case "save-kid": saveDraft(); break;

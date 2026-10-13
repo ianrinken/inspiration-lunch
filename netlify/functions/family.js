@@ -48,13 +48,16 @@ const json = (statusCode, body) => ({ statusCode, headers: { "Content-Type": "ap
 
 function cleanKids(list) {
   return (Array.isArray(list) ? list : []).slice(0, 8).map((k) => {
-    if (!k || !SCHOOLS.has(k.school) || !Number.isInteger(k.classOf) || k.classOf < 2020 || k.classOf > 2045) return null;
+    if (!k || !SCHOOLS.has(k.school)) return null;
+    // Following a school without a student: no class year.
+    const fan = k.fan === true;
+    if (!fan && (!Number.isInteger(k.classOf) || k.classOf < 2020 || k.classOf > 2045)) return null;
     const id = String(k.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 16);
     if (!id) return null;
     const follows = (Array.isArray(k.follows) ? k.follows : []).slice(0, 40)
       .map((f) => ({ act: String((f && f.act) || "").slice(0, 60), level: String((f && f.level) || "").slice(0, 40) }))
       .filter((f) => f.act);
-    return { id, school: k.school, classOf: k.classOf, follows };
+    return { id, school: k.school, classOf: fan ? null : k.classOf, ...(fan ? { fan: true } : {}), follows };
   }).filter(Boolean);
 }
 

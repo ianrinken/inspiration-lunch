@@ -80,6 +80,12 @@ async function overflow(page) {
     check("Today answers the day in one sentence", /school day|No school|late start|closed|Summer/i.test(await page.locator("#answerLine").innerText()));
     check("Today has the four task buttons", (await page.locator(".tasks .task").count()) === 4);
     check("Today shows the new student", (await page.locator(".kid-sum .kid-name").first().textContent()) === "Maya");
+    if (await page.locator("#view-today .kid-sum [data-menu]").count()) {
+      await page.locator("#view-today .kid-sum [data-menu]").first().click();
+      await page.waitForTimeout(500);
+      check("Today's lunch line opens the full menu in one tap", (await page.locator("#sheet .menu-item").count()) > 0);
+      await page.locator("#sheetClose").click();
+    }
 
     /* 2. Every tab renders; sheets open and close; back closes a sheet. */
     for (const tab of TABS) {
@@ -90,8 +96,8 @@ async function overflow(page) {
     }
     await page.locator('.tab[data-tab="lunch"]').click();
     await page.waitForTimeout(800);
-    if (await page.locator("[data-menu]").count()) {
-      await page.locator("[data-menu]").first().click();
+    if (await page.locator("#view-lunch [data-menu]").count()) {
+      await page.locator("#view-lunch [data-menu]").first().click();
       check("full menu opens", await page.locator("#sheet .menu-item").count() > 0);
       await page.goBack();
       await page.waitForTimeout(300);

@@ -78,7 +78,7 @@ async function overflow(page) {
     await page.locator('#sheet [data-action="close-sheet"]').click();
     await page.locator(".kid-sum .day-status-line").first().waitFor({ timeout: 15000 });
     check("Today answers the day in one sentence", /school day|No school|late start|closed|Summer/i.test(await page.locator("#answerLine").innerText()));
-    check("Today has the four task buttons", (await page.locator(".tasks .task").count()) === 4);
+    check("Today has the absence and call buttons under the day line", (await page.locator(".answer .tasks .task").count()) === 2);
     check("Today shows the new student", (await page.locator(".kid-sum .kid-name").first().textContent()) === "Maya");
     if (await page.locator("#view-today .kid-sum [data-menu]").count()) {
       await page.locator("#view-today .kid-sum [data-menu]").first().click();

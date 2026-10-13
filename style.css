@@ -514,6 +514,10 @@ button.row.tap::after, button.row[data-goto]::after, a.row.tap::after {
 .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-chips .level-chip[aria-pressed="true"] { border-color: var(--accent, var(--navy-2)); background: color-mix(in srgb, var(--accent, var(--navy-2)) 10%, var(--surface)); }
 .cal-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.cal-foot { margin-top: 10px; }
+/* The month's controls stay in reach while the list scrolls to today. */
+.cal-head { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 4px 0 8px; margin: -4px 0 6px; }
+#kidBar:not([hidden]) ~ main .cal-head { top: 56px; }
 .btn-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .level-table { display: flex; flex-direction: column; gap: 0; }
 .level-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
@@ -820,7 +824,11 @@ button.action { text-align: left; font: inherit; color: inherit; cursor: pointer
 .sum-line.more { padding-left: 32px; color: var(--text-soft); }
 .sum-label { font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-soft); margin: 8px 0 0; }
 .sum-foot { padding: 6px 0 2px; border-top: 1px solid var(--border); }
-.tasks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* The four things parents come to do: one row under the day line, before
+   the cards, so none of them needs a scroll. */
+.tasks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0 14px; }
+.answer .tasks .task { flex-direction: row; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 8px 10px; font-size: .9rem; line-height: 1.2; border-radius: 999px; }
+.answer .tasks .task .ico { width: 20px; height: 20px; flex: none; }
 .task { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-height: 84px; padding: 14px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); font: inherit; font-weight: 700; color: var(--text); text-align: left; text-decoration: none; line-height: 1.25; }
 .task .ico { width: 26px; height: 26px; color: var(--navy-2); }
 .ask { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 12px 18px; border-radius: 18px; border: 1.5px solid var(--border); background: var(--surface); font: inherit; color: var(--text-soft); text-align: left; }
@@ -832,7 +840,7 @@ button.action { text-align: left; font: inherit; color: inherit; cursor: pointer
 .ask-start .section-label { margin: 6px 0 0; }
 .ask-tries { display: flex; flex-direction: column; gap: 8px; }
 .ask-try { min-height: 48px; padding: 10px 16px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--surface); font: inherit; color: var(--text); text-align: left; }
-@media (min-width: 760px) { .tasks { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 760px) { .answer .tasks { max-width: 480px; } }
 @media (prefers-color-scheme: dark) {
   .answer-line.warn, .sum-line.warn, .sum-line.warn .ico { color: #ffb4b4; }
   .task .ico { color: #9fb6e6; }

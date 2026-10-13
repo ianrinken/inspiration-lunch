@@ -602,7 +602,7 @@
   const OUT_ICON_SVG = '<svg class="out-icon" viewBox="0 0 16 16" aria-label="Opens another site"><path d="M6 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8a1.5 1.5 0 0 0 1.5-1.5V10M9 2h5v5M14 2 7.5 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const outIcon = () => OUT_ICON_SVG.replace("Opens another site", esc(t("Opens another site")));
   const CAL_FILTERS = [
-    { id: "all", label: "Everything", test: () => true },
+    { id: "all", label: "All", test: () => true },
     { id: "activities", label: "Games", test: (e) => !!e.act || e.kind === "state" },
     { id: "days", label: "Days off", test: (e) => e.district || e.cat === "noschool" || e.cat === "academic" },
     { id: "college", label: "College", test: (e) => e.cat === "college" },
@@ -730,9 +730,10 @@
         <h2 class="answer-line" id="answerLine">${t("Checking the schools")}</h2>
         <p class="answer-sub">${esc(countdownText(td))}</p>
         <p class="answer-weather" id="weatherStrip" hidden></p>
+        ${tasksHtml()}
         ${kids.map((k) => `<article class="kid-sum" style="${kidStyle(k)}" data-kidcard="${esc(k.id)}">${kidHead(k)}<p class="loading">${t("Loading {name}'s day", { name: esc(kidName(k)) })}</p></article>`).join("")}
       </section>
-      ${tasksHtml()}
+      ${askBoxHtml()}
       ${seasonHtml(td)}
       <div id="familyWeek"></div>
       ${kids.map(firstWeekHtml).join("")}
@@ -747,8 +748,8 @@
     renderChanged(results.filter(Boolean), token);
   }
 
-  // The four things parents open the app to do, as big buttons with icons
-  // (they read without much English), and search for everything else.
+  // The two things parents open the app to do in a hurry, as buttons with
+  // icons (they read without much English).
   function tasksHtml() {
     const active = kids.filter((k) => !k.graduated);
     if (!active.length) return "";
@@ -756,14 +757,15 @@
     const call = schools.length === 1
       ? `<a class="task" href="tel:+1${SCHOOLS[schools[0]].phone.replace(/\D/g, "")}">${ICONS.phone}<span>${t("Call the school")}</span></a>`
       : `<button class="task" data-action="call-pick">${ICONS.phone}<span>${t("Call the school")}</span></button>`;
+    // Lunch and the calendar have their own tabs; the two things a parent
+    // needs in a hurry sit right under the day line.
     return `<nav class="tasks" aria-label="${t("Things to do")}">
       <button class="task" data-action="absence-pick">${ICONS.absent}<span>${t("Report an absence")}</span></button>
-      <button class="task" data-goto="lunch">${ICONS.lunch}<span>${t("Lunch")}</span></button>
-      <button class="task" data-goto="calendar">${ICONS.event}<span>${t("Games and events")}</span></button>
       ${call}
-    </nav>
-    <button class="ask" data-action="search">${ICONS.chat}<span class="ask-label"><b>${t("Ask BV")}</b><span>${t("Type a question, get the answer")}</span></span></button>`;
+    </nav>`;
   }
+  const askBoxHtml = () => (kids.some((k) => !k.graduated)
+    ? `<button class="ask" data-action="search">${ICONS.chat}<span class="ask-label"><b>${t("Ask BV")}</b><span>${t("Type a question, get the answer")}</span></span></button>` : "");
 
   // One sentence for the whole family: what kind of day it is.
   function fillAnswer(results) {
@@ -1578,6 +1580,7 @@
         <button data-calmode="mine" aria-pressed="${calMode === "mine"}">${t("For {name}", { name: esc(kidName(kid)) })}</button>
         <button data-calmode="all" aria-pressed="${calMode === "all"}">${t("All of {school}", { school: esc(SCHOOLS[kid.school].short) })}</button>
       </div>
+      <div class="cal-head">
       <div class="pager">
         <button class="pager-btn" data-month="-1" aria-label="${t("Previous month")}">${PREV}</button>
         <button class="pager-label" data-month="0" title="${t("This month")}">${esc(cap(fmtMonth(key)))}</button>
@@ -1586,11 +1589,13 @@
       <div class="filter-chips" role="group" aria-label="${t("Show")}">
         ${CAL_FILTERS.map((f) => `<button class="level-chip" data-calfilter="${f.id}" aria-pressed="${calFilter === f.id}">${esc(t(f.label))}</button>`).join("")}
       </div>
+      </div>
       ${calMode === "mine" ? `<div class="cal-actions">
         <button class="btn block" data-action="subscribe" data-kid="${esc(kid.id)}">${CAL_ICON}${t("Put {name}'s calendar on my phone", { name: esc(kidName(kid)) })}</button>
         ${!(kid.follows || []).length ? `<button class="link-btn" data-action="follow" data-kid="${esc(kid.id)}">${t("Add {name}'s teams and activities", { name: esc(kidName(kid)) })}</button>` : ""}
       </div>` : ""}
-      <div id="agenda" class="view"><p class="loading">${t("Loading calendar")}</p></div>`;
+      <div id="agenda" class="view"><p class="loading">${t("Loading calendar")}</p></div>
+      ${calMode === "mine" ? `<div class="cal-actions cal-foot"><button class="link-btn" data-action="subscribe" data-kid="${esc(kid.id)}">${t("Put {name}'s calendar on my phone", { name: esc(kidName(kid)) })}</button></div>` : ""}`;
     let events;
     try { events = await getEvents(kid.school, start, end); }
     catch { if (token === tokens.calendar) $("agenda").innerHTML = errorNote(t("the calendar")); return; }
@@ -1791,6 +1796,15 @@
         ${hb.lunch ? `<details class="fold"><summary>${t("Lunch and open lunch")}</summary><p>${esc(t(hb.lunch))}</p></details>` : ""}
       </article>
 
+      <p class="section-label">${t("From the school")}</p>
+      <article class="card link-list">
+        <button class="list-row" data-action="handbook"><span><b>${t("Student handbook")}</b><span>${t("Every section, searchable, in the app")}</span></span>${CHEVRON}</button>
+        ${s.supplies ? `<button class="list-row" data-action="supplies-sheet"><span><b>${t("Supply list")}</b><span>${t("What to bring, by grade")}</span></span>${CHEVRON}</button>` : ""}
+        ${s.level !== "es" ? `<button class="list-row" data-action="clubs"><span><b>${t("Clubs and organizations")}</b><span>${t("With the advisor to ask", { school: esc(s.short) })}</span></span>${CHEVRON}</button>` : ""}
+        ${s.bellImage ? `<a class="list-row" href="${esc(s.bellImage)}" target="_blank" rel="noopener"><span><b>${t("Bell schedule, as the school posts it")}</b><span>${t("Picture from the school website")}</span></span>${outIcon()}</a>` : ""}
+        <button class="list-row" data-action="forms"><span><b>${t("Forms and links")}</b><span>${t("Everything on the school's parent and student menus")}</span></span>${CHEVRON}</button>
+      </article>
+
       <p class="section-label">${t("People to know")}</p>
       <article class="card" id="peopleCard"><p class="loading">${t("Loading staff")}</p></article>
 
@@ -1805,14 +1819,6 @@
         ${hb.source || s.handbook ? `<button class="link-btn" data-doc="${esc(hb.source || s.handbook)}">${t(hb.level ? "See {school}'s own handbook" : "See the original handbook", { school: esc(s.short) })}</button>` : ""}
       </article>
 
-      <p class="section-label">${t("From the school")}</p>
-      <article class="card link-list">
-        <button class="list-row" data-action="handbook"><span><b>${t("Student handbook")}</b><span>${t("Every section, searchable, in the app")}</span></span>${CHEVRON}</button>
-        ${s.supplies ? `<button class="list-row" data-action="supplies-sheet"><span><b>${t("Supply list")}</b><span>${t("What to bring, by grade")}</span></span>${CHEVRON}</button>` : ""}
-        ${s.level !== "es" ? `<button class="list-row" data-action="clubs"><span><b>${t("Clubs and organizations")}</b><span>${t("With the advisor to ask", { school: esc(s.short) })}</span></span>${CHEVRON}</button>` : ""}
-        ${s.bellImage ? `<a class="list-row" href="${esc(s.bellImage)}" target="_blank" rel="noopener"><span><b>${t("Bell schedule, as the school posts it")}</b><span>${t("Picture from the school website")}</span></span>${outIcon()}</a>` : ""}
-        <button class="list-row" data-action="forms"><span><b>${t("Forms and links")}</b><span>${t("Everything on the school's parent and student menus")}</span></span>${CHEVRON}</button>
-      </article>
 
       <p class="section-label">${t("Sign in, pay, buy")}</p>
       <article class="card link-list">${signIn.map(outRow).join("")}</article>

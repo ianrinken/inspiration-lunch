@@ -132,6 +132,7 @@
     "(cancelled)": "(cancelado)",
     "Through {date}": "Hasta el {date}",
     "Grades {list}": "Grados {list}",
+    "All": "Todo",
     "Main entrée": "Plato principal",
     "Sides": "Acompañamientos",
     "Or choose instead": "O elija en su lugar",

@@ -1099,12 +1099,14 @@
       if (!l) return srow(esc(t("Lunch")), esc(t("Menu not posted yet")), "", " muted");
       const m = describeMeal(l.items);
       const warn = allergyWarning(kid, l.items);
-      return srow(esc(t("Lunch")), `${esc(m.main)}${kid.diet && l.key !== "Lunch" ? ` <span class="tag grade">${esc(dietLow(kid.diet))}</span>` : ""}${warn ? `<span class="flag-note">${esc(warn)}</span>` : ""}`, `data-goto="lunch"`);
+      // One tap opens the whole day's menu, not the Lunch tab.
+      menuStore.set(`${kid.school}|${day}`, menu.byDay.get(day));
+      return srow(esc(t("Lunch")), `${esc(m.main)}${kid.diet && l.key !== "Lunch" ? ` <span class="tag grade">${esc(dietLow(kid.diet))}</span>` : ""}${warn ? `<span class="flag-note">${esc(warn)}</span>` : ""}`, `data-menu="${esc(day)}" aria-label="${esc(t("Full menu for {date}", { date: fmtLong(day) }))}"`);
     })();
     const next = activeKids().length > 1 ? [] : upcoming.slice(0, 2);
     el.innerHTML = `
       ${banner}
-      <p class="day-status-line${changed || off ? " warn" : ""}">${status}</p>
+      ${off ? `<p class="day-status-line warn">${status}</p>` : `<button class="day-status-line tap${changed ? " warn" : ""}" data-goto="school" aria-label="${esc(t("Bell schedule and school info"))}">${status}</button>`}
       ${derivedNote ? `<p class="sum-note">${esc(derivedNote)}</p>` : ""}
       ${weekendRows.length ? `<p class="sum-label">${t("This weekend")}</p><div class="sched">${weekendRows.slice(0, 3).map((e) => evRow(e, true)).join("")}</div>` : ""}
       ${changed && changed.kind === "closed" && onDay.length ? `<p class="sum-note">${t("School is closed, so these may be cancelled. The district's alert says what's still on.")}</p>` : ""}
@@ -1434,7 +1436,7 @@
         body = `${m ? `<div class="menu-main">${esc(m.main)}</div>${m.sides.length ? `<div class="menu-sides">${esc(m.sides.join(", "))}</div>` : ""}${warn ? `<div class="flag-note">${esc(warn)}</div>` : ""}` : `<div class="muted">${t("Lunch not posted")}</div>`}
           ${bf ? `<div class="menu-bfast"><b>${t("Breakfast:")}</b> ${esc(bf.main)}</div>` : ""}`;
       }
-      if (lines && !off) menuStore.set(d, lines);
+      if (lines && !off) menuStore.set(`${kid.school}|${d}`, lines);
       const tag = lines && !off ? "button" : "article";
       return `<${tag} class="card menu-day ${d === td ? "today" : ""} ${d < td ? "past" : ""} ${tag === "button" ? "tap-card" : ""}" style="${kidStyle(kid)}" ${tag === "button" ? `data-menu="${d}" aria-label="${t("Full menu for {date}", { date: esc(fmtLong(d)) })}"` : ""}>
         <div class="menu-date"><div class="dow">${esc(cap(fmt(d, { weekday: "short" })))}</div><div class="dom">${parse(d).getDate()}</div></div>
@@ -1459,7 +1461,7 @@
       const lines = menu.byDay.get(d);
       const line = lunchLine(lines, kid.diet);
       if (!line) continue;
-      menuStore.set(d, lines);
+      menuStore.set(`${kid.school}|${d}`, lines);
       found.push({ d, line });
     }
     if (!found.length) return;
@@ -1486,9 +1488,11 @@
   // Full day menu: every line the cafeteria serves, with the nine major
   // allergens on each item. The student's own line comes first.
   const menuStore = new Map();
-  function openMenu(d) {
-    const kid = activeKid();
-    const lines = menuStore.get(d);
+  // The full menu for one day: every line, every dish, allergens flagged for
+  // the student. Opens in one tap from Today, the Lunch tab and search.
+  function openMenu(d, kidId) {
+    const kid = (kidId && kids.find((k) => k.id === kidId)) || activeKid();
+    const lines = menuStore.get(`${kid.school}|${d}`);
     if (!lines) return;
     const order = Object.keys(lines).sort((a, b) => {
       const r = (k) => (k === "Breakfast" ? 2 : kid.diet && k === `Lunch - ${kid.diet}` ? 0 : k === "Lunch" ? (kid.diet ? 1 : 0) : 3);
@@ -2556,7 +2560,7 @@
       for (const x of hb.schedules || []) add("Bell schedules", t(x.name), s.short, { sched: { school: sc, name: x.name } }, `${x.name} bell schedule times periods ${t("Bell schedule")}`);
       if (hb.lunch) add("Rules", t("Lunch and open lunch"), s.short, { policy: { title: "Lunch and open lunch", body: hb.lunch, school: sc } }, `${t(hb.lunch)} ${hb.lunch}`);
       if (menu) for (const [d, lines] of menu.byDay) {
-        menuStore.set(d, lines);
+        menuStore.set(`${sc}|${d}`, lines);
         // Each dish on its own, so "pizza" finds the pizza, not the day.
         const seen = new Set();
         for (const [line, list] of Object.entries(lines)) for (const i of list) {
@@ -3211,7 +3215,7 @@
     if (ds.sched !== undefined) { schedIndex = Number(ds.sched); schedPicked = true; render(); return; }
     if (ds.page) { if (el.tagName === "A") e.preventDefault(); openPage(ds.page); return; }
     if (ds.news) { openNews(ds.news, ds.newsSchool); return; }
-    if (ds.menu) { openMenu(ds.menu); return; }
+    if (ds.menu) { const card = el.closest("[data-kidcard]"); openMenu(ds.menu, card ? card.dataset.kidcard : null); return; }
     if (ds.post) { openPost(ds.post); return; }
     if (ds.askgo) { askGo(ds.askgo); return; }
     if (ds.hit !== undefined) { const h = searchHits[Number(ds.hit)]; if (h) openHit(h); return; }

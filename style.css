@@ -854,6 +854,8 @@ button.action { text-align: left; font: inherit; color: inherit; cursor: pointer
 /* Today card, calmer: status line, a time-column schedule, labeled sections. */
 .kid-sum { padding: 14px 16px 12px; }
 .day-status-line { font-weight: 700; font-size: 1.05rem; margin: 2px 0 6px; }
+button.day-status-line { display: block; width: 100%; min-height: 44px; padding: 6px 22px 6px 0; border: 0; background: none; text-align: left; font: inherit; font-weight: 700; color: inherit; position: relative; }
+button.day-status-line::after { content: ""; position: absolute; right: 6px; top: 50%; width: 8px; height: 8px; border-right: 2px solid var(--text-soft); border-bottom: 2px solid var(--text-soft); transform: translateY(-50%) rotate(-45deg); }
 .day-status-line .day-status, .day-status-line .day-status.off { color: inherit; font-size: inherit; }
 .day-status-line.warn { color: #9b1c1c; }
 .sched { display: flex; flex-direction: column; }

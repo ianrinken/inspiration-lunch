@@ -132,6 +132,7 @@
     "(cancelled)": "(cancelado)",
     "Through {date}": "Hasta el {date}",
     "Grades {list}": "Grados {list}",
+    "Bell schedule and school info": "Horario de clases e información de la escuela",
     "Grade {n}": "Grado {n}",
     "Freshmen": "Grado 9",
     "Sophomores": "Grado 10",

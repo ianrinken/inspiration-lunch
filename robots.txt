@@ -2,3 +2,5 @@ User-agent: *
 Allow: /
 Disallow: /.netlify/
 Disallow: /admin.html
+
+Sitemap: https://brandonvalleylunch.com/sitemap.xml

@@ -345,7 +345,10 @@ test("legacy feed path: /feed/<linq|slug>/<grade|all>/<acts|all|none>/calendar.i
   // Legacy UIDs, so the owner's Google mirror updates events in place.
   const uids = all.body.match(/^UID:.*$/gm);
   assert.ok(uids.length === window.length && uids.every((u) => /^UID:\d{8}-[0-9a-z]{1,7}@brandonvalleylunch\.com$/.test(u)), uids[0]);
-  assert.ok(all.body.includes("UID:20261002-rg6kzk@brandonvalleylunch.com"));
+  // The pinned legacy id is checked against the whole school calendar, not the feed's
+  // rolling window (today - 14 days onward), which stopped covering Oct 2 on Oct 16.
+  const pinned = (await events.loadSchool("bvhs")).find((e) => e.id === "rg6kzk");
+  assert.ok(pinned && String(pinned.d).replace(/-/g, "").startsWith("20261002"), "legacy id rg6kzk is still the Oct 2 event");
 });
 
 test("template feed path: base64url(school=&classOf=&follows=) uses the app's own rules", async () => {

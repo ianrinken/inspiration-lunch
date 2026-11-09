@@ -4,7 +4,7 @@
   const school = document.body.dataset.school;
   // Tabs, like the app: one section on screen at a time, the address bar's
   // #hash says which, so a link to #lunch opens on the menu.
-  const TABS = ["today", "lunch", "calendar", "hours", "school"];
+  const TABS = ["today", "lunch", "calendar", "guide", "school"];
   const show = () => {
     const tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "today";
     for (const t of TABS) { const v = document.getElementById(`view-${t}`); if (v) v.hidden = t !== tab; }

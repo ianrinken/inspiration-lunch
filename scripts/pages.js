@@ -26,6 +26,20 @@ function schedules(s) {
         ${x.note ? `<p class="fine">${esc(x.note)}</p>` : ""}
       </details>`).join("");
 }
+const gradeName = (g) => (g === -1 ? "Junior kindergarten" : g === 0 ? "Kindergarten" : `${g}${g === 1 ? "st" : g === 2 ? "nd" : g === 3 ? "rd" : "th"} grade`);
+function guide(s) {
+  const out = [];
+  for (let g = s.grades[0]; g <= s.grades[1]; g++) {
+    const x = DATA.GUIDE[g];
+    if (!x) continue;
+    out.push(`<details class="fold"><summary>${esc(gradeName(g))}: ${esc(x.headline)}</summary>
+        <p>${esc(x.intro)}</p>
+        ${x.todo && x.todo.length ? `<p class="section-label">This year</p><ul class="plain-list">${x.todo.map((t) => `<li>${esc(t.text)}</li>`).join("")}</ul>` : ""}
+        ${x.facts && x.facts.length ? x.facts.map((f) => `<p><b>${esc(f.title)}.</b> ${esc(f.body)}</p>`).join("") : ""}
+      </details>`);
+  }
+  return out.join("");
+}
 function daysOff(s) {
   const year = DATA.SCHOOL_YEARS[0];
   const grades = [];
@@ -61,19 +75,21 @@ function page(s) {
   <script type="application/ld+json">${JSON.stringify(ld)}</script>
 </head>
 <body class="page" data-school="${s.id}">
-  <header class="app-header"><div class="header-inner"><a class="brand" href="/">Brandon Valley <span>Lunch</span></a></div></header>
+  <header class="app-header branded" style="--accent:${s.brand.primary};--accent-2:${s.brand.secondary};--accent-on:${s.brand.onPrimary}"><div class="header-inner">
+    <a class="school-brand" href="/"><span class="school-brand-text"><span class="school-brand-name">${esc(s.short)}</span><span class="school-brand-kid">Brandon Valley Lunch</span></span></a>
+    <div class="header-actions"><a class="header-btn" href="/?school=${s.id}">Open the app</a></div>
+  </div></header>
   <main class="page-main">
     <section class="pview" id="view-today">
-      <p class="crumb"><a href="/">Brandon Valley Lunch</a> / ${esc(s.short)}</p>
       <h1>${esc(s.name)}</h1>
-      <p class="lede">Brandon Valley ${LEVEL[s.level]}, grades ${s.grades[0] === -1 ? "junior kindergarten" : s.grades[0] === 0 ? "kindergarten" : s.grades[0]} to ${s.grades[1]}. School ${esc(s.bell.start)} AM to ${esc(s.bell.end)} PM.</p>
+      <p class="lede">Brandon Valley ${LEVEL[s.level]}, ${s.grades[0] === -1 ? "junior kindergarten" : s.grades[0] === 0 ? "kindergarten" : `grade ${s.grades[0]}`} to grade ${s.grades[1]}. School ${esc(s.bell.start)} AM to ${esc(s.bell.end)} PM. Lunch menu, games, bell schedule, days off, handbook and supply list, below.</p>
       <a class="btn primary block cta" href="/?school=${s.id}">Open the app for your student</a>
       <p class="fine center">Tomorrow's lunch, games, days off and alerts for your child, on your phone. No account needed.</p>
       <h2>Next lunch</h2>
       <div id="menu-next" class="card"><p class="muted">Loading the menu.</p></div>
       <h2>Coming up</h2>
       <div id="events-next" class="card"><p class="muted">Loading games and events.</p></div>
-      <p class="fine">Tap Lunch or Calendar below for the rest.</p>
+      <p class="fine center">Lunch, Calendar, Guide and School are the tabs below.</p>
     </section>
 
     <section class="pview" id="view-lunch" hidden>
@@ -89,13 +105,15 @@ function page(s) {
       <div class="card">${daysOff(s)}</div>
     </section>
 
-    <section class="pview" id="view-hours" hidden>
-      <h2>Bell schedule</h2>
-      <div class="card">${schedules(s)}</div>
+    <section class="pview" id="view-guide" hidden>
+      <h2>What each grade needs, and when</h2>
+      <p class="muted">The app shows this for your child's grade only, with the dates filled in.</p>
+      <div class="card">${guide(s) || `<p class="muted">The guide for these grades is in the app.</p>`}</div>
     </section>
 
     <section class="pview" id="view-school" hidden>
       <h2>${esc(s.name)}</h2>
+      <p class="lede">${esc(s.address)}</p>
       <div class="card link-list">
         <a class="list-row" href="tel:+1${s.phone.replace(/\D/g, "")}"><span><b>Call the office</b><span>${esc(s.phone)}</span></span></a>
         <a class="list-row" href="https://maps.apple.com/?q=${encodeURIComponent(s.address)}" target="_blank" rel="noopener"><span><b>Directions</b><span>${esc(s.address)}</span></span></a>
@@ -103,6 +121,8 @@ function page(s) {
         <a class="list-row" href="${esc(DATA.DISTRICT.handbooks[s.handbook])}" target="_blank" rel="noopener"><span><b>Student handbook</b><span>${esc(s.handbook[0].toUpperCase() + s.handbook.slice(1))} handbook, ${esc(DATA.SCHOOL_YEARS[0].id)}</span></span></a>
         <a class="list-row" href="${esc(s.site)}" target="_blank" rel="noopener"><span><b>School website</b><span>${esc(s.site.replace(/^https?:\/\//, ""))}</span></span></a>
       </div>
+      <h2>Bell schedule</h2>
+      <div class="card">${schedules(s)}</div>
       <h2>Other Brandon Valley schools</h2>
       <p class="others">${others.map((x) => `<a href="/schools/${SLUG[x.id]}/">${esc(x.short)}</a>`).join(" · ")}</p>
       <footer class="app-footer">
@@ -115,7 +135,7 @@ function page(s) {
     <a class="tab" href="#today" data-tab="today" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><span>Today</span></a>
     <a class="tab" href="#lunch" data-tab="lunch"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10M16.5 21V3c-2.2 1.3-3.5 4-3.5 7.5V13h3.5"/></svg><span>Lunch</span></a>
     <a class="tab" href="#calendar" data-tab="calendar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg><span>Calendar</span></a>
-    <a class="tab" href="#hours" data-tab="hours"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span>Hours</span></a>
+    <a class="tab" href="#guide" data-tab="guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9 12 4.5 21.5 9 12 13.5z"/><path d="M6.5 11v5c1.6 1.6 3.4 2.3 5.5 2.3s3.9-.7 5.5-2.3v-5M21.5 9v5.5"/></svg><span>Guide</span></a>
     <a class="tab" href="#school" data-tab="school"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20.5h18M5 20.5V10l7-5.5 7 5.5v10.5"/><path d="M10 20.5v-5h4v5"/></svg><span>School</span></a>
   </nav>
   <script src="/pages.js"></script>

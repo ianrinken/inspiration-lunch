@@ -1,14 +1,14 @@
 /* School pages: the app's look, as a plain readable page. */
 body.page { background: var(--bg); color: var(--text); }
-.page .brand { text-decoration: none; color: #fff; }
+.page .school-brand { text-decoration: none; color: #fff; }
+.page .header-btn { text-decoration: none; display: inline-flex; align-items: center; }
+.page h1 { margin-top: 2px; }
 .page-main { max-width: 720px; margin: 0 auto; padding: 16px 16px calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px) + 24px); }
 .page .pview[hidden] { display: none; }
 .page .tab-bar .tab { text-decoration: none; }
 .page h1 { font-family: var(--display); font-size: clamp(1.6rem, 6vw, 2.2rem); font-weight: 800; letter-spacing: -.02em; margin: 8px 0 6px; }
 .page h2 { font-family: var(--display); font-size: 1.15rem; font-weight: 800; margin: 22px 0 10px; }
 .page .pview > h2:first-child { margin-top: 6px; }
-.page .crumb { color: var(--text-soft); font-size: .9rem; }
-.page .crumb a { color: inherit; }
 .page .lede { line-height: 1.5; color: var(--text-soft); margin: 0 0 14px; }
 .page .lede a { color: var(--navy-2); font-weight: 700; text-decoration: none; }
 .page .cta { margin-top: 6px; }
@@ -23,3 +23,5 @@ body.page { background: var(--bg); color: var(--text); }
 .page .others a { color: var(--navy-2); font-weight: 700; text-decoration: none; white-space: nowrap; }
 .page .others { line-height: 2; }
 .page .app-footer { margin-top: 32px; }
+
+.page .pview > .muted { margin: 0 0 12px; }

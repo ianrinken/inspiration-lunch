@@ -2885,7 +2885,37 @@
   /* ----- notifications ----- */
 
   const PUSH_API = "/.netlify/functions/push";
-  const PUSH_PUBLIC = "BOYD5uomNO9nb90AldR52cgWW2BUdzKMeYpeB-1dwGU2V-CSZU_huH3zXUEU00GJY2Ul26NC5VSYp0t9YsUdVsY";
+  // Brandon Valley's VAPID public key: must pair with VAPID_PRIVATE_KEY on
+  // the site, or every push is refused by the phone's push service.
+  const PUSH_PUBLIC = "BPwNi91GO_Q3BvtYJodMYYajTDU3b_opYxbzXLS7r4TDpdPaMqX4NWx-TSVW-trBTi8GZV-ob8TqKKuQELU1SI8";
+  // A subscription made under a different key can never receive anything.
+  const subKeyMatches = (sub) => { try { const k = sub.options && sub.options.applicationServerKey; if (!k) return true; const b = btoa(String.fromCharCode(...new Uint8Array(k))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); return b === PUSH_PUBLIC; } catch { return true; } };
+  async function freshSubscription(reg) {
+    let sub = await reg.pushManager.getSubscription();
+    if (sub && !subKeyMatches(sub)) {
+      const old = sub.endpoint;
+      await sub.unsubscribe().catch(() => {});
+      fetch(PUSH_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "unsubscribe", endpoint: old }) }).catch(() => {});
+      sub = null;
+    }
+    return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlKey(PUSH_PUBLIC) });
+  }
+  // Phones that turned notifications on between Oct 10 and today got the
+  // wrong key; re-subscribe them quietly (permission is already granted).
+  async function repairPush() {
+    try {
+      if (!pushPrefs || !pushPrefs.on || !("PushManager" in window) || Notification.permission !== "granted") return;
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub || subKeyMatches(sub)) return;
+      const fresh = await freshSubscription(reg);
+      let code = null;
+      try { code = await ensureFamily(); } catch {}
+      writeLocalNames();
+      const prefs = { ...pushPrefs }; delete prefs.on;
+      await fetch(PUSH_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "subscribe", sub: fresh.toJSON(), family: code, kids: code ? [] : familyKids(), prefs, lang }) });
+    } catch {}
+  }
   const PUSH_KEY = "sfp-push";
   let pushPrefs = store.get(PUSH_KEY, null); // { on, evening, changes, alerts }
   const urlKey = (b64s) => { const p = "=".repeat((4 - (b64s.length % 4)) % 4); const raw = atob((b64s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(raw, (c) => c.charCodeAt(0)); };
@@ -2930,7 +2960,7 @@
     const perm = await Notification.requestPermission();
     if (perm !== "granted") { toast(t("Notifications were not allowed")); return false; }
     const reg = await navigator.serviceWorker.ready;
-    const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlKey(PUSH_PUBLIC) }));
+    const sub = await freshSubscription(reg);
     let code = null;
     try { code = await ensureFamily(); } catch {}
     writeLocalNames();
@@ -3712,7 +3742,7 @@
       reloaded = true;
       location.reload();
     });
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    navigator.serviceWorker.register("sw.js").then(() => setTimeout(repairPush, 2500)).catch(() => {});
   }
 
   /* ---------------- tabs and the back button ---------------- */

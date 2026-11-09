@@ -154,7 +154,7 @@ async function broadcast(build) {
       sent++;
     } catch (err) {
       if (err && (err.statusCode === 404 || err.statusCode === 410)) { await store.delete(key); dropped++; }
-      else { skipped++; console.error("push:", err && err.message); }
+      else { skipped++; console.error("push:", err && err.statusCode, err && err.message, String(err && err.body || "").slice(0, 160), (record.sub.endpoint || "").replace(/^https:\/\/([^/]+).*/, "$1")); }
     }
   }
   return { sent, skipped, dropped };

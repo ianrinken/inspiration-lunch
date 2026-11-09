@@ -1487,11 +1487,39 @@
     box.innerHTML = `<div class="week-head"><p class="section-label">${kids.length > 1 ? t("The family's week") : t("{name}'s week", { name: esc(kidName(results[0].kid)) })}</p><button class="link-btn" data-action="share-week">${t("Share this week")}</button></div><article class="card week-card">${days}</article>`;
   }
   let weekText = "";
-  function shareWeek() {
-    const text = `${t("This week")}\n\n${weekText}`;
-    if (navigator.share) navigator.share({ text }).catch(() => {});
-    else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast(t("Copied. Paste it into a text or email.")), () => prompt(t("Copy this"), text));
-    else prompt(t("Copy this"), text);
+  // Anything a parent shares ends with the app's address, so the person
+  // who gets the text can get the app.
+  function shareText(text) {
+    const full = `${text}\n\n${location.origin}`;
+    if (navigator.share) navigator.share({ text: full }).catch(() => {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(full).then(() => toast(t("Copied. Paste it into a text or email.")), () => prompt(t("Copy this"), full));
+    else prompt(t("Copy this"), full);
+  }
+  function shareWeek() { shareText(`${t("This week")}\n\n${weekText}`); }
+  // One game or event, the way you'd text it: what, when, where.
+  function shareEvent(id, school) {
+    const ev = eventStore.get(id);
+    if (!ev) return;
+    const s = SCHOOLS[school] || SCHOOLS[activeKid().school];
+    const when = ev.parts ? [cap(fmtLong(ev.d)), ...levelsLine(ev)].join("\n") : `${cap(fmtLong(ev.d))}${ev.t ? `, ${fmtTime(ev.t)}` : ""}${ev.to && ev.to !== ev.d ? ` ${t("to")} ${fmtLong(ev.to)}` : ""}`;
+    const where = ev.home === true ? t("Home") : ev.home === false ? t("Away") : "";
+    const lines = [evTitle(ev) + (ev.x ? ` (${t("Cancelled")})` : ""), when, [where, ev.venue ? shortPlace(tx(ev.venue)) : ""].filter(Boolean).join(", "), s ? s.short : ""].filter(Boolean);
+    shareText(lines.join("\n"));
+  }
+  // One day's lunch for one school.
+  function shareMenu(d, kidId) {
+    const kid = (kidId && kids.find((k) => k.id === kidId)) || activeKid();
+    const lines = menuStore.get(`${kid.school}|${d}`);
+    if (!lines) return;
+    const l = lunchLine(lines, kid.diet);
+    const m = l ? describeMeal(l.items) : null;
+    const entrees = l ? l.items.filter((i) => i.t === "ENTREES").map((i) => dish(i.n)) : [];
+    const alts = entrees.slice(1);
+    const out = [t("{school} lunch, {date}", { school: SCHOOLS[kid.school].short, date: cap(fmtLong(d)) })];
+    if (m) out.push((entrees[0] || m.main) + (m.sides.length ? `, ${m.sides.join(", ")}` : ""));
+    if (alts.length) out.push(`${t("Or")}: ${alts.join(", ")}`);
+    if (lines.Breakfast) out.push(`${t("Breakfast")}: ${describeMeal(lines.Breakfast).main}`);
+    shareText(out.join("\n"));
   }
 
   /* ----- Lunch ----- */
@@ -1639,6 +1667,7 @@
     openSheet(cap(fmtLong(d)), `
       ${order.slice(0, 2).map((k, n) => line(k, n > 0 || k !== "Lunch")).join("")}
       ${order.length > 2 ? `<details class="fold"><summary>${t("Other lines")}</summary>${order.slice(2).map((k) => line(k, true)).join("")}</details>` : ""}
+      <div class="sheet-actions"><button class="btn block" data-action="share-menu" data-day="${esc(d)}" data-kid="${esc(kid.id)}">${t("Share this menu")}</button></div>
       <p class="fine">${t("Allergens are the ones the district lists for each item in LINQ Connect. Talk with the school nurse about severe allergies.")}</p>
       ${reportLink({ type: "menu", title: "Lunch menu", date: d, school: kid.school })}`);
   }
@@ -2551,6 +2580,7 @@
         <a class="btn block" href="${esc(gUrl)}" target="_blank" rel="noopener">${GOOGLE_G_ICON}${t("Add to Google Calendar")}</a>
         ${ev.parts ? `<p class="sheet-hint">${t("My calendar adds every team. Google adds the first game only.")}</p>` : ""}
         ${ev.url ? `<a class="btn block" href="${esc(ev.url)}" target="_blank" rel="noopener">${t("Tickets and live scores on Bound")}</a>` : ""}
+        <button class="btn block" data-action="share-ev" data-id="${esc(ev.id)}" data-school="${esc(school)}">${t("Share this")}</button>
       </div>
       ${reportLink({ type: "event", title: ev.title, date: ev.d, school, id: ev.id })}`);
   }
@@ -3584,6 +3614,8 @@
       case "all-posts": openAllPosts(); break;
       case "log-absence": logAbsence(ds.day, true); break;
       case "share-week": shareWeek(); break;
+      case "share-ev": shareEvent(ds.id, ds.school); break;
+      case "share-menu": shareMenu(ds.day, ds.kid); break;
       case "season-hide": { const all = store.get(SEASON_KEY, {}); all[ds.season] = "hidden"; store.set(SEASON_KEY, all); el.closest(".season-card")?.remove(); break; }
       case "season-supplies": openSupplies(activeKid()); break;
       case "season-handbook": openHandbook(); break;

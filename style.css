@@ -491,6 +491,8 @@ button.row:hover .row-v b, button.row:focus-visible .row-v b { text-decoration: 
 /* ---------- Footer ---------- */
 .app-footer { text-align: center; color: var(--text-soft); font-size: .82rem; line-height: 1.5; margin-top: 28px; }
 .footer-credit { margin-top: 6px; }
+.footer-schools { margin-top: 10px; line-height: 1.8; }
+.footer-schools a { color: var(--text-soft); font-weight: 600; text-decoration: underline; white-space: nowrap; }
 .footer-credit a { color: var(--scratch-blue); font-weight: 800; text-decoration: none; }
 
 .loading { color: var(--text-soft); padding: 8px 0; }

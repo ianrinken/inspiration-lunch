@@ -9,7 +9,7 @@ const OUT = path.join(ROOT, "dist");
 const FILES = [
   "index.html", "admin.html", "admin.js", "privacy.html", "style.css", "app.js", "data.js", "shared.js", "handbooks.js", "i18n.js", "handbooks-es.js",
   "sw.js", "manifest.webmanifest", "favicon.ico", "apple-touch-icon.png", "apple-touch-icon-precomposed.png",
-  "robots.txt", "_headers", "sitemap.xml",
+  "robots.txt", "_headers", "sitemap.xml", "pages.js", "pages.css",
   // Search Console HTML verification and the IndexNow key: must stay at the site root, forever.
   "google52a0144fd80c6bd9.html", "1df1ad4e5fd206fe5b77b0fbb4428733.txt",
 ];
@@ -19,8 +19,10 @@ fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 for (const f of FILES) fs.copyFileSync(path.join(ROOT, f), path.join(OUT, f));
 for (const d of DIRS) fs.cpSync(path.join(ROOT, d), path.join(OUT, d), { recursive: true });
+// One public page per school, plus the sitemap that lists them.
+const pages = require("./pages.js").write(OUT);
 // Safety net: refuse to publish anything that looks like a secret.
 for (const f of fs.readdirSync(OUT, { recursive: true })) {
   if (/(^|\/)\.env|\.pem$|\.key$/.test(String(f))) throw new Error(`refusing to publish ${f}`);
 }
-console.log(`dist/: ${FILES.length} files + ${DIRS.join(", ")}`);
+console.log(`dist/: ${FILES.length} files + ${DIRS.join(", ")} + ${pages} school pages`);

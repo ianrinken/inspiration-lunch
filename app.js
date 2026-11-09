@@ -254,6 +254,16 @@
   }
   hydrateKids();
   if (!demo) repairFromOldApp();
+  // A school page's "Open the app" button: /?school=bvhs lands on that school.
+  {
+    const q = new URLSearchParams(location.search).get("school");
+    if (q && SCHOOLS[q] && !demo) {
+      if (!kids.some((k) => k.school === q)) { kids.push({ id: `k${Date.now().toString(36)}`, name: "", school: q, classOf: null, diet: "", follows: [], allergies: [], fan: true, preview: true, addedAt: ymd(new Date()) }); hydrateKids(); store.set(KIDS_KEY, kids.map(({ grade, graduated, ...k }) => k)); }
+      store.set(KID_KEY, kids.find((k) => k.school === q).id);
+      store.set(TAB_KEY, "today");
+      history.replaceState(null, "", "/#today");
+    }
+  }
   let activeKidId = store.get(KID_KEY, null);
   const saveKids = () => {
     if (demo) return; // the example family is never saved

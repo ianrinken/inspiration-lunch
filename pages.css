@@ -1,9 +1,12 @@
 /* School pages: the app's look, as a plain readable page. */
 body.page { background: var(--bg); color: var(--text); }
 .page .brand { text-decoration: none; color: #fff; }
-.page-main { max-width: 720px; margin: 0 auto; padding: 16px 16px 40px; }
+.page-main { max-width: 720px; margin: 0 auto; padding: 16px 16px calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px) + 24px); }
+.page .pview[hidden] { display: none; }
+.page .tab-bar .tab { text-decoration: none; }
 .page h1 { font-family: var(--display); font-size: clamp(1.6rem, 6vw, 2.2rem); font-weight: 800; letter-spacing: -.02em; margin: 8px 0 6px; }
-.page h2 { font-family: var(--display); font-size: 1.15rem; font-weight: 800; margin: 26px 0 10px; }
+.page h2 { font-family: var(--display); font-size: 1.15rem; font-weight: 800; margin: 22px 0 10px; }
+.page .pview > h2:first-child { margin-top: 6px; }
 .page .crumb { color: var(--text-soft); font-size: .9rem; }
 .page .crumb a { color: inherit; }
 .page .lede { line-height: 1.5; color: var(--text-soft); margin: 0 0 14px; }
@@ -11,7 +14,7 @@ body.page { background: var(--bg); color: var(--text); }
 .page .cta { margin-top: 6px; }
 .page .center { text-align: center; margin-top: 8px; }
 .page .card { padding: 14px 16px; }
-.page .menu-row { display: grid; grid-template-columns: 5.4em minmax(0, 1fr); gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); line-height: 1.35; }
+.page .menu-row { display: grid; grid-template-columns: 6.6em minmax(0, 1fr); gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); line-height: 1.35; }
 .page .menu-row:first-child { border-top: 0; }
 .page .menu-row .fine { display: block; margin-top: 2px; }
 .page .bell { width: 100%; border-collapse: collapse; }

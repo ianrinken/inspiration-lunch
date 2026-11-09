@@ -63,52 +63,61 @@ function page(s) {
 <body class="page" data-school="${s.id}">
   <header class="app-header"><div class="header-inner"><a class="brand" href="/">Brandon Valley <span>Lunch</span></a></div></header>
   <main class="page-main">
-    <p class="crumb"><a href="/">Brandon Valley Lunch</a> / ${esc(s.short)}</p>
-    <h1>${esc(s.name)}</h1>
-    <p class="lede">Brandon Valley ${LEVEL[s.level]}, grades ${s.grades[0] === -1 ? "junior kindergarten" : s.grades[0] === 0 ? "kindergarten" : s.grades[0]} to ${s.grades[1]}. ${esc(s.address)}. Office <a href="tel:+1${s.phone.replace(/\D/g, "")}">${esc(s.phone)}</a>.</p>
-    <a class="btn primary block cta" href="/?school=${s.id}">Open the app for your student</a>
-    <p class="fine center">Tomorrow's lunch, games, days off and alerts for your child, on your phone. No account needed.</p>
+    <section class="pview" id="view-today">
+      <p class="crumb"><a href="/">Brandon Valley Lunch</a> / ${esc(s.short)}</p>
+      <h1>${esc(s.name)}</h1>
+      <p class="lede">Brandon Valley ${LEVEL[s.level]}, grades ${s.grades[0] === -1 ? "junior kindergarten" : s.grades[0] === 0 ? "kindergarten" : s.grades[0]} to ${s.grades[1]}. School ${esc(s.bell.start)} AM to ${esc(s.bell.end)} PM.</p>
+      <a class="btn primary block cta" href="/?school=${s.id}">Open the app for your student</a>
+      <p class="fine center">Tomorrow's lunch, games, days off and alerts for your child, on your phone. No account needed.</p>
+      <h2>Next lunch</h2>
+      <div id="menu-next" class="card"><p class="muted">Loading the menu.</p></div>
+      <h2>Coming up</h2>
+      <div id="events-next" class="card"><p class="muted">Loading games and events.</p></div>
+      <p class="fine">Tap Lunch or Calendar below for the rest.</p>
+    </section>
 
-    <section>
+    <section class="pview" id="view-lunch" hidden>
       <h2>This week's lunch</h2>
       <div id="menu" class="card"><p class="muted">Loading this week's menu.</p></div>
-      <p class="fine">Menus come from the district's LINQ Connect and can change. Breakfast $${s.prices.breakfast.toFixed(2)}, lunch $${s.prices.lunch.toFixed(2)}.</p>
+      <p class="fine">Menus come from the district's LINQ Connect and can change. Breakfast $${s.prices.breakfast.toFixed(2)}, lunch $${s.prices.lunch.toFixed(2)}. The app shows every line and flags your child's allergens.</p>
     </section>
 
-    <section>
-      <h2>Coming up</h2>
+    <section class="pview" id="view-calendar" hidden>
+      <h2>Next three weeks</h2>
       <div id="events" class="card"><p class="muted">Loading games and events.</p></div>
-    </section>
-
-    <section>
-      <h2>Bell schedule</h2>
-      <div class="card">${schedules(s)}</div>
-    </section>
-
-    <section>
       <h2>Days off and early dismissals, ${esc(DATA.SCHOOL_YEARS[0].id)}</h2>
       <div class="card">${daysOff(s)}</div>
     </section>
 
-    <section>
-      <h2>From the school</h2>
+    <section class="pview" id="view-hours" hidden>
+      <h2>Bell schedule</h2>
+      <div class="card">${schedules(s)}</div>
+    </section>
+
+    <section class="pview" id="view-school" hidden>
+      <h2>${esc(s.name)}</h2>
       <div class="card link-list">
+        <a class="list-row" href="tel:+1${s.phone.replace(/\D/g, "")}"><span><b>Call the office</b><span>${esc(s.phone)}</span></span></a>
+        <a class="list-row" href="https://maps.apple.com/?q=${encodeURIComponent(s.address)}" target="_blank" rel="noopener"><span><b>Directions</b><span>${esc(s.address)}</span></span></a>
         ${s.supplies ? `<a class="list-row" href="${esc(s.supplies)}" target="_blank" rel="noopener"><span><b>Supply list</b><span>What to bring, by grade</span></span></a>` : ""}
         <a class="list-row" href="${esc(DATA.DISTRICT.handbooks[s.handbook])}" target="_blank" rel="noopener"><span><b>Student handbook</b><span>${esc(s.handbook[0].toUpperCase() + s.handbook.slice(1))} handbook, ${esc(DATA.SCHOOL_YEARS[0].id)}</span></span></a>
         <a class="list-row" href="${esc(s.site)}" target="_blank" rel="noopener"><span><b>School website</b><span>${esc(s.site.replace(/^https?:\/\//, ""))}</span></span></a>
       </div>
-    </section>
-
-    <section>
       <h2>Other Brandon Valley schools</h2>
       <p class="others">${others.map((x) => `<a href="/schools/${SLUG[x.id]}/">${esc(x.short)}</a>`).join(" · ")}</p>
+      <footer class="app-footer">
+        <p>An independent app, not run by the Brandon Valley School District. Built from public district, LINQ Connect and Bound information; for anything official, check with your school. <a href="/privacy.html">Privacy</a></p>
+        <p class="footer-credit">Created by <a href="https://scratchmarketing.net" target="_blank" rel="noopener">Scratch Marketing &amp; Solutions</a></p>
+      </footer>
     </section>
-
-    <footer class="app-footer">
-      <p>An independent app, not run by the Brandon Valley School District. Built from public district, LINQ Connect and Bound information; for anything official, check with your school. <a href="/privacy.html">Privacy</a></p>
-      <p class="footer-credit">Created by <a href="https://scratchmarketing.net" target="_blank" rel="noopener">Scratch Marketing &amp; Solutions</a></p>
-    </footer>
   </main>
+  <nav class="tab-bar" aria-label="Sections">
+    <a class="tab" href="#today" data-tab="today" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><span>Today</span></a>
+    <a class="tab" href="#lunch" data-tab="lunch"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10M16.5 21V3c-2.2 1.3-3.5 4-3.5 7.5V13h3.5"/></svg><span>Lunch</span></a>
+    <a class="tab" href="#calendar" data-tab="calendar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg><span>Calendar</span></a>
+    <a class="tab" href="#hours" data-tab="hours"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span>Hours</span></a>
+    <a class="tab" href="#school" data-tab="school"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20.5h18M5 20.5V10l7-5.5 7 5.5v10.5"/><path d="M10 20.5v-5h4v5"/></svg><span>School</span></a>
+  </nav>
   <script src="/pages.js"></script>
 </body>
 </html>

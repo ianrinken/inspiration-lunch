@@ -117,7 +117,7 @@
   const DISTRICT_LINKS = [
     { label: "Skyward Family Access", note: "Grades, attendance, schedule", url: "https://fa.brandonvalley.k12.sd.us/Student/web/fwemnu01.w" },
     { label: "Lunch account", note: "LINQ Connect", url: "https://linqconnect.com/" },
-    { label: "Free and reduced meals", note: "Apply any time of year through Child Nutrition", url: `${SITE}/ChildNutrition/` },
+    { label: "Free and reduced meals", note: "Apply any time in Skyward Family Access. Questions: 605-582-3926", url: `${SITE}/ChildNutrition/` },
     { label: "Bus routes", note: "Transportation office 605-582-3514", url: `${SITE}/Transportation/` },
     { label: "Closings and delays", note: "KELOLAND closings list", url: "https://www.keloland.com/weather/closings/" },
     { label: "Counseling", note: "High school counseling site", url: "https://sites.google.com/k12.sd.us/bvhscounseling/home" },

@@ -1306,7 +1306,7 @@
     { levels: ["ms", "hs"], sport: true, title: "A physical before the first practice", sub: "The Activities handbook says what the school needs on file", action: "handbook" },
     { levels: ["es", "is"], months: [7, 8, 9], title: "{school}'s supply list", sub: "Right in the app, grade by grade", action: "supplies-sheet" },
     { levels: ["es"], title: "Breakfast at school from 7:30", sub: "$2.40, every school day. Not served on a two-hour late start.", go: "school" },
-    { levels: ["es", "is", "ms"], title: "Free or reduced meals if you qualify", sub: "Apply once a year in LINQ Connect.", url: LINK("Free and reduced meals") },
+    { levels: ["es", "is", "ms"], title: "Free or reduced meals if you qualify", sub: "Apply any time in Skyward Family Access.", url: LINK("Free and reduced meals") },
     { grades: [4], months: [1, 2, 3, 4, 5, 6], title: "The Intermediate School is next fall", sub: "Hours, teams and what changes", go: "guide" },
     { grades: [6], months: [1, 2, 3, 4, 5, 6], title: "Middle school is next fall", sub: "Nine periods, activities and what changes", go: "guide" },
     { grades: [8], months: [1, 2, 3, 4, 5, 6], title: "High school is next fall", sub: "Class choices in the spring", go: "guide" },
@@ -1582,6 +1582,7 @@
         <div>${body}</div></${tag}>`;
     }).join("") + `
       <p class="empty-note" style="text-align:center">${menu.prices.lunch ? `${t("Lunch {lunch}, breakfast {breakfast}.", { lunch: `$${menu.prices.lunch.toFixed(2)}`, breakfast: `$${(menu.prices.breakfast || 0).toFixed(2)}` })} ` : ""}<a href="${esc(LINK("Lunch account"))}" target="_blank" rel="noopener">${t("Add money in LINQ Connect")}</a></p>
+      <p class="empty-note" style="text-align:center"><a href="${esc(LINK("Free and reduced meals"))}" target="_blank" rel="noopener">${t("Apply for meal help")}</a> ${t("or call Child Nutrition at {phone}.", { phone: `<a href="tel:+16055823926">605-582-3926</a>` })}</p>
       <p class="empty-note" style="text-align:center">${t("Tap a day for the full menu, every lunch line and allergens. Menus can change.")}</p>`;
   }
 

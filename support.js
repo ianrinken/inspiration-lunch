@@ -8,8 +8,25 @@
     const open = Object.keys(names).filter((k) => !taken[k]);
     document.getElementById("openNow").textContent = open.length ? `Open now: ${open.map((k) => names[k]).join(", ")}.` : "Every screen has a sponsor right now. Ask to be next.";
     for (const o of document.querySelectorAll("#lfScreen option")) if (o.value && taken[o.value]) o.textContent = `${names[o.value]} (taken for now)`;
-    const links = (s && s.donate) || [];
-    if (!links.length) return;
+    // The lunch fund shows only when the owner has said who gets the money
+    // and what share is kept, so the page never promises what isn't set up.
+    const give = s && s.donate;
+    if (!give || !(give.links || []).length) return;
+    const links = give.links;
+    const money = (n) => `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+    const rest = Math.max(0, Math.round((100 - 3 - give.fee) * 10) / 10);
+    document.getElementById("giveWhere").textContent = `What you give goes to ${give.recipient}`.replace(/\.?$/, ".");
+    document.getElementById("giveSplit").innerHTML = [
+      `<li>About 3% is the card processing fee</li>`,
+      give.fee > 0 ? `<li>${give.fee}% is an administrative fee that keeps this app running</li>` : "",
+      `<li>The rest, about ${rest}%, goes to student lunches</li>`,
+    ].join("");
+    if (give.sent > 0) {
+      const asOf = give.sentAsOf ? ` as of ${new Date(`${give.sentAsOf}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "";
+      const el = document.getElementById("giveSent");
+      el.textContent = `Passed on so far: ${money(give.sent)}${asOf}.`;
+      el.hidden = false;
+    }
     const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     document.getElementById("donateBtns").innerHTML = links.map((l, i) => `<a class="btn ${i === 0 ? "primary" : ""} block" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label || "Chip in")}</a>`).join("");
     document.getElementById("donateCard").hidden = false;

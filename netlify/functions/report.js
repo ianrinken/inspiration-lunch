@@ -61,7 +61,7 @@ exports.handler = async (event) => {
     const leadStore = openStore("leads");
     const leadKeys = (await leadStore.list().catch(() => [])).sort().reverse().slice(0, 100);
     const leads = (await Promise.all(leadKeys.map(async (k) => { const l = await leadStore.get(k); return l ? { key: k, ...l } : null; }))).filter(Boolean);
-    return json(200, { reports, usage, misses: topMisses, pin, answers: answers || [], drift: drift ? JSON.parse(drift.body) : null, overrides: Array.isArray(overrides) ? overrides : [], sponsors: sponsor || {}, donate: (donate && donate.links) || [], leads });
+    return json(200, { reports, usage, misses: topMisses, pin, answers: answers || [], drift: drift ? JSON.parse(drift.body) : null, overrides: Array.isArray(overrides) ? overrides : [], sponsors: sponsor || {}, donate: donate || null, leads });
   }
   if (event.httpMethod && event.httpMethod !== "POST") return json(405, { error: "method" });
   let body;
@@ -188,9 +188,21 @@ exports.handler = async (event) => {
       const links = (Array.isArray(body.links) ? body.links : []).slice(0, 3)
         .map((l) => ({ label: clip(l && l.label, 20), url: clip(l && l.url, 300) })).filter((l) => l.url);
       if (links.some((l) => !/^https:\/\/[^\s]+$/.test(l.url))) return json(400, { error: "Each link must start with https://" });
-      if (!links.length) { await settings.delete("donate"); return json(200, { ok: true, donate: [] }); }
-      await settings.set("donate", { links, at: Date.now() });
-      return json(200, { ok: true, donate: links });
+      // What the page promises about the money: the share kept to run the
+      // app, who gets the rest, and how much has been passed on so far.
+      const fee = Number(body.fee);
+      const sent = Number(body.sent);
+      const give = {
+        links,
+        fee: Number.isFinite(fee) && fee >= 0 && fee <= 30 && String(body.fee).trim() !== "" ? Math.round(fee * 10) / 10 : null,
+        recipient: clip(body.recipient, 160),
+        sent: Number.isFinite(sent) && sent >= 0 ? Math.round(sent * 100) / 100 : 0,
+        sentAsOf: /^\d{4}-\d{2}-\d{2}$/.test(body.sentAsOf || "") ? body.sentAsOf : "",
+        at: Date.now(),
+      };
+      if (!links.length && !give.recipient && give.fee === null) { await settings.delete("donate"); return json(200, { ok: true, donate: null }); }
+      await settings.set("donate", give);
+      return json(200, { ok: true, donate: give, showing: !!(links.length && give.recipient && give.fee !== null) });
     }
     if (body.action === "pin") {
       if (!isAdmin(event)) return json(401, { error: "unauthorized" });

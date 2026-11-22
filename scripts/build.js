@@ -9,7 +9,7 @@ const OUT = path.join(ROOT, "dist");
 const FILES = [
   "index.html", "admin.html", "admin.js", "privacy.html", "style.css", "app.js", "data.js", "shared.js", "handbooks.js", "i18n.js", "handbooks-es.js",
   "sw.js", "manifest.webmanifest", "favicon.ico", "apple-touch-icon.png", "apple-touch-icon-precomposed.png",
-  "robots.txt", "_headers", "sitemap.xml", "pages.js", "pages.css",
+  "robots.txt", "_headers", "sitemap.xml", "pages.js", "pages.css", "support.html", "support.js",
   // Search Console HTML verification and the IndexNow key: must stay at the site root, forever.
   "google52a0144fd80c6bd9.html", "1df1ad4e5fd206fe5b77b0fbb4428733.txt",
 ];

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Support Brandon Valley Lunch</title>
+  <meta name="description" content="Brandon Valley Lunch is built and kept running by a Brandon Valley parent. Chip in toward hosting and upkeep, or ask about sponsoring the app as a local business.">
+  <link rel="canonical" href="https://brandonvalleylunch.com/support.html">
+  <meta property="og:title" content="Support Brandon Valley Lunch">
+  <meta property="og:description" content="Chip in toward hosting and upkeep, or ask about sponsoring the app as a local business.">
+  <meta property="og:image" content="https://brandonvalleylunch.com/icons/og-v4.png">
+  <meta name="theme-color" content="#A8181A">
+  <link rel="icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/pages.css">
+</head>
+<body class="page">
+  <header class="app-header"><div class="header-inner"><a class="brand" href="/">Brandon Valley <span>Lunch</span></a></div></header>
+  <main class="page-main support">
+    <h1>Support Brandon Valley Lunch</h1>
+    <p class="lede">A Brandon Valley parent built this app and keeps it running. Hosting costs money and keeping every menu, game and date right takes time. There are two ways to help.</p>
+
+    <section id="donateCard" hidden>
+      <h2>Chip in</h2>
+      <div class="card">
+        <p>Any amount helps cover hosting and upkeep, and keeps the app open to every family.</p>
+        <a class="btn primary block" id="donateBtn" href="#" target="_blank" rel="noopener">Chip in</a>
+        <p class="fine">Payment is handled by our payment provider, not by this app. Scratch Marketing &amp; Solutions is a business, so this is not a tax-deductible donation.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Sponsor the app</h2>
+      <div class="card">
+        <p>One local business at a time. Your name and link appear on the Today screen families open every school day, and on each school's page.</p>
+        <ul class="plain-list">
+          <li>Seen by Brandon Valley parents, every school day</li>
+          <li>One sponsor, so you are never beside a competitor</li>
+          <li>No tracking, no pop-ups, no ad networks</li>
+        </ul>
+        <form id="leadForm" class="field">
+          <label class="field-label" for="lfBusiness">Business name</label>
+          <input class="text-input" id="lfBusiness" maxlength="80" autocomplete="organization" required>
+          <label class="field-label" for="lfName">Your name</label>
+          <input class="text-input" id="lfName" maxlength="60" autocomplete="name">
+          <label class="field-label" for="lfContact">Email or phone</label>
+          <input class="text-input" id="lfContact" maxlength="120" autocomplete="email" required>
+          <label class="field-label" for="lfNote">Anything we should know (optional)</label>
+          <textarea class="text-input" id="lfNote" rows="3" maxlength="500"></textarea>
+          <input class="hp" id="lfWebsite" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn primary block" id="lfSend">Ask about sponsoring</button>
+          <p class="fine" id="lfMsg" role="status">We reply within two business days. Sending this is a question, not a commitment.</p>
+        </form>
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <p>An independent app, not run by the Brandon Valley School District. Supporting or sponsoring the app is not a gift to, or a sponsorship of, the school district. <a href="/privacy.html">Privacy</a></p>
+      <p class="footer-credit">Created by <a href="https://scratchmarketing.net" target="_blank" rel="noopener">Scratch Marketing &amp; Solutions</a></p>
+    </footer>
+  </main>
+  <script src="/support.js"></script>
+</body>
+</html>

@@ -25,3 +25,14 @@ body.page { background: var(--bg); color: var(--text); }
 .page .app-footer { margin-top: 32px; }
 
 .page .pview > .muted { margin: 0 0 12px; }
+
+/* Support page */
+.page .brand { text-decoration: none; color: #fff; }
+.page #sponsor { margin-top: 14px; }
+.support .card p { line-height: 1.5; margin: 0 0 12px; }
+.support .card .plain-list { margin-bottom: 14px; }
+.support .card .plain-list li { font-weight: 600; }
+.support .field .field-label { display: block; margin: 12px 0 6px; }
+.support .field .btn { margin-top: 14px; }
+.support .fine { margin-top: 10px; }
+.support .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }

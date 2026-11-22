@@ -89,6 +89,7 @@ function page(s) {
       <div id="menu-next" class="card"><p class="muted">Loading the menu.</p></div>
       <h2>Coming up</h2>
       <div id="events-next" class="card"><p class="muted">Loading games and events.</p></div>
+      <div id="sponsor"></div>
       <p class="fine center">Lunch, Calendar, Guide and School are the tabs below.</p>
     </section>
 
@@ -126,7 +127,7 @@ function page(s) {
       <h2>Other Brandon Valley schools</h2>
       <p class="others">${others.map((x) => `<a href="/schools/${SLUG[x.id]}/">${esc(x.short)}</a>`).join(" · ")}</p>
       <footer class="app-footer">
-        <p>An independent app, not run by the Brandon Valley School District. Built from public district, LINQ Connect and Bound information; for anything official, check with your school. <a href="/privacy.html">Privacy</a></p>
+        <p>An independent app, not run by the Brandon Valley School District. Built from public district, LINQ Connect and Bound information; for anything official, check with your school. <a href="/privacy.html">Privacy</a> · <a href="/support.html">Support this app</a></p>
         <p class="footer-credit">Created by <a href="https://scratchmarketing.net" target="_blank" rel="noopener">Scratch Marketing &amp; Solutions</a></p>
       </footer>
     </section>
@@ -144,7 +145,7 @@ function page(s) {
 `;
 }
 function sitemap() {
-  const urls = [`${SITE}/`, ...Object.values(DATA.SCHOOLS).map((s) => `${SITE}/schools/${SLUG[s.id]}/`)];
+  const urls = [`${SITE}/`, ...Object.values(DATA.SCHOOLS).map((s) => `${SITE}/schools/${SLUG[s.id]}/`), `${SITE}/support.html`];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${u}</loc><changefreq>daily</changefreq></url>`).join("\n")}\n</urlset>\n`;
 }
 function write(out) {

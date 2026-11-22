@@ -491,6 +491,16 @@ button.row:hover .row-v b, button.row:focus-visible .row-v b { text-decoration: 
 /* ---------- Footer ---------- */
 .app-footer { text-align: center; color: var(--text-soft); font-size: .82rem; line-height: 1.5; margin-top: 28px; }
 .footer-credit { margin-top: 6px; }
+/* The one sponsor: a quiet row, the name carried by weight and color. */
+#sponsorBox { margin: 2px 0 14px; }
+.sponsor-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 12px 10px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); text-decoration: none; color: var(--text); line-height: 1.3; }
+.sponsor-row > svg { width: 8px; height: 14px; flex: none; color: var(--text-soft); }
+.sponsor-logo { width: 40px; height: 40px; border-radius: 8px; object-fit: contain; flex: none; background: #fff; }
+.sponsor-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sponsor-k { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text-soft); }
+.sponsor-text b { font-weight: 800; color: var(--navy-2); font-size: 1.02rem; }
+.sponsor-text .sub { color: var(--text-soft); font-size: .88rem; }
+.sponsor-open { display: flex; align-items: center; justify-content: center; min-height: 44px; color: var(--text-soft); font-size: .86rem; font-weight: 600; text-decoration: underline; }
 .footer-schools { margin-top: 10px; line-height: 1.8; }
 .footer-schools a { color: var(--text-soft); font-weight: 600; text-decoration: underline; white-space: nowrap; }
 .footer-credit a { color: var(--scratch-blue); font-weight: 800; text-decoration: none; }

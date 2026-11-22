@@ -754,12 +754,14 @@
         ${tasksHtml()}
         ${kids.map((k) => `<article class="kid-sum" style="${kidStyle(k)}" data-kidcard="${esc(k.id)}">${kidHead(k)}<p class="loading">${t("Loading {name}'s day", { name: esc(kidName(k)) })}</p></article>`).join("")}
       </section>
+      <div id="sponsorBox"></div>
       ${askBoxHtml()}
       ${seasonHtml(td)}
       <div id="familyWeek"></div>
       ${kids.map(firstWeekHtml).join("")}
       <button class="link-btn add-another" data-action="add-kid">${t("Add another student")}</button>`;
     fillWeather(kids.find((k) => !k.graduated), token);
+    fillSponsor(token);
     await Promise.all([...new Set(kids.filter(isHigh).map((k) => k.school))].filter((sc) => !clubCount[sc]).map((sc) => getSchool(sc, "clubs").then((c) => { clubCount[sc] = c.groups.reduce((n, g) => n + g.items.length, 0); }).catch(() => {})));
     const results = await Promise.all(kids.map((k) => fillKidCard(k, token)));
     if (token !== tokens.today) return;
@@ -767,6 +769,24 @@
     warmSearch();
     renderWeek(results.filter(Boolean));
     renderChanged(results.filter(Boolean), token);
+  }
+
+  // The app's one sponsor, set by the owner: a name and a link, under the
+  // day's cards. No ad network, nothing tracked; a tap adds one to the
+  // day's count and that is all.
+  async function fillSponsor(token) {
+    const status = await getStatus().catch(() => null);
+    const box = $("sponsorBox");
+    if (!box || token !== tokens.today || demo) return;
+    const sp = status && status.sponsor;
+    if (!sp) { box.innerHTML = `<a class="sponsor-open" href="/support.html">${t("Your business could sponsor this app")}</a>`; return; }
+    box.innerHTML = `<a class="sponsor-row" href="${esc(sp.url)}" target="_blank" rel="sponsored noopener">
+      ${sp.logo ? `<img class="sponsor-logo" src="${esc(sp.logo)}" alt="" loading="lazy">` : ""}
+      <span class="sponsor-text"><span class="sponsor-k">${t("Sponsored by")}</span><b>${esc(sp.name)}</b>${sp.line ? `<span class="sub">${esc(sp.line)}</span>` : ""}</span>${CHEVRON}</a>`;
+    box.querySelector("a").addEventListener("click", () => {
+      const body = JSON.stringify({ action: "sponsor-click" });
+      if (!(navigator.sendBeacon && navigator.sendBeacon(REPORT_API, new Blob([body], { type: "application/json" })))) fetch(REPORT_API, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
+    });
   }
 
   // The two things parents open the app to do in a hurry, as buttons with

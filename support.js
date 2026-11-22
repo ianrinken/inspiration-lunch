@@ -22,10 +22,16 @@
     // With one giving page the split is two plain shares; any transaction
     // cost comes out of the app's share, never out of the lunch share.
     if (give.page) {
-      // The split, in one small bubble above the button.
+      // The split sits behind a small "i": hover or tap it to see the
+      // bubble, tap anywhere else or press Escape to put it away.
       const bubble = document.getElementById("giveBubble");
-      bubble.innerHTML = `<b>${100 - give.fee}%</b> goes to student lunches${give.fee > 0 ? `<span>${give.fee}% runs this app</span>` : ""}`;
-      bubble.hidden = false;
+      const info = document.getElementById("giveInfo");
+      bubble.innerHTML = `<p><b>${100 - give.fee}%</b> goes to student lunches</p>${give.fee > 0 ? `<p><b>${give.fee}%</b> runs this app</p>` : ""}`;
+      info.hidden = false;
+      const setOpen = (open) => { bubble.classList.toggle("open", open); info.setAttribute("aria-expanded", String(open)); };
+      info.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!bubble.classList.contains("open")); });
+      document.addEventListener("click", (e) => { if (!bubble.contains(e.target)) setOpen(false); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
       document.getElementById("giveSplitLabel").hidden = true;
       document.getElementById("giveSplit").hidden = true;
       document.getElementById("donateBtns").innerHTML = `<a class="btn primary block give-btn" href="${esc(give.page)}" target="_blank" rel="noopener"><b>Give</b></a>`;

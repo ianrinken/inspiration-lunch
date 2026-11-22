@@ -27,8 +27,11 @@
     <section id="donateCard" hidden>
       <h2>Chip in for student lunches</h2>
       <div class="card">
-        <p id="giveWhere"></p>
-        <p class="split-bubble" id="giveBubble" hidden></p>
+        <div class="give-top">
+          <p id="giveWhere"></p>
+          <button class="info-btn" id="giveInfo" type="button" aria-label="Where each dollar goes" aria-expanded="false" aria-controls="giveBubble" hidden><span aria-hidden="true">i</span></button>
+          <div class="split-bubble" id="giveBubble" role="status"></div>
+        </div>
         <p class="field-label" id="giveSplitLabel">Where each dollar goes</p>
         <ul class="plain-list" id="giveSplit"></ul>
         <div class="seg" id="giveMode" role="group" aria-label="How often" hidden>

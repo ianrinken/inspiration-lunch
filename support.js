@@ -11,16 +11,32 @@
     // The lunch fund shows only when the owner has said who gets the money
     // and what share is kept, so the page never promises what isn't set up.
     const give = s && s.donate;
-    if (!give || !(give.links || []).length) return;
-    const links = give.links;
+    if (!give || !((give.monthly || []).length + (give.once || []).length)) return;
     const money = (n) => `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
-    const rest = Math.max(0, Math.round((100 - 3 - give.fee) * 10) / 10);
+    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    // What actually reaches lunches from a gift, after the card fee and the
+    // app's share. Shown on every button so nobody has to do the math.
+    const reaches = (amt) => Math.max(0, Math.floor((amt - (amt * give.procPct / 100 + give.procFixed) - amt * give.fee / 100) * 100) / 100);
     document.getElementById("giveWhere").textContent = `What you give goes to ${give.recipient}`.replace(/\.?$/, ".");
+    const cents = Math.round(give.procFixed * 100);
     document.getElementById("giveSplit").innerHTML = [
-      `<li>About 3% is the card processing fee</li>`,
+      `<li>Card processing takes ${give.procPct}%${cents ? ` plus ${cents} cents` : ""} of each gift</li>`,
       give.fee > 0 ? `<li>${give.fee}% is an administrative fee that keeps this app running</li>` : "",
-      `<li>The rest, about ${rest}%, goes to student lunches</li>`,
+      `<li>The rest goes to student lunches</li>`,
     ].join("");
+    // Monthly is the default when it is offered; one time is one tap away.
+    let mode = (give.monthly || []).length ? "monthly" : "once";
+    const both = (give.monthly || []).length && (give.once || []).length;
+    const seg = document.getElementById("giveMode");
+    const draw = () => {
+      const list = mode === "monthly" ? give.monthly : give.once;
+      document.getElementById("donateBtns").innerHTML = list.map((l, i) => `<a class="btn ${i === 0 ? "primary" : ""} block give-btn" href="${esc(l.url)}" target="_blank" rel="noopener"><b>${money(l.amount)}${mode === "monthly" ? " a month" : ""}</b><span>${money(reaches(l.amount))} reaches lunches</span></a>`).join("");
+      for (const b of seg.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
+      document.getElementById("giveCancel").hidden = mode !== "monthly";
+    };
+    seg.hidden = !both;
+    seg.addEventListener("click", (e) => { const m = e.target.dataset.mode; if (m) { mode = m; draw(); } });
+    draw();
     if (give.goal > 0) {
       document.getElementById("giveGoalFill").style.width = `${Math.min(100, Math.round((give.sent / give.goal) * 100))}%`;
       document.getElementById("giveGoal").hidden = false;
@@ -34,8 +50,6 @@
       el.textContent = `Passed on so far: ${money(give.sent)}${asOf}.`;
       el.hidden = false;
     }
-    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    document.getElementById("donateBtns").innerHTML = links.map((l, i) => `<a class="btn ${i === 0 ? "primary" : ""} block" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label || "Chip in")}</a>`).join("");
     document.getElementById("donateCard").hidden = false;
   }).catch(() => {});
 

@@ -12,13 +12,12 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
   const data = await res.json();
   const { reports, usage, misses = [], pin, answers = [], drift, overrides = [], sponsors = {}, leads = [] } = data;
   const give = data.donate || {};
-  const donate = give.links || [];
-  const giveShowing = !!(donate.length && give.recipient && give.fee !== null && give.fee !== undefined);
+  const giveShowing = !!(((give.monthly || []).length + (give.once || []).length) && give.recipient && give.fee !== null && give.fee !== undefined);
   window.__sponsors = sponsors;
   const SP_TABS = [["today", "Today"], ["lunch", "Lunch"], ["calendar", "Calendar"], ["guide", "Guide"], ["school", "School"]];
   const spTab = window.__spTab || "today";
   const sponsor = sponsors[spTab] || null;
-  const donRow = (i) => { const l = donate[i] || {}; return `<div class="don-row"><input class="text-input" id="donLabel${i}" maxlength="20" placeholder="${["$5", "$10", "$25"][i]}" aria-label="Button ${i + 1} label" value="${esc(l.label || "")}"><input class="text-input" id="donUrl${i}" type="url" placeholder="https://" aria-label="Button ${i + 1} payment link" value="${esc(l.url || "")}"></div>`; };
+  const donRow = (kind, i) => { const l = (give[kind] || [])[i] || {}; return `<div class="don-row"><input class="text-input" id="don-${kind}-amt${i}" type="number" min="1" max="1000" step="1" inputmode="numeric" placeholder="${[5, 10, 25][i]}" aria-label="${kind} amount ${i + 1} in dollars" value="${l.amount ? esc(l.amount) : ""}"><input class="text-input" id="don-${kind}-url${i}" type="url" placeholder="https://" aria-label="${kind} payment link ${i + 1}" value="${esc(l.url || "")}"></div>`; };
   window.__overrides = overrides;
   out.innerHTML = `
     <p class="section-label">Announcement on every screen</p>
@@ -52,9 +51,13 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
     </form>
     <p class="section-label">Chip in for student lunches</p>
     <form class="card field" id="donateForm">
-      <p class="fine">Up to three. A QuickBooks payment link charges one fixed amount, so make one link per amount and put the amount on its button.</p>
-      <p class="field-label">Button label, then its payment link</p>
-      ${[0, 1, 2].map(donRow).join("")}
+      <p class="fine">Up to three amounts each. Every amount needs its own payment link from your processor. Monthly shows first when it has links.</p>
+      <p class="field-label">Monthly: dollars, then the subscription link</p>
+      ${[0, 1, 2].map((i) => donRow("monthly", i)).join("")}
+      <p class="field-label">One time: dollars, then the payment link</p>
+      ${[0, 1, 2].map((i) => donRow("once", i)).join("")}
+      <p class="field-label">Card processing fee: percent, then cents per gift</p>
+      <div class="don-row"><input class="text-input" id="donProcPct" type="number" min="0" max="10" step="0.01" inputmode="decimal" aria-label="Processing percent" value="${esc(give.procPct ?? 2.9)}"><input class="text-input" id="donProcFixed" type="number" min="0" max="200" step="1" inputmode="numeric" aria-label="Processing cents per gift" value="${esc(Math.round((give.procFixed ?? 0.3) * 100))}"></div>
       <label class="field-label" for="donRecipient">Who gets the money (shown as "What you give goes to ...")</label>
       <input class="text-input" id="donRecipient" maxlength="160" placeholder="Brandon Valley Child Nutrition, toward unpaid student lunch balances" value="${esc(give.recipient || "")}">
       <label class="field-label" for="donFee">Administrative fee kept to run the app, in percent</label>
@@ -66,7 +69,7 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
       <label class="field-label" for="donSentAsOf">As of</label>
       <input class="text-input" id="donSentAsOf" type="date" value="${esc(give.sentAsOf || "")}">
       <button class="btn primary block" style="margin-top:10px">Save</button>
-      <p class="fine" id="donateNote">${giveShowing ? "The Chip in card is showing on the support page." : "The card stays hidden until there is at least one link, a named recipient and a fee (0 is allowed)."}</p>
+      <p class="fine" id="donateNote">${giveShowing ? "The Chip in card is showing on the support page." : "The card stays hidden until there is at least one amount with its link, a named recipient and a fee (0 is allowed)."}</p>
     </form>
     <p class="section-label">Sponsor inquiries (${leads.length})</p>
     <article class="card">${leads.map((l) => `<div class="report"><p><b>${esc(l.business)}</b> ${esc(l.name)}${l.screen ? ` · ${esc(l.screen)} screen` : ""}</p><p>${esc(l.contact)}</p>${l.note ? `<p>${esc(l.note)}</p>` : ""}<p class="fine">${esc(new Date(l.at).toLocaleString())} <button class="small-btn" type="button" data-lead-done="${esc(l.key)}">Done</button></p></div>`).join("") || '<p class="empty-note">None yet. They arrive from the support page.</p>'}</article>
@@ -163,9 +166,9 @@ document.addEventListener("submit", async (e) => {
   }
   if (e.target.id === "donateForm") {
     e.preventDefault();
-    const links = [0, 1, 2].map((i) => ({ label: document.getElementById(`donLabel${i}`).value.trim(), url: document.getElementById(`donUrl${i}`).value.trim() })).filter((l) => l.url);
     const gv = (id) => document.getElementById(id).value.trim();
-    const r = await ownerPost({ action: "donate", links, recipient: gv("donRecipient"), fee: gv("donFee"), sent: gv("donSent"), sentAsOf: gv("donSentAsOf"), goal: gv("donGoal") });
+    const rows = (kind) => [0, 1, 2].map((i) => ({ amount: gv(`don-${kind}-amt${i}`), url: gv(`don-${kind}-url${i}`) })).filter((l) => l.url && l.amount);
+    const r = await ownerPost({ action: "donate", monthly: rows("monthly"), once: rows("once"), procPct: gv("donProcPct"), procFixed: gv("donProcFixed") === "" ? "" : String(Number(gv("donProcFixed")) / 100), recipient: gv("donRecipient"), fee: gv("donFee"), sent: gv("donSent"), sentAsOf: gv("donSentAsOf"), goal: gv("donGoal") });
     if (r.ok) { document.getElementById("keyForm").requestSubmit(); return; }
     document.getElementById("donateNote").textContent = r.error || "Couldn't save. Check the key and try again.";
     return;

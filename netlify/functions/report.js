@@ -185,26 +185,33 @@ exports.handler = async (event) => {
       const settings = openStore("settings");
       // QuickBooks payment links charge a fixed amount, so there is one
       // link per amount: up to three, each with the label on its button.
-      const links = (Array.isArray(body.links) ? body.links : []).slice(0, 3)
-        .map((l) => ({ label: clip(l && l.label, 20), url: clip(l && l.url, 300) })).filter((l) => l.url);
-      if (links.some((l) => !/^https:\/\/[^\s]+$/.test(l.url))) return json(400, { error: "Each link must start with https://" });
-      // What the page promises about the money: the share kept to run the
-      // app, who gets the rest, and how much has been passed on so far.
-      const fee = Number(body.fee);
-      const sent = Number(body.sent);
-      const goal = Number(body.goal);
+      // Monthly and one-time giving: up to three amounts each, every amount
+      // with its own payment link.
+      const clean = (list) => (Array.isArray(list) ? list : []).slice(0, 3)
+        .map((l) => ({ amount: Math.round(Number(l && l.amount) * 100) / 100, url: clip(l && l.url, 300) }))
+        .filter((l) => l.url && Number.isFinite(l.amount) && l.amount >= 1 && l.amount <= 1000);
+      const monthly = clean(body.monthly), once = clean(body.once);
+      if ([...monthly, ...once].some((l) => !/^https:\/\/[^\s]+$/.test(l.url))) return json(400, { error: "Each link must start with https://" });
+      // What the page promises about the money: the card fee, the share kept
+      // to run the app, who gets the rest, and how much has been passed on.
+      const num = (v, lo, hi) => { const n = Number(v); return String(v ?? "").trim() !== "" && Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+      const fee = num(body.fee, 0, 30), procPct = num(body.procPct, 0, 10), procFixed = num(body.procFixed, 0, 2);
+      const sent = Number(body.sent), goal = Number(body.goal);
       const give = {
-        links,
-        fee: Number.isFinite(fee) && fee >= 0 && fee <= 30 && String(body.fee).trim() !== "" ? Math.round(fee * 10) / 10 : null,
+        monthly, once,
+        fee: fee === null ? null : Math.round(fee * 10) / 10,
+        procPct: procPct === null ? 2.9 : procPct,
+        procFixed: procFixed === null ? 0.3 : procFixed,
         recipient: clip(body.recipient, 160),
         sent: Number.isFinite(sent) && sent >= 0 ? Math.round(sent * 100) / 100 : 0,
         sentAsOf: /^\d{4}-\d{2}-\d{2}$/.test(body.sentAsOf || "") ? body.sentAsOf : "",
         goal: Number.isFinite(goal) && goal > 0 ? Math.round(goal) : 0,
         at: Date.now(),
       };
-      if (!links.length && !give.recipient && give.fee === null) { await settings.delete("donate"); return json(200, { ok: true, donate: null }); }
+      const any = monthly.length + once.length;
+      if (!any && !give.recipient && give.fee === null) { await settings.delete("donate"); return json(200, { ok: true, donate: null }); }
       await settings.set("donate", give);
-      return json(200, { ok: true, donate: give, showing: !!(links.length && give.recipient && give.fee !== null) });
+      return json(200, { ok: true, donate: give, showing: !!(any && give.recipient && give.fee !== null) });
     }
     if (body.action === "pin") {
       if (!isAdmin(event)) return json(401, { error: "unauthorized" });

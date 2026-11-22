@@ -3937,9 +3937,13 @@
     // there was no old version, and reloading would wipe whatever the parent
     // was in the middle of (it reset student setup).
     const hadController = !!navigator.serviceWorker.controller;
-    let reloaded = false;
+    let reloaded = false, takeovers = 0;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloaded || !hadController) return;
+      takeovers++;
+      // A first visit has one takeover that is not an update: the offline
+      // helper starting up. Every takeover after that is a new release, and
+      // a first-visit phone left open must move to it like any other.
+      if (reloaded || (!hadController && takeovers === 1)) return;
       // Don't yank a sheet out from under someone mid-task; wait until it closes.
       if (!$("sheet").hidden) { pendingReload = true; return; }
       reloaded = true;

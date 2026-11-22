@@ -106,7 +106,7 @@ async function overflow(page) {
     await page.locator('.tab[data-tab="school"]').click();
     await page.waitForTimeout(1500);
     for (const action of ["absence", "handbook", "clubs", "forms"]) {
-      await page.locator(`[data-action="${action}"]`).first().click();
+      await page.locator(`#view-school [data-action="${action}"]`).first().click();
       await page.locator("#sheetBody .loading").waitFor({ state: "detached", timeout: 10000 }).catch(() => {});
       const text = (await page.locator("#sheetBody").innerText()).trim();
       check(`School: ${action} sheet has content`, text.length > 40 && !/Couldn't load/.test(text), text.slice(0, 80));

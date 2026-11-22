@@ -262,7 +262,7 @@ function reply(body, stale) {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "public, max-age=300",
-      "Netlify-CDN-Cache-Control": stale ? "public, s-maxage=120" : cdnFor(body, "public, s-maxage=1800, stale-while-revalidate=600"),
+      "Netlify-CDN-Cache-Control": stale ? "public, s-maxage=120" : cdnFor(body, "public, durable, s-maxage=1800, stale-while-revalidate=600"),
     },
     body,
   };

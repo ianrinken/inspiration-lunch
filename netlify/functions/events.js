@@ -529,12 +529,12 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const JSON_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
   "Cache-Control": "public, max-age=300",
-  "Netlify-CDN-Cache-Control": "public, s-maxage=1800, stale-while-revalidate=600",
+  "Netlify-CDN-Cache-Control": "public, durable, s-maxage=1800, stale-while-revalidate=600",
 };
 const ICS_FEED_HEADERS = {
   "Content-Type": "text/calendar; charset=utf-8",
   "Cache-Control": "public, max-age=1800",
-  "Netlify-CDN-Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
+  "Netlify-CDN-Cache-Control": "public, durable, s-maxage=1800, stale-while-revalidate=86400",
 };
 
 // Calendar subscriptions live at /feed/<id>/calendar.ics (netlify.toml

@@ -16,6 +16,7 @@
 const crypto = require("crypto");
 const { openStore } = require("./lib/store.js");
 const { overLimit, tooMany } = require("./lib/limit.js");
+const { addVisit, addSponsorTap, readDay } = require("./lib/usage.js");
 
 const SCHOOLS = new Set(Object.keys(require("../../data.js").SCHOOLS));
 const json = (statusCode, body) => ({ statusCode, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }, body: JSON.stringify(body) });
@@ -43,7 +44,7 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers: { "Content-Type": "application/json", "Content-Disposition": `attachment; filename="sfp-backup-${latest}.json"`, "Cache-Control": "no-store" }, body: JSON.stringify(await b.get(latest)) };
     }
     const days = Math.min(120, Number((event.queryStringParameters || {}).days) || 30);
-    const reportsStore = openStore("reports"), usageStore = openStore("usage");
+    const reportsStore = openStore("reports");
     const keys = (await reportsStore.list()).sort().reverse().slice(0, 200);
     const reports = (await Promise.all(keys.map((k) => reportsStore.get(k)))).filter(Boolean);
     const usage = [];
@@ -51,7 +52,7 @@ exports.handler = async (event) => {
     const missStore = openStore("misses");
     for (let i = 0; i < days; i++) {
       const d = new Date(Date.now() - i * 864e5).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
-      const [u, m] = await Promise.all([usageStore.get(d), missStore.get(d)]);
+      const [u, m] = await Promise.all([readDay(d), missStore.get(d)]);
       if (u) usage.push({ day: d, ...u });
       for (const [q, n] of Object.entries(m || {})) misses[q] = (misses[q] || 0) + n;
     }
@@ -81,15 +82,9 @@ exports.handler = async (event) => {
     }
     if (body.action === "ping") {
       if (await overLimit(event, "ping", 300, 24 * 60)) return json(200, { ok: true });
-      const store = openStore("usage");
-      const day = centralDay();
-      const u = (await store.get(day)) || { phones: 0, installed: 0, bySchool: {} };
       // A first look at a school with no student yet is a look, not a set-up phone.
-      if (body.preview === true) { u.previews = (u.previews || 0) + 1; await store.set(day, u); return json(200, { ok: true }); }
-      u.phones++;
-      if (body.installed) u.installed++;
-      for (const s of (Array.isArray(body.schools) ? body.schools : []).slice(0, 8)) if (SCHOOLS.has(s)) u.bySchool[s] = (u.bySchool[s] || 0) + 1;
-      await store.set(day, u);
+      const schools = [...new Set((Array.isArray(body.schools) ? body.schools : []).slice(0, 8).filter((s) => SCHOOLS.has(s)))];
+      await addVisit(centralDay(), { preview: body.preview === true, installed: !!body.installed, schools });
       return json(200, { ok: true });
     }
     if (body.action === "miss") {
@@ -148,13 +143,7 @@ exports.handler = async (event) => {
     // A tap on the sponsor's link: a number per day, nothing about who.
     if (body.action === "sponsor-click") {
       if (await overLimit(event, "sponsor-click", 30, 60)) return json(200, { ok: true });
-      const store = openStore("usage");
-      const day = centralDay();
-      const u = (await store.get(day)) || { phones: 0, installed: 0, bySchool: {} };
-      const tab = SPONSOR_TABS.includes(body.tab) ? body.tab : "today";
-      if (typeof u.sponsorClicks !== "object" || !u.sponsorClicks) u.sponsorClicks = {};
-      u.sponsorClicks[tab] = (u.sponsorClicks[tab] || 0) + 1;
-      await store.set(day, u);
+      await addSponsorTap(centralDay(), SPONSOR_TABS.includes(body.tab) ? body.tab : "today");
       return json(200, { ok: true });
     }
     if (body.action === "lead-done") {

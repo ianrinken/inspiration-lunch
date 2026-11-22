@@ -43,7 +43,7 @@ exports.handler = async (event) => {
     }
   }
   body = await withSpanish(event, body, "weather");
-  return { statusCode: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600", "Netlify-CDN-Cache-Control": cdnFor(body, "public, s-maxage=1200") }, body };
+  return { statusCode: 200, headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=600", "Netlify-CDN-Cache-Control": cdnFor(body, "public, durable, s-maxage=1200, stale-while-revalidate=600") }, body };
 };
 
 exports._internals = { feelsLike };

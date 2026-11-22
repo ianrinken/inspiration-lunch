@@ -4,6 +4,7 @@
  *  2. Retention: deletes family codes unused for 12 months, reports older
  *     than 6 months, and spent request counters, as the privacy page says. */
 const { openStore, connect } = require("./lib/store.js");
+const { rollUp } = require("./lib/usage.js");
 
 const DAY = 864e5;
 const dump = async (name) => {
@@ -41,11 +42,15 @@ async function runBackup() {
     if (at && now - at > 182 * DAY) { await misses.delete(key); removed.misses++; }
   }
   const limits = openStore("limits");
-  for (const key of await limits.list()) {
-    const rec = await limits.get(key);
-    if (!rec || now - (rec.at || 0) > 2 * DAY) { await limits.delete(key); removed.limits++; }
+  const limitKeys = await limits.list();
+  for (let i = 0; i < limitKeys.length; i += 40) {
+    await Promise.all(limitKeys.slice(i, i + 40).map(async (key) => {
+      const rec = await limits.get(key);
+      if (!rec || now - (rec.at || 0) > 2 * DAY) { await limits.delete(key); removed.limits++; }
+    }));
   }
-  return { day, families: Object.keys(snapshot.family).length, subscriptions: Object.keys(snapshot.push).length, removed };
+  const rolled = await rollUp(now).catch((err) => ({ error: err.message }));
+  return { day, rolled, families: Object.keys(snapshot.family).length, subscriptions: Object.keys(snapshot.push).length, removed };
 }
 
 exports.handler = async (event) => {

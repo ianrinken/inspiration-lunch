@@ -265,7 +265,7 @@ async function passDoc(url) {
       "Content-Type": "application/pdf",
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "public, max-age=3600",
-      "Netlify-CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+      "Netlify-CDN-Cache-Control": "public, durable, s-maxage=86400, stale-while-revalidate=604800",
     },
     isBase64Encoded: true,
     body: buf.toString("base64"),
@@ -310,7 +310,7 @@ exports.handler = async (event) => {
       "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "public, max-age=60",
-      "Netlify-CDN-Cache-Control": stale ? "public, s-maxage=60" : cdnFor(body, `public, s-maxage=${cdn}, stale-while-revalidate=300`),
+      "Netlify-CDN-Cache-Control": stale ? "public, s-maxage=60" : cdnFor(body, `public, durable, s-maxage=${cdn}, stale-while-revalidate=300`),
     },
     body,
   };

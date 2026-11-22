@@ -5,16 +5,17 @@
 const { connect, openStore } = require("./lib/store.js");
 const { load } = require("./lib/sources.js");
 const { sendOwnerEmail } = require("./lib/mail.js");
+const { readDay } = require("./lib/usage.js");
 
 const day = (ms) => new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 
 async function buildWeekly(now = Date.now()) {
   const days = [...Array(7)].map((_, i) => day(now - (i + 1) * 864e5));
-  const usage = openStore("usage"), misses = openStore("misses"), reports = openStore("reports");
+  const misses = openStore("misses"), reports = openStore("reports");
   let phoneDays = 0, peak = 0, installed = 0;
   const bySchool = {}, missed = {};
   for (const d of days) {
-    const [u, m] = await Promise.all([usage.get(d), misses.get(d)]);
+    const [u, m] = await Promise.all([readDay(d), misses.get(d)]);
     if (u) {
       phoneDays += u.phones; peak = Math.max(peak, u.phones); installed = Math.max(installed, u.installed || 0);
       for (const [s, n] of Object.entries(u.bySchool || {})) bySchool[s] = (bySchool[s] || 0) + n;

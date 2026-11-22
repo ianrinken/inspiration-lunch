@@ -130,6 +130,37 @@ test("request limits block floods, per address", async () => {
   assert.ok(!stored.includes("203.0.113"), "no raw IP addresses stored");
 });
 
+test("visit counts: sixty visits at once are all counted, and a nightly roll-up never double counts", async () => {
+  const usage = require(path.join(ROOT, "netlify/functions/lib/usage.js"));
+  const { openStore } = require(path.join(ROOT, "netlify/functions/lib/store.js"));
+  const day = "2026-01-15";
+  // counts saved the old way for the same day still count
+  await openStore("usage").set(day, { phones: 5, installed: 1, bySchool: { bvhs: 5 }, previews: 2 });
+  await Promise.all([...Array(60)].map((_, i) => usage.addVisit(day, { installed: i % 3 === 0, schools: i % 2 ? ["bvhs"] : ["ies", "bvms"] })));
+  await Promise.all([...Array(7)].map(() => usage.addVisit(day, { preview: true })));
+  await usage.addSponsorTap(day, "lunch");
+  const live = await usage.readDay(day);
+  assert.strictEqual(live.phones, 65);
+  assert.strictEqual(live.installed, 21);
+  assert.strictEqual(live.previews, 9);
+  assert.deepStrictEqual(live.bySchool, { bvhs: 35, ies: 30, bvms: 30 });
+  assert.deepStrictEqual(live.sponsorClicks, { lunch: 1 });
+  const first = await usage.rollUp(Date.parse("2026-01-16T18:00:00Z"));
+  assert.strictEqual(first.records, 68);
+  assert.strictEqual((await openStore("visits").list(`${day}/`)).length, 0, "records are removed once rolled up");
+  assert.deepStrictEqual(await usage.readDay(day), live, "same totals after the roll-up");
+  // a roll-up that was cut off before it finished removing records must not add them again
+  await usage.addVisit(day, { schools: ["bvhs"] });
+  await usage.rollUp(Date.parse("2026-01-17T18:00:00Z"));
+  assert.strictEqual((await usage.readDay(day)).phones, 65);
+  // today is never rolled up while visits are still arriving
+  const today = usage.centralDay();
+  await usage.addVisit(today, { schools: ["bvhs"] });
+  await usage.rollUp();
+  assert.strictEqual((await openStore("visits").list(`${today}/`)).length, 1);
+  assert.strictEqual(await usage.readDay("2020-02-02"), null);
+});
+
 test("health: email only after three failures in a row, then on recovery", async () => {
   const sent = [];
   const mail = require(path.join(ROOT, "netlify/functions/lib/mail.js"));

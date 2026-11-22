@@ -22,7 +22,7 @@ exports.handler = async (event) => {
   const giveLive = !!((give.page || give.monthly.length + give.once.length) && give.recipient && give.fee !== null);
   return {
     statusCode: 200,
-    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=120", "Netlify-CDN-Cache-Control": "public, s-maxage=60" },
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=120", "Netlify-CDN-Cache-Control": "public, durable, s-maxage=60, stale-while-revalidate=120" },
     // answers: the district's own answers to common questions, for search.
     body: JSON.stringify({ ...(status || { at: null, bound: {}, docs: {} }), pin: live, sponsors, donate: giveLive ? give : null, sponsorInquiries: !!(DISTRICT.sponsorInquiries || process.env.SPONSOR_INQUIRIES === "1"), answers: (answers || []).map(({ id, q, a, link, qEs, aEs }) => ({ id, q, a, link, qEs, aEs })) }),
   };

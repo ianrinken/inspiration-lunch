@@ -277,7 +277,7 @@
   // family code exists so the setup can be restored if it's cleared anyway.
   function keepData() {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-    if (kids.length && !family) ensureFamily().catch(() => {});
+    if (kids.some((k) => !k.preview) && !family) ensureFamily().catch(() => {});
   }
   // Notifications arrive with student ids only; the service worker reads
   // the names from this phone-only cache.
@@ -1082,12 +1082,15 @@
     void dayRef;
     $("weatherStrip").hidden = false;
   }
-  let weatherCache = null;
+  let weatherCache = null, weatherPending = null;
   async function getWeather() {
     if (weatherCache && Date.now() - weatherCache.at < 20 * 60e3) return weatherCache.data;
-    const data = await getJson("/.netlify/functions/weather");
-    weatherCache = { at: Date.now(), data };
-    return data;
+    if (!weatherPending) {
+      weatherPending = getJson("/.netlify/functions/weather")
+        .then((data) => { weatherCache = { at: Date.now(), data }; return data; })
+        .finally(() => { weatherPending = null; });
+    }
+    return weatherPending;
   }
 
   // District alerts that change a school day: "2-hour late start Friday",

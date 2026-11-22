@@ -6,7 +6,7 @@
     if (s && s.sponsorInquiries) {
       document.getElementById("sponsorCard").hidden = false;
       document.getElementById("sponsorNote").hidden = false;
-      document.getElementById("supportLede").textContent = "A Brandon Valley parent built this app and keeps it running. Here is how to help provide lunches across the district, and how a local business can sponsor the app.";
+      document.getElementById("supportLede").textContent = "A Brandon Valley parent built this app and keeps it running. Here is how to help feed kids in the Brandon Valley community, and how a local business can sponsor the app.";
     }
     // Which screens are still open, worked out from what is showing now.
     const names = { today: "Today", lunch: "Lunch", calendar: "Calendar", guide: "Guide", school: "School" };
@@ -36,7 +36,7 @@
       // giving page's own processing fee, which the giver can choose to cover.
       bubble.innerHTML = give.fee > 0
         ? `<p><b>${100 - give.fee}%</b> goes to student lunches</p><p><b>${give.fee}%</b> runs this app</p>`
-        : `<p><b>This app keeps none of your gift.</b></p><p>Processing fees come out unless you cover them at checkout. The rest goes to student lunches.</p>`;
+        : `<p><b>This app keeps none of your gift.</b></p><p>Processing fees come out unless you cover them at checkout.</p><p>${esc(give.plan || "The rest goes to student lunches.")}</p>`;
       info.hidden = false;
       const setOpen = (open) => { bubble.classList.toggle("open", open); info.setAttribute("aria-expanded", String(open)); };
       info.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!bubble.classList.contains("open")); });
@@ -83,7 +83,7 @@
 
   // Sharing the fund is how it reaches the next family.
   document.getElementById("giveShare").addEventListener("click", (e) => {
-    const text = "Chip in for a Brandon Valley student's lunch";
+    const text = "Give to the Brandon Valley Lunch Fund and help feed kids in the Brandon Valley community";
     const url = "https://brandonvalleylunch.com/support.html";
     if (navigator.share) navigator.share({ text, url }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(`${text}\n${url}`).then(() => { e.target.textContent = "Copied. Paste it into a text or post."; }, () => {});

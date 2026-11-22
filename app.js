@@ -791,7 +791,7 @@
     if (demo || !give) { for (const box of boxes) box.innerHTML = ""; return; }
     const seen = !!store.get(FUND_SEEN_KEY, 0);
     const money = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
-    const sub = give.raised && give.goal ? t("{sent} of {goal} raised so far", { sent: money(give.raised), goal: money(give.goal) }) : give.raised ? t("{sent} raised so far", { sent: money(give.raised) }) : t("Help cover a lunch for a Brandon Valley student");
+    const sub = give.raised && give.goal ? t("{sent} of {goal} raised so far", { sent: money(give.raised), goal: money(give.goal) }) : give.raised ? t("{sent} raised so far", { sent: money(give.raised) }) : t("Help feed kids in the Brandon Valley community");
     const row = (isNew) => `<a class="sponsor-row fund-row${isNew ? " is-new" : ""}" href="/support.html"><span class="sponsor-text"><b>${isNew ? `<span class="new-tag">${t("New")}</span> ` : ""}${t("Chip in for a student's lunch")}</b><span class="sub">${esc(sub)}</span></span>${CHEVRON}</a>`;
     for (const box of boxes) {
       const where = box.dataset.fund;

@@ -134,7 +134,7 @@
     "Grades {list}": "Grados {list}",
     "Sponsored by": "Patrocinado por",
     "Chip in for a student's lunch": "Ayude con el almuerzo de un estudiante",
-    "Help cover a lunch for a Brandon Valley student": "Ayude a cubrir un almuerzo para un estudiante de Brandon Valley",
+    "Help feed kids in the Brandon Valley community": "Ayude a alimentar a los niños de la comunidad de Brandon Valley",
     "New": "Nuevo",
     "{sent} raised so far": "{sent} recaudados hasta ahora",
     "{sent} of {goal} raised so far": "{sent} de {goal} recaudados hasta ahora",

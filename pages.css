@@ -57,5 +57,6 @@ body.page { background: var(--bg); color: var(--text); }
 .support .split-bubble::before { content: ""; position: absolute; right: 14px; top: -8px; border: 8px solid transparent; border-top: 0; border-bottom-color: var(--surface-2); }
 .support .split-bubble.open { display: block; }
 @media (hover: hover) { .support .info-btn:hover + .split-bubble { display: block; } }
-.support .split-bubble p { margin: 0; line-height: 1.5; font-weight: 600; }
+.support .split-bubble p { margin: 0; line-height: 1.5; font-weight: 500; }
+.support .split-bubble p + p { margin-top: 4px; }
 .support .split-bubble b { font-weight: 800; }

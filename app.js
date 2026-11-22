@@ -702,6 +702,7 @@
   function renderWelcome() {
     const promise = (icon, title, sub) => `<li>${icon}<span><b>${title}</b><span>${sub}</span></span></li>`;
     $("view-today").innerHTML = `
+      <div data-fund="welcome"></div>
       <div class="welcome card">
         <div class="welcome-top">${langToggle("lang-pill")}</div>
         <h2>${t("Know what's happening at school for each of your kids, every day")}</h2>
@@ -725,6 +726,7 @@
         </div>
         <p class="privacy-note">${t("Takes about a minute.")}</p>
       </div>`;
+    fillFund();
   }
   // Each label is in its own language, so a parent can always find it.
   function langToggle(cls) {
@@ -746,6 +748,7 @@
       ${finishSetupHtml()}
       ${activitiesCheckHtml()}
       <div id="changedBox"></div>
+      <div data-fund="top"></div>
       ${hintHtml("today")}
       ${addStudentNudgeHtml()}
       <section class="answer" aria-live="polite">
@@ -756,6 +759,7 @@
         ${tasksHtml()}
         ${kids.map((k) => `<article class="kid-sum" style="${kidStyle(k)}" data-kidcard="${esc(k.id)}">${kidHead(k)}<p class="loading">${t("Loading {name}'s day", { name: esc(kidName(k)) })}</p></article>`).join("")}
       </section>
+      <div data-fund="below"></div>
       ${sponsorSlot("today")}
       ${askBoxHtml()}
       ${seasonHtml(td)}
@@ -764,6 +768,7 @@
       <button class="link-btn add-another" data-action="add-kid">${t("Add another student")}</button>`;
     fillWeather(kids.find((k) => !k.graduated), token);
     fillSponsors();
+    fillFund();
     await Promise.all([...new Set(kids.filter(isHigh).map((k) => k.school))].filter((sc) => !clubCount[sc]).map((sc) => getSchool(sc, "clubs").then((c) => { clubCount[sc] = c.groups.reduce((n, g) => n + g.items.length, 0); }).catch(() => {})));
     const results = await Promise.all(kids.map((k) => fillKidCard(k, token)));
     if (token !== tokens.today) return;
@@ -773,16 +778,28 @@
     renderChanged(results.filter(Boolean), token);
   }
 
-  // The student lunch fund, once the owner has set it up: one row under the
-  // week's menu that opens the support page.
+  // The lunch fund, once it is live: one row that opens the support page.
+  // Until a parent has opened it, the row sits at the top of Today with a
+  // "New" tag; after that it rests under the students' cards. It is always
+  // on the Lunch tab and on the welcome screen.
+  const FUND_SEEN_KEY = "sfp-fund-seen";
   async function fillFund() {
+    const boxes = [...document.querySelectorAll("[data-fund]")];
+    if (!boxes.length) return;
     const status = await getStatus().catch(() => null);
-    const box = $("fundBox");
     const give = status && status.donate;
-    if (!box || demo || !give) return;
+    if (demo || !give) { for (const box of boxes) box.innerHTML = ""; return; }
+    const seen = !!store.get(FUND_SEEN_KEY, 0);
     const money = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
-    const sub = give.goal ? t("{sent} of {goal} raised so far", { sent: money(give.raised), goal: money(give.goal) }) : give.raised ? t("{sent} raised so far", { sent: money(give.raised) }) : t("Help cover a lunch for a Brandon Valley student");
-    box.innerHTML = `<a class="sponsor-row fund-row" href="/support.html"><span class="sponsor-text"><b>${t("Chip in for a student's lunch")}</b><span class="sub">${esc(sub)}</span></span>${CHEVRON}</a>`;
+    const sub = give.raised && give.goal ? t("{sent} of {goal} raised so far", { sent: money(give.raised), goal: money(give.goal) }) : give.raised ? t("{sent} raised so far", { sent: money(give.raised) }) : t("Help cover a lunch for a Brandon Valley student");
+    const row = (isNew) => `<a class="sponsor-row fund-row${isNew ? " is-new" : ""}" href="/support.html"><span class="sponsor-text"><b>${isNew ? `<span class="new-tag">${t("New")}</span> ` : ""}${t("Chip in for a student's lunch")}</b><span class="sub">${esc(sub)}</span></span>${CHEVRON}</a>`;
+    for (const box of boxes) {
+      const where = box.dataset.fund;
+      const show = where === "top" ? !seen : where === "below" ? seen : true;
+      box.innerHTML = show ? row(!seen && where !== "lunch") : "";
+      const a = box.querySelector("a");
+      if (a) a.addEventListener("click", () => store.set(FUND_SEEN_KEY, 1));
+    }
   }
 
   // One sponsor per tab, set by the owner: a name and a link in a quiet row.
@@ -1585,7 +1602,7 @@
     const days = [0, 1, 2, 3, 4].map((i) => addDays(week, i));
     v.innerHTML = `
       ${hintHtml("lunch")}
-      <div id="fundBox"></div>
+      <div id="fundBox" data-fund="lunch"></div>
       ${sponsorSlot("lunch")}
       <div class="pager">
         <button class="pager-btn" data-week="-1" aria-label="${t("Previous week")}">${PREV}</button>

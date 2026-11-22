@@ -2,6 +2,12 @@
  * link, and sends a sponsorship question to the owner's inbox. */
 (() => {
   fetch("/.netlify/functions/status").then((r) => r.json()).then((s) => {
+    // The sponsor form shows only once sponsorships are open.
+    if (s && s.sponsorInquiries) {
+      document.getElementById("sponsorCard").hidden = false;
+      document.getElementById("sponsorNote").hidden = false;
+      document.getElementById("supportLede").textContent = "A Brandon Valley parent built this app and keeps it running. Here is how to help provide lunches across the district, and how a local business can sponsor the app.";
+    }
     // Which screens are still open, worked out from what is showing now.
     const names = { today: "Today", lunch: "Lunch", calendar: "Calendar", guide: "Guide", school: "School" };
     const taken = (s && s.sponsors) || {};

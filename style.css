@@ -502,6 +502,9 @@ button.row:hover .row-v b, button.row:focus-visible .row-v b { text-decoration: 
 .sponsor-text b { font-weight: 800; color: var(--navy-2); font-size: 1.02rem; }
 .sponsor-text .sub { color: var(--text-soft); font-size: .88rem; }
 #fundBox:not(:empty) { margin: 2px 0 14px; }
+[data-fund="top"]:not(:empty), [data-fund="below"]:not(:empty), [data-fund="welcome"]:not(:empty) { margin: 0 0 14px; }
+.fund-row.is-new { border-color: var(--navy-2); border-width: 2px; }
+.fund-row .new-tag { display: inline-block; margin-right: 8px; padding: 2px 8px; border-radius: 999px; background: var(--navy-2); color: #fff; font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; vertical-align: 2px; }
 .sponsor-open { display: flex; align-items: center; justify-content: center; min-height: 44px; color: var(--text-soft); font-size: .86rem; font-weight: 600; text-decoration: underline; }
 .footer-schools { margin-top: 10px; line-height: 1.8; }
 .footer-schools a { color: var(--text-soft); font-weight: 600; text-decoration: underline; white-space: nowrap; }

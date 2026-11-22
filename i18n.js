@@ -135,6 +135,7 @@
     "Sponsored by": "Patrocinado por",
     "Chip in for a student's lunch": "Ayude con el almuerzo de un estudiante",
     "Help cover a lunch for a Brandon Valley student": "Ayude a cubrir un almuerzo para un estudiante de Brandon Valley",
+    "New": "Nuevo",
     "{sent} raised so far": "{sent} recaudados hasta ahora",
     "{sent} of {goal} raised so far": "{sent} de {goal} recaudados hasta ahora",
     "Your business could sponsor this app": "Su negocio podría patrocinar esta aplicación",

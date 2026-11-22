@@ -16,6 +16,12 @@
   const DISTRICT = {
     name: "Brandon Valley School District",
     short: "Brandon Valley",
+    // The lunch fund: one giving page where the giver picks the amount and
+    // whether it repeats. `fee` is the share the app keeps, in percent.
+    // `live` turns the giving rows and the support card on everywhere.
+    fund: { live: false, page: "https://givebutter.com/brandonvalleylunch", recipient: "the Brandon Valley School District, toward student lunches", fee: 10 },
+    // The sponsor question form on the support page stays hidden until true.
+    sponsorInquiries: false,
     site: SITE,
     linqDistrict: "b1d7358a-818b-ec11-90c7-d2d97b40e955",
     bound: "brandonvalley",

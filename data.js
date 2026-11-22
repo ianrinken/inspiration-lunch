@@ -19,7 +19,7 @@
     // The lunch fund: one giving page where the giver picks the amount and
     // whether it repeats. `fee` is the share the app keeps, in percent.
     // `live` turns the giving rows and the support card on everywhere.
-    fund: { live: false, page: "https://givebutter.com/brandonvalleylunch", recipient: "the Brandon Valley School District, toward student lunches", fee: 0 },
+    fund: { live: true, page: "https://givebutter.com/brandonvalleylunch", recipient: "the Brandon Valley School District, toward student lunches", fee: 0 },
     // The sponsor question form on the support page stays hidden until true.
     sponsorInquiries: false,
     site: SITE,

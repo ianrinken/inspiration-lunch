@@ -806,11 +806,11 @@
     }
     const money = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
     const sub = give.raised && give.goal ? t("{sent} of {goal} raised so far", { sent: money(give.raised), goal: money(give.goal) }) : give.raised ? t("{sent} raised so far", { sent: money(give.raised) }) : t("Every gift goes to the Brandon Area Food Pantry");
+    // One tap goes straight to where the gift is made. Our own giving page
+    // (/give) stays for people who arrive from a post.
+    const href = give.page || "/support.html";
     for (const box of boxes) {
-      // the giving page's tab bar brings them back to the tab they left
-      const view = box.closest(".view");
-      const from = view && kids.length ? view.dataset.view : "";
-      box.innerHTML = `<a class="sponsor-row fund-row${seen ? " is-quiet" : " is-new"}" href="/support.html${from ? `?from=${from}` : ""}"><span class="sponsor-text"><b>${seen ? "" : `<span class="new-tag">${t("New")}</span> `}${t("Help feed Brandon families this holiday season")}</b>${seen ? "" : `<span class="sub">${esc(sub)}</span>`}</span>${CHEVRON}</a>`;
+      box.innerHTML = `<a class="sponsor-row fund-row${seen ? " is-quiet" : " is-new"}" href="${esc(href)}"><span class="sponsor-text"><b>${seen ? "" : `<span class="new-tag">${t("New")}</span> `}${t("Help feed Brandon families this holiday season")}</b>${seen ? "" : `<span class="sub">${esc(sub)}</span>`}</span>${CHEVRON}</a>`;
       box.querySelector("a").addEventListener("click", () => store.set(FUND_SEEN_KEY, 1));
     }
   }

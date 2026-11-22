@@ -79,3 +79,6 @@ body.page { background: var(--bg); color: var(--text); }
 .support #giveFormHelp { margin: 14px 0 0; text-align: center; }
 .support #giveFormHelp a { color: var(--navy-2); font-weight: 700; }
 .support givebutter-widget { display: block; max-width: 100%; }
+/* A way back from the giving page. */
+.support .back-link { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: -4px 0 2px -6px; padding: 0 10px 0 2px; color: var(--navy-2); font-weight: 700; text-decoration: none; }
+.support .back-link svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }

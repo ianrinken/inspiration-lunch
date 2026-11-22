@@ -767,7 +767,6 @@
         ${tasksHtml()}
         ${kids.map((k) => `<article class="kid-sum" style="${kidStyle(k)}" data-kidcard="${esc(k.id)}">${kidHead(k)}<p class="loading">${t("Loading {name}'s day", { name: esc(kidName(k)) })}</p></article>`).join("")}
       </section>
-      <div data-fund="below"></div>
       ${sponsorSlot("today")}
       ${askBoxHtml()}
       ${seasonHtml(td)}
@@ -786,10 +785,10 @@
     renderChanged(results.filter(Boolean), token);
   }
 
-  // The lunch fund, once it is live: one row that opens the support page.
-  // Until a parent has opened it, the row sits at the top of Today with a
-  // "New" tag; after that it rests under the students' cards. It is always
-  // on the Lunch tab and on the welcome screen.
+  // The fund's banner, once it is live: one row near the top of every tab
+  // and on the welcome screen, opening the giving page. It carries a "New"
+  // tag and a second line until a parent has opened it once; after that it
+  // stays, as a single quiet line.
   const FUND_SEEN_KEY = "sfp-fund-seen";
   async function fillFund() {
     const boxes = [...document.querySelectorAll("[data-fund]")];
@@ -798,22 +797,21 @@
     const give = status && status.donate;
     if (demo || !give) { for (const box of boxes) box.innerHTML = ""; return; }
     const seen = !!store.get(FUND_SEEN_KEY, 0);
-    // Straight back from giving: thank them where the giving row would be,
-    // and point a newcomer at the one thing to do next.
+    // Straight back from giving: thank them where the banner would be, and
+    // point a newcomer at the one thing to do next.
     if (justGave) {
       const next = kids.length ? "" : `<span class="sub">${t("While you are here, pick your school below to see its lunch menu and games.")}</span>`;
-      for (const box of boxes) box.innerHTML = box.dataset.fund === "top" || box.dataset.fund === "welcome" ? `<div class="fund-thanks" role="status"><b>${t("Thank you for your gift.")}</b><span class="sub">${esc(t("It goes to {who}.", { who: give.recipient }))}</span>${next}</div>` : "";
+      for (const box of boxes) box.innerHTML = `<div class="fund-thanks" role="status"><b>${t("Thank you for your gift.")}</b><span class="sub">${esc(t("It goes to {who}.", { who: give.recipient }))}</span>${next}</div>`;
       return;
     }
     const money = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
     const sub = give.raised && give.goal ? t("{sent} of {goal} raised so far", { sent: money(give.raised), goal: money(give.goal) }) : give.raised ? t("{sent} raised so far", { sent: money(give.raised) }) : t("Every gift goes to the Brandon Area Food Pantry");
-    const row = (isNew) => `<a class="sponsor-row fund-row${isNew ? " is-new" : ""}" href="/support.html"><span class="sponsor-text"><b>${isNew ? `<span class="new-tag">${t("New")}</span> ` : ""}${t("Help feed Brandon families this holiday season")}</b><span class="sub">${esc(sub)}</span></span>${CHEVRON}</a>`;
     for (const box of boxes) {
-      const where = box.dataset.fund;
-      const show = where === "top" ? !seen : where === "below" ? seen : true;
-      box.innerHTML = show ? row(!seen && where !== "lunch") : "";
-      const a = box.querySelector("a");
-      if (a) a.addEventListener("click", () => store.set(FUND_SEEN_KEY, 1));
+      // the giving page's tab bar brings them back to the tab they left
+      const view = box.closest(".view");
+      const from = view && kids.length ? view.dataset.view : "";
+      box.innerHTML = `<a class="sponsor-row fund-row${seen ? " is-quiet" : " is-new"}" href="/support.html${from ? `?from=${from}` : ""}"><span class="sponsor-text"><b>${seen ? "" : `<span class="new-tag">${t("New")}</span> `}${t("Help feed Brandon families this holiday season")}</b>${seen ? "" : `<span class="sub">${esc(sub)}</span>`}</span>${CHEVRON}</a>`;
+      box.querySelector("a").addEventListener("click", () => store.set(FUND_SEEN_KEY, 1));
     }
   }
 
@@ -821,6 +819,7 @@
   // No ad network, nothing tracked; a tap adds one to that day's count.
   const sponsorSlot = (tab) => `<div class="sponsor-slot" data-slot="${tab}"></div>`;
   async function fillSponsors() {
+    fillFund();
     const status = await getStatus().catch(() => null);
     const all = (status && status.sponsors) || {};
     for (const box of document.querySelectorAll(".sponsor-slot")) {
@@ -1620,7 +1619,7 @@
     const days = [0, 1, 2, 3, 4].map((i) => addDays(week, i));
     v.innerHTML = `
       ${hintHtml("lunch")}
-      <div id="fundBox" data-fund="lunch"></div>
+      <div data-fund="top"></div>
       ${sponsorSlot("lunch")}
       <div class="pager">
         <button class="pager-btn" data-week="-1" aria-label="${t("Previous week")}">${PREV}</button>
@@ -1630,7 +1629,10 @@
       <div id="lunchDays" class="view"><p class="loading">${t("Loading menu")}</p></div>`;
     // The answer first, like the Brandon Valley app: the next lunch this
     // student will eat, big, with a peek at the one after.
-    v.insertAdjacentHTML("afterbegin", `<div id="lunchHero"></div>`);
+    // The next-lunch card goes right under the giving banner, which stays first.
+    const fundTop = v.querySelector("[data-fund]");
+    if (fundTop) fundTop.insertAdjacentHTML("afterend", `<div id="lunchHero"></div>`);
+    else v.insertAdjacentHTML("afterbegin", `<div id="lunchHero"></div>`);
     fillSponsors();
     fillFund();
     fillLunchHero(kid, token);
@@ -1772,6 +1774,7 @@
     const start = monthStart(key), end = monthEnd(key);
     v.innerHTML = `
       ${hintHtml("calendar", { name: kidName(kid), school: SCHOOLS[kid.school].short })}
+      <div data-fund="top"></div>
       <div class="seg" role="group" aria-label="${t("Whose events")}">
         <button data-calmode="mine" aria-pressed="${calMode === "mine"}">${t("For {name}", { name: esc(kidName(kid)) })}</button>
         <button data-calmode="all" aria-pressed="${calMode === "all"}">${t("All of {school}", { school: esc(SCHOOLS[kid.school].short) })}</button>
@@ -1893,6 +1896,7 @@
       : `<a class="link-btn" href="${esc(linkFor(l))}" target="_blank" rel="noopener">${label}${outIcon()}</a>`);
     v.innerHTML = `
       ${hintHtml("guide")}
+      <div data-fund="top"></div>
       <div><h2 class="view-title">${esc(ge ? ge.headline : g.headline)}</h2><p class="view-sub">${s.level === "hs" ? t("{name}, {grade} at {school}. Class of {year}.", { name: esc(kidName(kid)), grade: gradeName(kid.grade), school: esc(s.short), year: kid.classOf }) : t("{name}, {grade} at {school}.", { name: esc(kidName(kid)), grade: gradeName(kid.grade), school: esc(s.short) })}</p></div>
       ${kid.grade === 12 && gradDays >= 0 ? `<article class="card grad-card" style="${kidStyle(kid)}"><div class="big">${gradDays === 0 ? t("Today") : t(gradDays === 1 ? "{n} day" : "{n} days", { n: gradDays })}</div><p>${t("until graduation: {date}", { date: esc(fmtLong(grad.d)) })}${grad.times[kid.school] ? ` ${t("at {time}", { time: esc(grad.times[kid.school]) })}` : ""}${grad.venue ? `, ${esc(grad.venue)}` : ""}</p></article>` : ""}
       <p class="muted">${esc(ge ? ge.intro : g.intro)}</p>
@@ -2002,6 +2006,7 @@
 
     v.innerHTML = `
       ${hintHtml("school")}
+      <div data-fund="top"></div>
       <article class="card school-hero" style="${kidStyle(kid)}">
         <h2>${esc(s.name)}</h2>
         ${s.principal ? `<p>${s.mascot ? t("{mascot}. Principal {name}.", { mascot: esc(s.mascot), name: esc(s.principal) }) : t("Principal {name}.", { name: esc(s.principal) })}</p>` : ""}

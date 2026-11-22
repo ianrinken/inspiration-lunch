@@ -507,8 +507,8 @@ button.row:hover .row-v b, button.row:focus-visible .row-v b { text-decoration: 
 .sponsor-k { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text-soft); }
 .sponsor-text b { font-weight: 800; color: var(--navy-2); font-size: 1.02rem; }
 .sponsor-text .sub { color: var(--text-soft); font-size: .88rem; }
-#fundBox:not(:empty) { margin: 2px 0 14px; }
-[data-fund="top"]:not(:empty), [data-fund="below"]:not(:empty), [data-fund="welcome"]:not(:empty) { margin: 0 0 14px; }
+[data-fund]:not(:empty) { margin: 0 0 14px; }
+.fund-row.is-quiet { min-height: 48px; }
 .fund-thanks { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 2px solid var(--good); border-radius: 14px; background: var(--surface); line-height: 1.4; }
 .fund-thanks b { font-weight: 800; color: var(--good); }
 .fund-thanks .sub { color: var(--text-soft); }

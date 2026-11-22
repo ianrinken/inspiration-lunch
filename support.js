@@ -1,6 +1,11 @@
 /* The support page: shows the Chip in card once the owner has set a payment
  * link, and sends a sponsorship question to the owner's inbox. */
 (() => {
+  // Back goes to the tab they came from, when the app sent them here.
+  {
+    const from = new URLSearchParams(location.search).get("from");
+    if (["today", "lunch", "calendar", "guide", "school"].includes(from)) document.getElementById("backLink").href = `/#${from}`;
+  }
   fetch("/.netlify/functions/status").then((r) => r.json()).then((s) => {
     // The sponsor form shows only once sponsorships are open.
     if (s && s.sponsorInquiries) {

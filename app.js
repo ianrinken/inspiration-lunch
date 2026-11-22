@@ -709,6 +709,7 @@
         <p class="welcome-sub">${t("For families at every Brandon Valley school, junior kindergarten through 12th grade. No account needed.")}</p>
         <p class="field-label" style="margin-bottom:8px">${t("Pick a school to see it now")}</p>
         <div class="choice-grid school-pick">${["hs", "ms", "is", "es"].flatMap((lv) => Object.values(SCHOOLS).filter((x) => x.level === lv)).map((x) => `<button class="choice" data-action="preview-school" data-school="${esc(x.id)}"><span class="dot" style="background:${x.brand.primary}"></span>${esc(x.short)}</button>`).join("")}</div>
+        <p class="welcome-anyone">${t("Not a parent? Pick a school to follow its games, concerts and lunch menu.")}</p>
         <p class="section-label" style="margin:18px 0 10px">${t("With a student added")}</p>
         <ul class="welcome-promises">
           ${promise(ICONS.clock, t("Tomorrow at a glance"), t("Late starts, days off, lunch and games, for each of your kids"))}
@@ -3711,6 +3712,19 @@
       case "push-on": case "push-save": case "push-test": case "push-off": pushAction(ds.action); break;
       case "push-quick": pushSubscribe({ on: true, evening: true, changes: true, alerts: true }).then((ok) => { if (ok) { closeSheet(); toast(t("Notifications are on")); } }).catch(() => toast(t("Couldn't turn on notifications right now"))); break;
       case "close-sheet": closeSheet(); break;
+      case "install-tab": {
+        $("installSteps").innerHTML = installStepsHtml(ds.which);
+        for (const b of el.parentElement.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b === el));
+        break;
+      }
+      case "install-now": {
+        if (!deferredInstall) break;
+        const p = deferredInstall; deferredInstall = null;
+        p.prompt();
+        p.userChoice.catch(() => {}).then(() => { dismissInstall(); closeSheet(); });
+        break;
+      }
+      case "install-never": dismissInstall(); closeSheet(); break;
       case "share-native": navigator.share({ title: APP_NAME, url: ds.copy }).catch(() => {}); break;
       case "accept-setup": {
         const p = pendingSetup;
@@ -3804,6 +3818,7 @@
     dismissInstall();
   });
   window.addEventListener("appinstalled", dismissInstall);
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; });
   if (!isStandalone && store.get(INSTALL_KEY, "") !== "done" && kids.length) {
     if (isIOS) {
       installKey = "Add to your home screen: tap Share, then Add to Home Screen.";
@@ -3818,6 +3833,64 @@
         $("installBtn").hidden = false;
         $("installBanner").hidden = false;
       });
+    }
+  }
+
+  /* ----- "Put this app on your phone": the steps, shown once after about
+     20 seconds of real use on a phone that doesn't have it yet ----- */
+  const INSTALL_HOW_KEY = "sfp-install-how"; // { n: times shown on its own, at: when }
+  const isAndroid = /android/i.test(navigator.userAgent);
+  // Facebook, Instagram and similar open links in their own mini browser,
+  // which can't add anything to the home screen.
+  const inAppBrowser = /FBAN|FBAV|FB_IAB|Instagram|Snapchat|TikTok|musical_ly|Line\//i.test(navigator.userAgent);
+  const SHARE_ICO = `<svg class="ico step-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>`;
+  const DOTS_ICO = `<svg class="ico step-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5.5v.01M12 12v.01M12 18.5v.01" stroke-width="3" stroke-linecap="round"/></svg>`;
+  function installStepsHtml(which) {
+    const step = (title, sub, ico = "") => `<li><b>${ico}${title}</b><span>${sub}</span></li>`;
+    const first = inAppBrowser ? step(t("Open this page in your browser first"), which === "iphone" ? t("Tap the three dots, then Open in Safari.") : t("Tap the three dots, then Open in Chrome.")) : "";
+    if (which === "iphone") {
+      return `<ol class="steps">${first}
+        ${step(t("Tap Share"), t("The square with an arrow, at the bottom of Safari."), SHARE_ICO)}
+        ${step(t("Tap Add to Home Screen"), t("Scroll down the list to find it."))}
+        ${step(t("Tap Add"), t("The app now sits with your other apps."))}</ol>`;
+    }
+    return `${deferredInstall ? `<button class="btn primary block" data-action="install-now">${t("Add it for me")}</button><p class="install-or">${t("Or do it yourself:")}</p>` : ""}
+      <ol class="steps">${first}
+        ${step(t("Tap the three dots"), t("At the top right of Chrome."), DOTS_ICO)}
+        ${step(t("Tap Add to Home screen"), t("It may say Install app."))}
+        ${step(t("Tap Install"), t("The app now sits with your other apps."))}</ol>`;
+  }
+  function installHowHtml(which) {
+    const tab = (id, label) => `<button type="button" data-action="install-tab" data-which="${id}" aria-pressed="${which === id}">${label}</button>`;
+    return `<p class="install-why">${t("One tap from your home screen, like any other app.")}</p>
+      <div class="seg install-seg" role="group" aria-label="${t("Your phone")}">${tab("iphone", "iPhone")}${tab("android", "Android")}</div>
+      <div id="installSteps">${installStepsHtml(which)}</div>
+      <div class="sheet-actions"><button class="btn block" data-action="close-sheet">${t("Got it")}</button></div>
+      <button class="link-btn install-never" data-action="install-never">${t("Don't show this again")}</button>`;
+  }
+  function openInstallHow(auto) {
+    openSheet(t("Put this app on your phone"), installHowHtml(isAndroid ? "android" : "iphone"));
+    if (auto) { const rec = store.get(INSTALL_HOW_KEY, {}) || {}; store.set(INSTALL_HOW_KEY, { n: (rec.n || 0) + 1, at: Date.now() }); }
+  }
+  {
+    const rec = store.get(INSTALL_HOW_KEY, {}) || {};
+    const due = (rec.n || 0) < 3 && Date.now() - (rec.at || 0) > 14 * 864e5; // at most three times, two weeks apart
+    if ((isIOS || isAndroid) && !isStandalone && store.get(INSTALL_KEY, "") !== "done" && due) {
+      let used = 0, last = Date.now();
+      const timer = setInterval(() => {
+        const now = Date.now(), dt = now - last;
+        last = now;
+        // Count only time the app is on screen and in use: past the welcome
+        // screen, not the example family.
+        if (document.visibilityState !== "visible" || dt > 2500 || !kids.length || demo) return;
+        used += dt;
+        if (used < 20000) return;
+        // Never interrupt: wait until no sheet is open and nobody is typing.
+        if (!$("sheet").hidden || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "")) return;
+        clearInterval(timer);
+        if (isStandalone || store.get(INSTALL_KEY, "") === "done") return;
+        openInstallHow(true);
+      }, 1000);
     }
   }
 

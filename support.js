@@ -37,19 +37,20 @@
     seg.hidden = !both;
     seg.addEventListener("click", (e) => { const m = e.target.dataset.mode; if (m) { mode = m; draw(); } });
     draw();
+    // Progress toward the check: what parents have given so far, when the
+    // check is handed over, and what the district has already received.
+    const day = (d) => new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    const show = (id, text) => { const el = document.getElementById(id); el.textContent = text; el.hidden = false; };
+    const asOf = give.sentAsOf ? `, as of ${day(give.sentAsOf)}` : "";
     if (give.goal > 0) {
-      document.getElementById("giveGoalFill").style.width = `${Math.min(100, Math.round((give.sent / give.goal) * 100))}%`;
+      document.getElementById("giveGoalFill").style.width = `${Math.min(100, Math.round((give.raised / give.goal) * 100))}%`;
       document.getElementById("giveGoal").hidden = false;
-      const el = document.getElementById("giveSent");
-      const asOf = give.sentAsOf ? ` as of ${new Date(`${give.sentAsOf}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "";
-      el.textContent = `${money(give.sent)} of ${money(give.goal)} passed on so far${asOf}.`;
-      el.hidden = false;
-    } else if (give.sent > 0) {
-      const asOf = give.sentAsOf ? ` as of ${new Date(`${give.sentAsOf}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "";
-      const el = document.getElementById("giveSent");
-      el.textContent = `Passed on so far: ${money(give.sent)}${asOf}.`;
-      el.hidden = false;
+      show("giveSent", `${money(give.raised)} of ${money(give.goal)} raised so far${asOf}.`);
+    } else if (give.raised > 0) {
+      show("giveSent", `${money(give.raised)} raised so far${asOf}.`);
     }
+    if (give.checkDate) show("giveCheck", `The check goes to the district on ${day(give.checkDate)}.`);
+    if (give.sent > 0) show("giveGiven", `Given to the district so far: ${money(give.sent)}.`);
     document.getElementById("donateCard").hidden = false;
   }).catch(() => {});
 

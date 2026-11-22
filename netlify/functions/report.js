@@ -196,16 +196,20 @@ exports.handler = async (event) => {
       // to run the app, who gets the rest, and how much has been passed on.
       const num = (v, lo, hi) => { const n = Number(v); return String(v ?? "").trim() !== "" && Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
       const fee = num(body.fee, 0, 30), procPct = num(body.procPct, 0, 10), procFixed = num(body.procFixed, 0, 2);
-      const sent = Number(body.sent), goal = Number(body.goal);
+      const sent = Number(body.sent), goal = Number(body.goal), raised = Number(body.raised);
       const give = {
         monthly, once,
         fee: fee === null ? null : Math.round(fee * 10) / 10,
-        procPct: procPct === null ? 2.9 : procPct,
-        procFixed: procFixed === null ? 0.3 : procFixed,
+        procPct: procPct === null ? 2.99 : procPct,
+        procFixed: procFixed === null ? 0 : procFixed,
         recipient: clip(body.recipient, 160),
         sent: Number.isFinite(sent) && sent >= 0 ? Math.round(sent * 100) / 100 : 0,
         sentAsOf: /^\d{4}-\d{2}-\d{2}$/.test(body.sentAsOf || "") ? body.sentAsOf : "",
         goal: Number.isFinite(goal) && goal > 0 ? Math.round(goal) : 0,
+        // Raised is what parents have given; sent is what has already been
+        // handed to the district. They are different facts on the page.
+        raised: Number.isFinite(raised) && raised >= 0 ? Math.round(raised * 100) / 100 : 0,
+        checkDate: /^\d{4}-\d{2}-\d{2}$/.test(body.checkDate || "") ? body.checkDate : "",
         at: Date.now(),
       };
       const any = monthly.length + once.length;

@@ -781,7 +781,7 @@
     const give = status && status.donate;
     if (!box || demo || !give) return;
     const money = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
-    const sub = give.goal && give.sent ? t("{sent} of {goal} passed on so far", { sent: money(give.sent), goal: money(give.goal) }) : give.sent ? t("{sent} passed on so far", { sent: money(give.sent) }) : t("Help cover a lunch for a Brandon Valley student");
+    const sub = give.goal ? t("{sent} of {goal} raised so far", { sent: money(give.raised), goal: money(give.goal) }) : give.raised ? t("{sent} raised so far", { sent: money(give.raised) }) : t("Help cover a lunch for a Brandon Valley student");
     box.innerHTML = `<a class="sponsor-row fund-row" href="/support.html"><span class="sponsor-text"><b>${t("Chip in for a student's lunch")}</b><span class="sub">${esc(sub)}</span></span>${CHEVRON}</a>`;
   }
 

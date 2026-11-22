@@ -57,17 +57,21 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
       <p class="field-label">One time: dollars, then the payment link</p>
       ${[0, 1, 2].map((i) => donRow("once", i)).join("")}
       <p class="field-label">Card processing fee: percent, then cents per gift</p>
-      <div class="don-row"><input class="text-input" id="donProcPct" type="number" min="0" max="10" step="0.01" inputmode="decimal" aria-label="Processing percent" value="${esc(give.procPct ?? 2.9)}"><input class="text-input" id="donProcFixed" type="number" min="0" max="200" step="1" inputmode="numeric" aria-label="Processing cents per gift" value="${esc(Math.round((give.procFixed ?? 0.3) * 100))}"></div>
+      <div class="don-row"><input class="text-input" id="donProcPct" type="number" min="0" max="10" step="0.01" inputmode="decimal" aria-label="Processing percent" value="${esc(give.procPct ?? 2.99)}"><input class="text-input" id="donProcFixed" type="number" min="0" max="200" step="1" inputmode="numeric" aria-label="Processing cents per gift" value="${esc(Math.round((give.procFixed ?? 0) * 100))}"></div>
       <label class="field-label" for="donRecipient">Who gets the money (shown as "What you give goes to ...")</label>
       <input class="text-input" id="donRecipient" maxlength="160" placeholder="Brandon Valley Child Nutrition, toward unpaid student lunch balances" value="${esc(give.recipient || "")}">
       <label class="field-label" for="donFee">Administrative fee kept to run the app, in percent</label>
       <input class="text-input" id="donFee" type="number" min="0" max="30" step="0.5" inputmode="decimal" value="${give.fee === null || give.fee === undefined ? "" : esc(give.fee)}">
-      <label class="field-label" for="donSent">Passed on so far, in dollars</label>
-      <input class="text-input" id="donSent" type="number" min="0" step="0.01" inputmode="decimal" value="${give.sent ? esc(give.sent) : ""}">
-      <label class="field-label" for="donGoal">Goal, in dollars (optional; shows a progress bar)</label>
-      <input class="text-input" id="donGoal" type="number" min="0" step="1" inputmode="numeric" value="${give.goal ? esc(give.goal) : ""}">
+      <label class="field-label" for="donRaised">Raised so far, in dollars (from your payment reports)</label>
+      <input class="text-input" id="donRaised" type="number" min="0" step="0.01" inputmode="decimal" value="${give.raised ? esc(give.raised) : ""}">
       <label class="field-label" for="donSentAsOf">As of</label>
       <input class="text-input" id="donSentAsOf" type="date" value="${esc(give.sentAsOf || "")}">
+      <label class="field-label" for="donGoal">Goal, in dollars (optional; shows a progress bar)</label>
+      <input class="text-input" id="donGoal" type="number" min="0" step="1" inputmode="numeric" value="${give.goal ? esc(give.goal) : ""}">
+      <label class="field-label" for="donCheckDate">Day the check goes to the district (optional)</label>
+      <input class="text-input" id="donCheckDate" type="date" value="${esc(give.checkDate || "")}">
+      <label class="field-label" for="donSent">Already given to the district, in dollars</label>
+      <input class="text-input" id="donSent" type="number" min="0" step="0.01" inputmode="decimal" value="${give.sent ? esc(give.sent) : ""}">
       <button class="btn primary block" style="margin-top:10px">Save</button>
       <p class="fine" id="donateNote">${giveShowing ? "The Chip in card is showing on the support page." : "The card stays hidden until there is at least one amount with its link, a named recipient and a fee (0 is allowed)."}</p>
     </form>
@@ -168,7 +172,7 @@ document.addEventListener("submit", async (e) => {
     e.preventDefault();
     const gv = (id) => document.getElementById(id).value.trim();
     const rows = (kind) => [0, 1, 2].map((i) => ({ amount: gv(`don-${kind}-amt${i}`), url: gv(`don-${kind}-url${i}`) })).filter((l) => l.url && l.amount);
-    const r = await ownerPost({ action: "donate", monthly: rows("monthly"), once: rows("once"), procPct: gv("donProcPct"), procFixed: gv("donProcFixed") === "" ? "" : String(Number(gv("donProcFixed")) / 100), recipient: gv("donRecipient"), fee: gv("donFee"), sent: gv("donSent"), sentAsOf: gv("donSentAsOf"), goal: gv("donGoal") });
+    const r = await ownerPost({ action: "donate", monthly: rows("monthly"), once: rows("once"), procPct: gv("donProcPct"), procFixed: gv("donProcFixed") === "" ? "" : String(Number(gv("donProcFixed")) / 100), recipient: gv("donRecipient"), fee: gv("donFee"), sent: gv("donSent"), sentAsOf: gv("donSentAsOf"), goal: gv("donGoal"), raised: gv("donRaised"), checkDate: gv("donCheckDate") });
     if (r.ok) { document.getElementById("keyForm").requestSubmit(); return; }
     document.getElementById("donateNote").textContent = r.error || "Couldn't save. Check the key and try again.";
     return;

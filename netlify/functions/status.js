@@ -17,6 +17,6 @@ exports.handler = async (event) => {
     statusCode: 200,
     headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=120", "Netlify-CDN-Cache-Control": "public, s-maxage=60" },
     // answers: the district's own answers to common questions, for search.
-    body: JSON.stringify({ ...(status || { at: null, bound: {}, docs: {} }), pin: live, sponsors, donate: don && ((don.monthly || []).length + (don.once || []).length) && don.recipient && don.fee !== null && don.fee !== undefined ? { monthly: don.monthly || [], once: don.once || [], fee: don.fee, procPct: don.procPct ?? 2.9, procFixed: don.procFixed ?? 0.3, recipient: don.recipient, sent: don.sent || 0, sentAsOf: don.sentAsOf || "", goal: don.goal || 0 } : null, answers: (answers || []).map(({ id, q, a, link, qEs, aEs }) => ({ id, q, a, link, qEs, aEs })) }),
+    body: JSON.stringify({ ...(status || { at: null, bound: {}, docs: {} }), pin: live, sponsors, donate: don && ((don.monthly || []).length + (don.once || []).length) && don.recipient && don.fee !== null && don.fee !== undefined ? { monthly: don.monthly || [], once: don.once || [], fee: don.fee, procPct: don.procPct ?? 2.99, procFixed: don.procFixed ?? 0, recipient: don.recipient, sent: don.sent || 0, sentAsOf: don.sentAsOf || "", goal: don.goal || 0, raised: don.raised || 0, checkDate: don.checkDate || "" } : null, answers: (answers || []).map(({ id, q, a, link, qEs, aEs }) => ({ id, q, a, link, qEs, aEs })) }),
   };
 };

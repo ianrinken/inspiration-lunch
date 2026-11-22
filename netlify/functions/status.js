@@ -18,7 +18,7 @@ exports.handler = async (event) => {
   // it is live; anything saved on the owner page wins over those.
   const base = DISTRICT.fund && (DISTRICT.fund.live || process.env.FUND_LIVE === "1") ? DISTRICT.fund : {};
   const d = don || {};
-  const give = { page: d.page || base.page || "", monthly: d.monthly || [], once: d.once || [], fee: d.fee ?? base.fee ?? null, procPct: d.procPct ?? 2.99, procFixed: d.procFixed ?? 0, recipient: d.recipient || base.recipient || "", plan: base.plan || "", sent: d.sent || 0, sentAsOf: d.sentAsOf || "", goal: d.goal || 0, raised: d.raised || 0, checkDate: d.checkDate || "" };
+  const give = { page: d.page || base.page || "", monthly: d.monthly || [], once: d.once || [], fee: d.fee ?? base.fee ?? null, procPct: d.procPct ?? 2.99, procFixed: d.procFixed ?? 0, recipient: d.recipient || base.recipient || "", plan: base.plan || "", widgets: base.widgets || null, sent: d.sent || 0, sentAsOf: d.sentAsOf || "", goal: d.goal || 0, raised: d.raised || 0, checkDate: d.checkDate || "" };
   const giveLive = !!((give.page || give.monthly.length + give.once.length) && give.recipient && give.fee !== null);
   return {
     statusCode: 200,

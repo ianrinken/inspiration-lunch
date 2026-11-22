@@ -19,7 +19,9 @@
     // The lunch fund: one giving page where the giver picks the amount and
     // whether it repeats. `fee` is the share the app keeps, in percent.
     // `live` turns the giving rows and the support card on everywhere.
-    fund: { live: true, page: "https://givebutter.com/brandonvalleylunch", recipient: "the Brandon Area Food Pantry", plan: "This holiday season, every gift goes to the Brandon Area Food Pantry, which serves families in the Brandon Valley School District.", fee: 0 },
+    fund: { live: true, page: "https://givebutter.com/brandonvalleylunch", recipient: "the Brandon Area Food Pantry", plan: "This holiday season, every gift goes to the Brandon Area Food Pantry, which serves families in the Brandon Valley School District.", fee: 0,
+      // Givebutter's form and live goal bar, shown on our own giving page.
+      widgets: { acct: "go1DYBPZ0JgDpBwt", form: "gOKB35", goal: "p71Aka" } },
     // The sponsor question form on the support page stays hidden until true.
     sponsorInquiries: false,
     site: SITE,

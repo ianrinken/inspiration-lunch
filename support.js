@@ -46,6 +46,27 @@
       document.getElementById("giveSplit").hidden = true;
       document.getElementById("donateBtns").innerHTML = `<a class="btn primary block give-btn" href="${esc(give.page)}" target="_blank" rel="noopener"><b>Give</b></a>`;
       document.getElementById("givePageNote").hidden = false;
+      // The giving service's own form and live total, right here on our page,
+      // so nobody leaves to give. If its script can't load (a content
+      // blocker, no signal), the Give button above stays as it was.
+      const w = give.widgets;
+      if (w && w.acct && w.form && /^[\w-]+$/.test(w.acct + w.form + (w.goal || ""))) {
+        const lib = document.createElement("script");
+        lib.async = true;
+        lib.src = `https://widgets.givebutter.com/latest.umd.cjs?acct=${w.acct}&p=other`;
+        lib.onload = () => {
+          if (!window.customElements || !customElements.get("givebutter-widget")) return;
+          if (w.goal) { const g = document.getElementById("giveGoalLive"); g.innerHTML = `<givebutter-widget id="${w.goal}"></givebutter-widget>`; g.hidden = false; }
+          const f = document.getElementById("giveForm");
+          f.innerHTML = `<givebutter-widget id="${w.form}"></givebutter-widget>`;
+          f.hidden = false;
+          document.getElementById("donateBtns").hidden = true;
+          document.getElementById("givePageNote").hidden = true;
+          document.getElementById("giveFormLink").href = give.page;
+          document.getElementById("giveFormHelp").hidden = false;
+        };
+        document.head.appendChild(lib);
+      }
     } else document.getElementById("giveSplit").innerHTML = [
       `<li>Card processing takes ${give.procPct}%${cents ? ` plus ${cents} cents` : ""} of each gift</li>`,
       give.fee > 0 ? `<li>${give.fee}% is an administrative fee that keeps this app running</li>` : "",

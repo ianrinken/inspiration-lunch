@@ -73,3 +73,9 @@ body.page { background: var(--bg); color: var(--text); }
 .support .give-legal { margin: 14px 4px 0; }
 .support #appCard .btn { margin-top: 16px; text-decoration: none; display: flex; align-items: center; justify-content: center; }
 .support .nw { white-space: nowrap; }
+/* The embedded giving form and live goal bar. */
+.support #giveGoalLive { margin: 0 0 18px; }
+.support #giveForm { margin: 0 -6px; min-height: 320px; }
+.support #giveFormHelp { margin: 14px 0 0; text-align: center; }
+.support #giveFormHelp a { color: var(--navy-2); font-weight: 700; }
+.support givebutter-widget { display: block; max-width: 100%; }

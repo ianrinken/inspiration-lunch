@@ -664,6 +664,8 @@
     if (tab === "today" && oneSchool && activeKids().length > 1) { const sub = document.querySelector(".school-brand-kid"); if (sub) sub.textContent = activeKids().map(kidName).join(` ${t("and")} `); }
     if (!has) return renderWelcome();
     ({ today: renderToday, lunch: renderLunch, calendar: renderCalendar, guide: renderGuide, school: renderSchool })[tab]();
+    // Each tab writes its sponsor slot with its first markup; fill it.
+    fillSponsors();
   }
 
   // Weather closings and emergencies: the district's own alert banners,
@@ -754,14 +756,14 @@
         ${tasksHtml()}
         ${kids.map((k) => `<article class="kid-sum" style="${kidStyle(k)}" data-kidcard="${esc(k.id)}">${kidHead(k)}<p class="loading">${t("Loading {name}'s day", { name: esc(kidName(k)) })}</p></article>`).join("")}
       </section>
-      <div id="sponsorBox"></div>
+      ${sponsorSlot("today")}
       ${askBoxHtml()}
       ${seasonHtml(td)}
       <div id="familyWeek"></div>
       ${kids.map(firstWeekHtml).join("")}
       <button class="link-btn add-another" data-action="add-kid">${t("Add another student")}</button>`;
     fillWeather(kids.find((k) => !k.graduated), token);
-    fillSponsor(token);
+    fillSponsors();
     await Promise.all([...new Set(kids.filter(isHigh).map((k) => k.school))].filter((sc) => !clubCount[sc]).map((sc) => getSchool(sc, "clubs").then((c) => { clubCount[sc] = c.groups.reduce((n, g) => n + g.items.length, 0); }).catch(() => {})));
     const results = await Promise.all(kids.map((k) => fillKidCard(k, token)));
     if (token !== tokens.today) return;
@@ -771,22 +773,27 @@
     renderChanged(results.filter(Boolean), token);
   }
 
-  // The app's one sponsor, set by the owner: a name and a link, under the
-  // day's cards. No ad network, nothing tracked; a tap adds one to the
-  // day's count and that is all.
-  async function fillSponsor(token) {
+  // One sponsor per tab, set by the owner: a name and a link in a quiet row.
+  // No ad network, nothing tracked; a tap adds one to that day's count.
+  const sponsorSlot = (tab) => `<div class="sponsor-slot" data-slot="${tab}"></div>`;
+  async function fillSponsors() {
     const status = await getStatus().catch(() => null);
-    const box = $("sponsorBox");
-    if (!box || token !== tokens.today || demo) return;
-    const sp = status && status.sponsor;
-    if (!sp) { box.innerHTML = `<a class="sponsor-open" href="/support.html">${t("Your business could sponsor this app")}</a>`; return; }
-    box.innerHTML = `<a class="sponsor-row" href="${esc(sp.url)}" target="_blank" rel="sponsored noopener">
-      ${sp.logo ? `<img class="sponsor-logo" src="${esc(sp.logo)}" alt="" loading="lazy">` : ""}
-      <span class="sponsor-text"><span class="sponsor-k">${t("Sponsored by")}</span><b>${esc(sp.name)}</b>${sp.line ? `<span class="sub">${esc(sp.line)}</span>` : ""}</span>${CHEVRON}</a>`;
-    box.querySelector("a").addEventListener("click", () => {
-      const body = JSON.stringify({ action: "sponsor-click" });
-      if (!(navigator.sendBeacon && navigator.sendBeacon(REPORT_API, new Blob([body], { type: "application/json" })))) fetch(REPORT_API, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
-    });
+    const all = (status && status.sponsors) || {};
+    for (const box of document.querySelectorAll(".sponsor-slot")) {
+      const tab = box.dataset.slot, sp = all[tab];
+      if (demo) { box.innerHTML = ""; continue; }
+      // An open Today slot says so, quietly; the other tabs stay empty.
+      if (!sp) { box.innerHTML = tab === "today" ? `<a class="sponsor-open" href="/support.html">${t("Your business could sponsor this app")}</a>` : ""; continue; }
+      if (box.dataset.shown === sp.url + sp.name) continue;
+      box.dataset.shown = sp.url + sp.name;
+      box.innerHTML = `<a class="sponsor-row" href="${esc(sp.url)}" target="_blank" rel="sponsored noopener">
+        ${sp.logo ? `<img class="sponsor-logo" src="${esc(sp.logo)}" alt="" loading="lazy">` : ""}
+        <span class="sponsor-text"><span class="sponsor-k">${t("Sponsored by")}</span><b>${esc(sp.name)}</b>${sp.line ? `<span class="sub">${esc(sp.line)}</span>` : ""}</span>${CHEVRON}</a>`;
+      box.querySelector("a").addEventListener("click", () => {
+        const body = JSON.stringify({ action: "sponsor-click", tab });
+        if (!(navigator.sendBeacon && navigator.sendBeacon(REPORT_API, new Blob([body], { type: "application/json" })))) fetch(REPORT_API, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
+      });
+    }
   }
 
   // The two things parents open the app to do in a hurry, as buttons with
@@ -1566,6 +1573,7 @@
     const days = [0, 1, 2, 3, 4].map((i) => addDays(week, i));
     v.innerHTML = `
       ${hintHtml("lunch")}
+      ${sponsorSlot("lunch")}
       <div class="pager">
         <button class="pager-btn" data-week="-1" aria-label="${t("Previous week")}">${PREV}</button>
         <button class="pager-label" data-week="0" title="${t("This week")}">${t("{a} to {b}", { a: esc(fmtMonthDay(days[0])), b: esc(fmtMonthDay(days[4])) })}</button>
@@ -1575,6 +1583,7 @@
     // The answer first, like the Brandon Valley app: the next lunch this
     // student will eat, big, with a peek at the one after.
     v.insertAdjacentHTML("afterbegin", `<div id="lunchHero"></div>`);
+    fillSponsors();
     fillLunchHero(kid, token);
     let menu;
     try { menu = await getMenu(kid.school, days[0], days[4]); }
@@ -1762,6 +1771,9 @@
     $("agenda").innerHTML = html || emptyMsg;
     // Land on today rather than the 1st.
     const todayEl = $("agendaToday");
+    // The Calendar's sponsor sits under today, where the list lands.
+    if (todayEl) todayEl.insertAdjacentHTML("afterend", sponsorSlot("calendar")); else $("agenda").insertAdjacentHTML("afterbegin", sponsorSlot("calendar"));
+    fillSponsors();
     if (todayEl && key === monthKey(td) && !renderCalendar.scrolled) {
       renderCalendar.scrolled = true;
       todayEl.scrollIntoView({ block: "start" });
@@ -1834,6 +1846,7 @@
       <div><h2 class="view-title">${esc(ge ? ge.headline : g.headline)}</h2><p class="view-sub">${s.level === "hs" ? t("{name}, {grade} at {school}. Class of {year}.", { name: esc(kidName(kid)), grade: gradeName(kid.grade), school: esc(s.short), year: kid.classOf }) : t("{name}, {grade} at {school}.", { name: esc(kidName(kid)), grade: gradeName(kid.grade), school: esc(s.short) })}</p></div>
       ${kid.grade === 12 && gradDays >= 0 ? `<article class="card grad-card" style="${kidStyle(kid)}"><div class="big">${gradDays === 0 ? t("Today") : t(gradDays === 1 ? "{n} day" : "{n} days", { n: gradDays })}</div><p>${t("until graduation: {date}", { date: esc(fmtLong(grad.d)) })}${grad.times[kid.school] ? ` ${t("at {time}", { time: esc(grad.times[kid.school]) })}` : ""}${grad.venue ? `, ${esc(grad.venue)}` : ""}</p></article>` : ""}
       <p class="muted">${esc(ge ? ge.intro : g.intro)}</p>
+      ${sponsorSlot("guide")}
       <p class="section-label">${kid.grade === -1 ? t("Coming up for junior kindergarten") : kid.grade === 0 ? t("Coming up for kindergarten") : t("Coming up for {ord} graders", { ord: esc(ordinal(kid.grade)), n: kid.grade })}</p>
       <article class="card" id="guideUpcoming" style="${kidStyle(kid)}"><p class="loading">${t("Checking {school}'s calendar", { school: esc(s.short) })}</p></article>
       ${testDatesHtml(kid, td)}
@@ -1949,6 +1962,7 @@
         <button class="action" data-action="absence"><b>${t("Report an absence")}</b><span>${esc(attPhone)}${att.phone || s.attendance ? "" : ` ${t("(main office)")}`}</span></button>
         <a class="action" href="${esc(mapsUrl(s.address))}" target="_blank" rel="noopener"><b>${t("Directions")}</b><span>${esc(s.address.split(",")[0])}</span></a>
       </div>
+      ${sponsorSlot("school")}
 
       <p class="section-label">${t("Bell schedule")}</p>
       <article class="card" style="${kidStyle(kid)}">

@@ -89,19 +89,21 @@ function page(s) {
       <div id="menu-next" class="card"><p class="muted">Loading the menu.</p></div>
       <h2>Coming up</h2>
       <div id="events-next" class="card"><p class="muted">Loading games and events.</p></div>
-      <div id="sponsor"></div>
+      <div class="sponsor-slot" data-slot="today"></div>
       <p class="fine center">Lunch, Calendar, Guide and School are the tabs below.</p>
     </section>
 
     <section class="pview" id="view-lunch" hidden>
       <h2>This week's lunch</h2>
       <div id="menu" class="card"><p class="muted">Loading this week's menu.</p></div>
+      <div class="sponsor-slot" data-slot="lunch"></div>
       <p class="fine">Menus come from the district's LINQ Connect and can change. Breakfast $${s.prices.breakfast.toFixed(2)}, lunch $${s.prices.lunch.toFixed(2)}. The app shows every line and flags your child's allergens.</p>
     </section>
 
     <section class="pview" id="view-calendar" hidden>
       <h2>Next three weeks</h2>
       <div id="events" class="card"><p class="muted">Loading games and events.</p></div>
+      <div class="sponsor-slot" data-slot="calendar"></div>
       <h2>Days off and early dismissals, ${esc(DATA.SCHOOL_YEARS[0].id)}</h2>
       <div class="card">${daysOff(s)}</div>
     </section>
@@ -110,6 +112,7 @@ function page(s) {
       <h2>What each grade needs, and when</h2>
       <p class="muted">The app shows this for your child's grade only, with the dates filled in.</p>
       <div class="card">${guide(s) || `<p class="muted">The guide for these grades is in the app.</p>`}</div>
+      <div class="sponsor-slot" data-slot="guide"></div>
     </section>
 
     <section class="pview" id="view-school" hidden>
@@ -122,6 +125,7 @@ function page(s) {
         <a class="list-row" href="${esc(DATA.DISTRICT.handbooks[s.handbook])}" target="_blank" rel="noopener"><span><b>Student handbook</b><span>${esc(s.handbook[0].toUpperCase() + s.handbook.slice(1))} handbook, ${esc(DATA.SCHOOL_YEARS[0].id)}</span></span></a>
         <a class="list-row" href="${esc(s.site)}" target="_blank" rel="noopener"><span><b>School website</b><span>${esc(s.site.replace(/^https?:\/\//, ""))}</span></span></a>
       </div>
+      <div class="sponsor-slot" data-slot="school"></div>
       <h2>Bell schedule</h2>
       <div class="card">${schedules(s)}</div>
       <h2>Other Brandon Valley schools</h2>

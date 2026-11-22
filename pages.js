@@ -15,10 +15,12 @@
   show();
   // The app's one sponsor, if there is one.
   fetch("/.netlify/functions/status").then((r) => r.json()).then((s) => {
-    const box = document.getElementById("sponsor");
-    const sp = s && s.sponsor;
-    if (!box || !sp) return;
-    box.innerHTML = `<a class="sponsor-row" href="${esc(sp.url)}" target="_blank" rel="sponsored noopener">${sp.logo ? `<img class="sponsor-logo" src="${esc(sp.logo)}" alt="" loading="lazy">` : ""}<span class="sponsor-text"><span class="sponsor-k">Sponsored by</span><b>${esc(sp.name)}</b>${sp.line ? `<span class="sub">${esc(sp.line)}</span>` : ""}</span></a>`;
+    const all = (s && s.sponsors) || {};
+    for (const box of document.querySelectorAll(".sponsor-slot")) {
+      const sp = all[box.dataset.slot];
+      if (!sp) continue;
+      box.innerHTML = `<a class="sponsor-row" href="${esc(sp.url)}" target="_blank" rel="sponsored noopener">${sp.logo ? `<img class="sponsor-logo" src="${esc(sp.logo)}" alt="" loading="lazy">` : ""}<span class="sponsor-text"><span class="sponsor-k">Sponsored by</span><b>${esc(sp.name)}</b>${sp.line ? `<span class="sub">${esc(sp.line)}</span>` : ""}</span></a>`;
+    }
   }).catch(() => {});
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const pad = (n) => String(n).padStart(2, "0");

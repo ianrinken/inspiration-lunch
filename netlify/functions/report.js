@@ -20,6 +20,7 @@ const { overLimit, tooMany } = require("./lib/limit.js");
 const SCHOOLS = new Set(Object.keys(require("../../data.js").SCHOOLS));
 const json = (statusCode, body) => ({ statusCode, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }, body: JSON.stringify(body) });
 const centralDay = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+const SPONSOR_TABS = ["today", "lunch", "calendar", "guide", "school"];
 const clip = (v, n) => String(v || "").replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, n);
 
 function isAdmin(event) {
@@ -56,11 +57,11 @@ exports.handler = async (event) => {
     }
     const topMisses = Object.entries(misses).sort((a, b) => b[1] - a[1]).slice(0, 50).map(([q, n]) => ({ q, n }));
     const settings = openStore("settings");
-    const [pin, answers, drift, overrides, sponsor, donate] = await Promise.all([settings.get("pin"), settings.get("answers"), require("./lib/sources.js").load("drift"), openStore("overrides").get("events").catch(() => null), settings.get("sponsor").catch(() => null), settings.get("donate").catch(() => null)]);
+    const [pin, answers, drift, overrides, sponsor, donate] = await Promise.all([settings.get("pin"), settings.get("answers"), require("./lib/sources.js").load("drift"), openStore("overrides").get("events").catch(() => null), settings.get("sponsors").catch(() => null), settings.get("donate").catch(() => null)]);
     const leadStore = openStore("leads");
     const leadKeys = (await leadStore.list().catch(() => [])).sort().reverse().slice(0, 100);
     const leads = (await Promise.all(leadKeys.map(async (k) => { const l = await leadStore.get(k); return l ? { key: k, ...l } : null; }))).filter(Boolean);
-    return json(200, { reports, usage, misses: topMisses, pin, answers: answers || [], drift: drift ? JSON.parse(drift.body) : null, overrides: Array.isArray(overrides) ? overrides : [], sponsor: sponsor || null, donate: (donate && donate.links) || [], leads });
+    return json(200, { reports, usage, misses: topMisses, pin, answers: answers || [], drift: drift ? JSON.parse(drift.body) : null, overrides: Array.isArray(overrides) ? overrides : [], sponsors: sponsor || {}, donate: (donate && donate.links) || [], leads });
   }
   if (event.httpMethod && event.httpMethod !== "POST") return json(405, { error: "method" });
   let body;
@@ -136,12 +137,12 @@ exports.handler = async (event) => {
     if (body.action === "sponsor-lead") {
       if (await overLimit(event, "lead", 5, 60)) return tooMany();
       if (body.website) return json(200, { ok: true }); // a field people never see; only scripts fill it
-      const lead = { business: clip(body.business, 80), name: clip(body.name, 60), contact: clip(body.contact, 120), note: clip(body.note, 500), at: Date.now() };
+      const lead = { business: clip(body.business, 80), name: clip(body.name, 60), contact: clip(body.contact, 120), note: clip(body.note, 500), screen: SPONSOR_TABS.includes(body.screen) ? body.screen : "", at: Date.now() };
       if (!lead.business || !(/@/.test(lead.contact) || (lead.contact.match(/\d/g) || []).length >= 7)) return json(400, { error: "A business name and an email or phone number are needed." });
       const store = openStore("leads");
       if ((await store.list().catch(() => [])).length >= 200) return json(200, { ok: true });
       await store.set(`${String(lead.at).padStart(14, "0")}-${crypto.randomBytes(3).toString("hex")}`, lead);
-      await require("./lib/mail.js").sendOwnerEmail(`Sponsor inquiry: ${lead.business}`, `${lead.business}\n${lead.name}\n${lead.contact}\n\n${lead.note}`).catch(() => {});
+      await require("./lib/mail.js").sendOwnerEmail(`Sponsor inquiry: ${lead.business}`, `${lead.business}\n${lead.name}\n${lead.contact}\nScreen: ${lead.screen || "any"}\n\n${lead.note}`).catch(() => {});
       return json(200, { ok: true });
     }
     // A tap on the sponsor's link: a number per day, nothing about who.
@@ -150,7 +151,9 @@ exports.handler = async (event) => {
       const store = openStore("usage");
       const day = centralDay();
       const u = (await store.get(day)) || { phones: 0, installed: 0, bySchool: {} };
-      u.sponsorClicks = (u.sponsorClicks || 0) + 1;
+      const tab = SPONSOR_TABS.includes(body.tab) ? body.tab : "today";
+      if (typeof u.sponsorClicks !== "object" || !u.sponsorClicks) u.sponsorClicks = {};
+      u.sponsorClicks[tab] = (u.sponsorClicks[tab] || 0) + 1;
       await store.set(day, u);
       return json(200, { ok: true });
     }
@@ -159,18 +162,22 @@ exports.handler = async (event) => {
       if (/^\d{14}-[a-f0-9]{6}$/.test(body.key || "")) await openStore("leads").delete(body.key);
       return json(200, { ok: true });
     }
-    // The one sponsor shown in the app and on the school pages.
+    // One sponsor per screen (Today, Lunch, Calendar, Guide, School), in the
+    // app and on the school pages.
     if (body.action === "sponsor") {
       if (!isAdmin(event)) return json(401, { error: "unauthorized" });
+      if (!SPONSOR_TABS.includes(body.tab)) return json(400, { error: "Pick a screen." });
       const settings = openStore("settings");
+      const all = (await settings.get("sponsors").catch(() => null)) || {};
       const name = clip(body.name, 60);
-      if (!name) { await settings.delete("sponsor"); return json(200, { ok: true, sponsor: null }); }
+      if (!name) { delete all[body.tab]; await settings.set("sponsors", all); return json(200, { ok: true, sponsors: all }); }
       const url = clip(body.url, 300), logo = clip(body.logo, 300);
       if (!/^https:\/\/[^\s]+$/.test(url)) return json(400, { error: "The link must start with https://" });
       if (logo && !/^https:\/\/[^\s]+$/.test(logo)) return json(400, { error: "The logo address must start with https://" });
       const sponsor = { id: crypto.randomBytes(4).toString("hex"), name, line: clip(body.line, 90), url, logo, until: /^\d{4}-\d{2}-\d{2}$/.test(body.until || "") ? body.until : "", at: Date.now() };
-      await settings.set("sponsor", sponsor);
-      return json(200, { ok: true, sponsor });
+      all[body.tab] = sponsor;
+      await settings.set("sponsors", all);
+      return json(200, { ok: true, sponsors: all });
     }
     // Where "Chip in" sends people: a payment link the owner made.
     if (body.action === "donate") {

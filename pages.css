@@ -28,7 +28,7 @@ body.page { background: var(--bg); color: var(--text); }
 
 /* Support page */
 .page .brand { text-decoration: none; color: #fff; }
-.page #sponsor { margin-top: 14px; }
+.page .sponsor-slot:not(:empty) { margin: 14px 0 0; }
 .support .card p { line-height: 1.5; margin: 0 0 12px; }
 .support .card .plain-list { margin-bottom: 14px; }
 .support .card .plain-list li { font-weight: 600; }

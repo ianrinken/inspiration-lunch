@@ -10,7 +10,11 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
   const out = document.getElementById("out");
   if (!res.ok) { out.innerHTML = `<p class="empty-note">${res.status === 401 ? "That key isn't right." : "Couldn't load."}</p>`; return; }
   const data = await res.json();
-  const { reports, usage, misses = [], pin, answers = [], drift, overrides = [], sponsor, donate = [], leads = [] } = data;
+  const { reports, usage, misses = [], pin, answers = [], drift, overrides = [], sponsors = {}, donate = [], leads = [] } = data;
+  window.__sponsors = sponsors;
+  const SP_TABS = [["today", "Today"], ["lunch", "Lunch"], ["calendar", "Calendar"], ["guide", "Guide"], ["school", "School"]];
+  const spTab = window.__spTab || "today";
+  const sponsor = sponsors[spTab] || null;
   const donRow = (i) => { const l = donate[i] || {}; return `<div class="don-row"><input class="text-input" id="donLabel${i}" maxlength="20" placeholder="${["$5", "$10", "$25"][i]}" aria-label="Button ${i + 1} label" value="${esc(l.label || "")}"><input class="text-input" id="donUrl${i}" type="url" placeholder="https://" aria-label="Button ${i + 1} payment link" value="${esc(l.url || "")}"></div>`; };
   window.__overrides = overrides;
   out.innerHTML = `
@@ -26,8 +30,9 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
       ${pin ? '<button class="btn block" type="button" id="pinClear" style="margin-top:8px">Take it down</button>' : ""}
       <p class="fine" id="pinNote">Parents see it within a few minutes.</p>
     </form>
-    <p class="section-label">Sponsor shown in the app</p>
+    <p class="section-label">Sponsors, one per screen</p>
     <form class="card field" id="sponsorForm">
+      <div class="filter-chips" role="group" aria-label="Screen">${SP_TABS.map(([k, label]) => `<button type="button" class="level-chip" data-sp-tab="${k}" aria-pressed="${k === spTab}">${label}${sponsors[k] ? `: ${esc(sponsors[k].name)}` : ": open"}</button>`).join("")}</div>
       <label class="field-label" for="spName">Business name</label>
       <input class="text-input" id="spName" maxlength="60" value="${esc(sponsor ? sponsor.name : "")}">
       <label class="field-label" for="spLine">One short line under the name (optional)</label>
@@ -38,9 +43,9 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
       <input class="text-input" id="spLogo" type="url" placeholder="https://" value="${esc(sponsor ? sponsor.logo : "")}">
       <label class="field-label" for="spUntil">Show through (optional)</label>
       <input class="text-input" id="spUntil" type="date" value="${esc(sponsor ? sponsor.until : "")}">
-      <button class="btn primary block" style="margin-top:10px">${sponsor ? "Update the sponsor" : "Show this sponsor"}</button>
-      ${sponsor ? '<button class="btn block" type="button" id="sponsorClear" style="margin-top:8px">Remove the sponsor</button>' : ""}
-      <p class="fine" id="sponsorNote">${sponsor ? "Showing now on Today and on each school page." : "No sponsor is showing. The app shows a small line inviting businesses to ask."}</p>
+      <button class="btn primary block" style="margin-top:10px">${sponsor ? "Update this sponsor" : "Show this sponsor"}</button>
+      ${sponsor ? '<button class="btn block" type="button" id="sponsorClear" style="margin-top:8px">Remove this sponsor</button>' : ""}
+      <p class="fine" id="sponsorNote">${sponsor ? "Showing now on this screen in the app and on each school page." : "This screen is open."}</p>
     </form>
     <p class="section-label">Chip in buttons</p>
     <form class="card field" id="donateForm">
@@ -51,7 +56,7 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
       <p class="fine" id="donateNote">${donate.length ? "The Chip in card is showing on the support page." : "Until a link is saved, the support page shows only the sponsor section."}</p>
     </form>
     <p class="section-label">Sponsor inquiries (${leads.length})</p>
-    <article class="card">${leads.map((l) => `<div class="report"><p><b>${esc(l.business)}</b> ${esc(l.name)}</p><p>${esc(l.contact)}</p>${l.note ? `<p>${esc(l.note)}</p>` : ""}<p class="fine">${esc(new Date(l.at).toLocaleString())} <button class="small-btn" type="button" data-lead-done="${esc(l.key)}">Done</button></p></div>`).join("") || '<p class="empty-note">None yet. They arrive from the support page.</p>'}</article>
+    <article class="card">${leads.map((l) => `<div class="report"><p><b>${esc(l.business)}</b> ${esc(l.name)}${l.screen ? ` · ${esc(l.screen)} screen` : ""}</p><p>${esc(l.contact)}</p>${l.note ? `<p>${esc(l.note)}</p>` : ""}<p class="fine">${esc(new Date(l.at).toLocaleString())} <button class="small-btn" type="button" data-lead-done="${esc(l.key)}">Done</button></p></div>`).join("") || '<p class="empty-note">None yet. They arrive from the support page.</p>'}</article>
     <p class="section-label">Searches that found nothing (last 60 days)</p>
     <article class="card"><p class="fine">What parents looked for and the app couldn't answer. Each one is a gap to fill.</p>
       <table><tr><th>Search</th><th>Times</th><th></th></tr>${misses.map((m) => `<tr><td>${esc(m.q)}</td><td>${m.n}</td><td><button class="small-btn" type="button" data-answer-q="${esc(m.q)}">Answer this</button></td></tr>`).join("") || "<tr><td colspan=3>None yet</td></tr>"}</table></article>
@@ -76,7 +81,7 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
     <article class="card">${drift ? `<p class="fine">Last run ${esc(new Date(drift.at).toLocaleString())}.</p>${(drift.list || []).length ? `<ul>${drift.list.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "<p>Everything the app shows matched its source.</p>"}` : "<p class='empty-note'>First run tonight.</p>"}</article>
     <p class="section-label">Phones using the app, by day</p>
     <article class="card"><table><tr><th>Day</th><th>Phones</th><th>Installed</th><th>Sponsor taps</th><th>Schools</th></tr>
-      ${usage.map((u) => `<tr><td>${esc(u.day)}</td><td>${u.phones}</td><td>${u.installed}</td><td>${u.sponsorClicks || 0}</td><td>${esc(Object.entries(u.bySchool).map(([k, v]) => `${k} ${v}`).join(", "))}</td></tr>`).join("") || "<tr><td colspan=5>No data yet</td></tr>"}
+      ${usage.map((u) => `<tr><td>${esc(u.day)}</td><td>${u.phones}</td><td>${u.installed}</td><td>${esc(typeof u.sponsorClicks === "object" && u.sponsorClicks ? Object.entries(u.sponsorClicks).map(([k, v]) => `${k} ${v}`).join(", ") : "")}</td><td>${esc(Object.entries(u.bySchool).map(([k, v]) => `${k} ${v}`).join(", "))}</td></tr>`).join("") || "<tr><td colspan=5>No data yet</td></tr>"}
     </table></article>
     <p class="section-label">Backup</p>
     <article class="card"><p>Family codes and notification sign-ups are backed up nightly (14 days kept).</p><button class="btn block" id="backupBtn" style="margin-top:10px">Download the latest backup</button></article>
@@ -137,9 +142,10 @@ document.addEventListener("submit", async (e) => {
   if (e.target.id === "sponsorForm") {
     e.preventDefault();
     const v = (id) => document.getElementById(id).value.trim();
-    if (!v("spName")) { document.getElementById("sponsorNote").textContent = "A business name is needed. To take the sponsor down, use Remove the sponsor."; return; }
-    const r = await ownerPost({ action: "sponsor", name: v("spName"), line: v("spLine"), url: v("spUrl"), logo: v("spLogo"), until: v("spUntil") });
-    document.getElementById("sponsorNote").textContent = r.ok ? "Saved. It shows within a few minutes." : (r.error || "Couldn't save. Check the key and try again.");
+    if (!v("spName")) { document.getElementById("sponsorNote").textContent = "A business name is needed. To take a sponsor down, use Remove this sponsor."; return; }
+    const r = await ownerPost({ action: "sponsor", tab: window.__spTab || "today", name: v("spName"), line: v("spLine"), url: v("spUrl"), logo: v("spLogo"), until: v("spUntil") });
+    if (r.ok) { document.getElementById("keyForm").requestSubmit(); return; }
+    document.getElementById("sponsorNote").textContent = r.error || "Couldn't save. Check the key and try again.";
     return;
   }
   if (e.target.id === "donateForm") {
@@ -167,7 +173,8 @@ document.addEventListener("click", async (e) => {
   if (e.target.dataset.overrideRemove !== undefined) { const list = (window.__overrides || []).filter((_, i) => i !== Number(e.target.dataset.overrideRemove)); return saveOverrides(list); }
   if (e.target.dataset.hideEvent) { const list = (window.__overrides || []).filter((o) => o.id !== e.target.dataset.hideEvent); list.push({ id: e.target.dataset.hideEvent, date: e.target.dataset.hideDate || undefined, hide: true, why: e.target.dataset.hideWhy }); return saveOverrides(list); }
   if (e.target.dataset.answerRemove) { if (await saveAnswer({ id: e.target.dataset.answerRemove, remove: true })) document.getElementById("keyForm").requestSubmit(); return; }
-  if (e.target.id === "sponsorClear") { const r = await ownerPost({ action: "sponsor", name: "" }); if (r.ok) document.getElementById("keyForm").requestSubmit(); return; }
+  if (e.target.dataset.spTab) { window.__spTab = e.target.dataset.spTab; document.getElementById("keyForm").requestSubmit(); return; }
+  if (e.target.id === "sponsorClear") { const r = await ownerPost({ action: "sponsor", tab: window.__spTab || "today", name: "" }); if (r.ok) document.getElementById("keyForm").requestSubmit(); return; }
   if (e.target.dataset.leadDone) { const r = await ownerPost({ action: "lead-done", key: e.target.dataset.leadDone }); if (r.ok) document.getElementById("keyForm").requestSubmit(); return; }
   if (e.target.id === "pinClear") { document.getElementById("pinText").value = ""; return savePin(""); }
   if (e.target.id !== "backupBtn") return;

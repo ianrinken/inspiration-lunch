@@ -7,15 +7,16 @@ exports.handler = async (event) => {
   const status = await readStatus().catch(() => null);
   // The district's pinned announcement, until its end date (Central time).
   const settings = require("./lib/store.js").openStore("settings");
-  const [pin, answers, sp, don] = await Promise.all([settings.get("pin").catch(() => null), settings.get("answers").catch(() => null), settings.get("sponsor").catch(() => null), settings.get("donate").catch(() => null)]);
+  const [pin, answers, sp, don] = await Promise.all([settings.get("pin").catch(() => null), settings.get("answers").catch(() => null), settings.get("sponsors").catch(() => null), settings.get("donate").catch(() => null)]);
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
   const live = pin && (!pin.until || pin.until >= today) ? { id: pin.id, text: pin.text, es: pin.es || "" } : null;
-  // The app's one sponsor, through its end date, and the owner's payment link.
-  const sponsor = sp && sp.name && (!sp.until || sp.until >= today) ? { name: sp.name, line: sp.line || "", url: sp.url, logo: sp.logo || "" } : null;
+  // One sponsor per screen, each through its end date.
+  const sponsors = {};
+  for (const [tab, x] of Object.entries(sp || {})) if (x && x.name && (!x.until || x.until >= today)) sponsors[tab] = { name: x.name, line: x.line || "", url: x.url, logo: x.logo || "" };
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=120", "Netlify-CDN-Cache-Control": "public, s-maxage=60" },
     // answers: the district's own answers to common questions, for search.
-    body: JSON.stringify({ ...(status || { at: null, bound: {}, docs: {} }), pin: live, sponsor, donate: (don && don.links) || [], answers: (answers || []).map(({ id, q, a, link, qEs, aEs }) => ({ id, q, a, link, qEs, aEs })) }),
+    body: JSON.stringify({ ...(status || { at: null, bound: {}, docs: {} }), pin: live, sponsors, donate: (don && don.links) || [], answers: (answers || []).map(({ id, q, a, link, qEs, aEs }) => ({ id, q, a, link, qEs, aEs })) }),
   };
 };

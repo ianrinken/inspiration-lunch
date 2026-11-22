@@ -36,12 +36,13 @@
     <section>
       <h2>Sponsor the app</h2>
       <div class="card">
-        <p>One local business at a time. Your name and link appear on the Today screen families open every school day, and on each school's page.</p>
+        <p>The app has five screens: Today, Lunch, Calendar, Guide and School. Each one has room for one local business. Your name and link sit on that screen in the app and on each school's page.</p>
         <ul class="plain-list">
           <li>Seen by Brandon Valley parents, every school day</li>
-          <li>One sponsor, so you are never beside a competitor</li>
+          <li>One sponsor per screen, so you are never beside a competitor</li>
           <li>No tracking, no pop-ups, no ad networks</li>
         </ul>
+        <p class="fine" id="openNow"></p>
         <form id="leadForm" class="field">
           <label class="field-label" for="lfBusiness">Business name</label>
           <input class="text-input" id="lfBusiness" maxlength="80" autocomplete="organization" required>
@@ -49,6 +50,15 @@
           <input class="text-input" id="lfName" maxlength="60" autocomplete="name">
           <label class="field-label" for="lfContact">Email or phone</label>
           <input class="text-input" id="lfContact" maxlength="120" autocomplete="email" required>
+          <label class="field-label" for="lfScreen">Which screen</label>
+          <select class="text-input" id="lfScreen">
+            <option value="">Not sure yet</option>
+            <option value="today">Today</option>
+            <option value="lunch">Lunch</option>
+            <option value="calendar">Calendar</option>
+            <option value="guide">Guide</option>
+            <option value="school">School</option>
+          </select>
           <label class="field-label" for="lfNote">Anything we should know (optional)</label>
           <textarea class="text-input" id="lfNote" rows="3" maxlength="500"></textarea>
           <input class="hp" id="lfWebsite" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">

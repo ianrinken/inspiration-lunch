@@ -60,7 +60,7 @@ exports.handler = async (event) => {
     const leadStore = openStore("leads");
     const leadKeys = (await leadStore.list().catch(() => [])).sort().reverse().slice(0, 100);
     const leads = (await Promise.all(leadKeys.map(async (k) => { const l = await leadStore.get(k); return l ? { key: k, ...l } : null; }))).filter(Boolean);
-    return json(200, { reports, usage, misses: topMisses, pin, answers: answers || [], drift: drift ? JSON.parse(drift.body) : null, overrides: Array.isArray(overrides) ? overrides : [], sponsor: sponsor || null, donate: (donate && donate.url) || "", leads });
+    return json(200, { reports, usage, misses: topMisses, pin, answers: answers || [], drift: drift ? JSON.parse(drift.body) : null, overrides: Array.isArray(overrides) ? overrides : [], sponsor: sponsor || null, donate: (donate && donate.links) || [], leads });
   }
   if (event.httpMethod && event.httpMethod !== "POST") return json(405, { error: "method" });
   let body;
@@ -176,11 +176,14 @@ exports.handler = async (event) => {
     if (body.action === "donate") {
       if (!isAdmin(event)) return json(401, { error: "unauthorized" });
       const settings = openStore("settings");
-      const url = clip(body.url, 300);
-      if (!url) { await settings.delete("donate"); return json(200, { ok: true, donate: "" }); }
-      if (!/^https:\/\/[^\s]+$/.test(url)) return json(400, { error: "The link must start with https://" });
-      await settings.set("donate", { url, at: Date.now() });
-      return json(200, { ok: true, donate: url });
+      // QuickBooks payment links charge a fixed amount, so there is one
+      // link per amount: up to three, each with the label on its button.
+      const links = (Array.isArray(body.links) ? body.links : []).slice(0, 3)
+        .map((l) => ({ label: clip(l && l.label, 20), url: clip(l && l.url, 300) })).filter((l) => l.url);
+      if (links.some((l) => !/^https:\/\/[^\s]+$/.test(l.url))) return json(400, { error: "Each link must start with https://" });
+      if (!links.length) { await settings.delete("donate"); return json(200, { ok: true, donate: [] }); }
+      await settings.set("donate", { links, at: Date.now() });
+      return json(200, { ok: true, donate: links });
     }
     if (body.action === "pin") {
       if (!isAdmin(event)) return json(401, { error: "unauthorized" });

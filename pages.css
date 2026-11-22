@@ -36,3 +36,5 @@ body.page { background: var(--bg); color: var(--text); }
 .support .field .btn { margin-top: 14px; }
 .support .fine { margin-top: 10px; }
 .support .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.support .amounts { display: grid; gap: 8px; }
+.support .amounts .btn { margin: 0; }

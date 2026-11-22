@@ -2,8 +2,10 @@
  * link, and sends a sponsorship question to the owner's inbox. */
 (() => {
   fetch("/.netlify/functions/status").then((r) => r.json()).then((s) => {
-    if (!s || !s.donate) return;
-    document.getElementById("donateBtn").href = s.donate;
+    const links = (s && s.donate) || [];
+    if (!links.length) return;
+    const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    document.getElementById("donateBtns").innerHTML = links.map((l, i) => `<a class="btn ${i === 0 ? "primary" : ""} block" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label || "Chip in")}</a>`).join("");
     document.getElementById("donateCard").hidden = false;
   }).catch(() => {});
 

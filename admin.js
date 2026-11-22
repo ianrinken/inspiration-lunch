@@ -10,7 +10,8 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
   const out = document.getElementById("out");
   if (!res.ok) { out.innerHTML = `<p class="empty-note">${res.status === 401 ? "That key isn't right." : "Couldn't load."}</p>`; return; }
   const data = await res.json();
-  const { reports, usage, misses = [], pin, answers = [], drift, overrides = [], sponsor, donate = "", leads = [] } = data;
+  const { reports, usage, misses = [], pin, answers = [], drift, overrides = [], sponsor, donate = [], leads = [] } = data;
+  const donRow = (i) => { const l = donate[i] || {}; return `<div class="don-row"><input class="text-input" id="donLabel${i}" maxlength="20" placeholder="${["$5", "$10", "$25"][i]}" aria-label="Button ${i + 1} label" value="${esc(l.label || "")}"><input class="text-input" id="donUrl${i}" type="url" placeholder="https://" aria-label="Button ${i + 1} payment link" value="${esc(l.url || "")}"></div>`; };
   window.__overrides = overrides;
   out.innerHTML = `
     <p class="section-label">Announcement on every screen</p>
@@ -41,12 +42,13 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
       ${sponsor ? '<button class="btn block" type="button" id="sponsorClear" style="margin-top:8px">Remove the sponsor</button>' : ""}
       <p class="fine" id="sponsorNote">${sponsor ? "Showing now on Today and on each school page." : "No sponsor is showing. The app shows a small line inviting businesses to ask."}</p>
     </form>
-    <p class="section-label">Chip in link</p>
+    <p class="section-label">Chip in buttons</p>
     <form class="card field" id="donateForm">
-      <label class="field-label" for="donUrl">Payment link (Stripe, PayPal, Venmo or QuickBooks)</label>
-      <input class="text-input" id="donUrl" type="url" placeholder="https://" value="${esc(donate)}">
-      <button class="btn primary block" style="margin-top:10px">Save the link</button>
-      <p class="fine" id="donateNote">${donate ? "The Chip in card is showing on the support page." : "Until a link is saved, the support page shows only the sponsor section."}</p>
+      <p class="fine">Up to three. A QuickBooks payment link charges one fixed amount, so make one link per amount and put the amount on its button.</p>
+      <p class="field-label">Button label, then its payment link</p>
+      ${[0, 1, 2].map(donRow).join("")}
+      <button class="btn primary block" style="margin-top:10px">Save the buttons</button>
+      <p class="fine" id="donateNote">${donate.length ? "The Chip in card is showing on the support page." : "Until a link is saved, the support page shows only the sponsor section."}</p>
     </form>
     <p class="section-label">Sponsor inquiries (${leads.length})</p>
     <article class="card">${leads.map((l) => `<div class="report"><p><b>${esc(l.business)}</b> ${esc(l.name)}</p><p>${esc(l.contact)}</p>${l.note ? `<p>${esc(l.note)}</p>` : ""}<p class="fine">${esc(new Date(l.at).toLocaleString())} <button class="small-btn" type="button" data-lead-done="${esc(l.key)}">Done</button></p></div>`).join("") || '<p class="empty-note">None yet. They arrive from the support page.</p>'}</article>
@@ -142,7 +144,8 @@ document.addEventListener("submit", async (e) => {
   }
   if (e.target.id === "donateForm") {
     e.preventDefault();
-    const r = await ownerPost({ action: "donate", url: document.getElementById("donUrl").value.trim() });
+    const links = [0, 1, 2].map((i) => ({ label: document.getElementById(`donLabel${i}`).value.trim(), url: document.getElementById(`donUrl${i}`).value.trim() })).filter((l) => l.url);
+    const r = await ownerPost({ action: "donate", links });
     document.getElementById("donateNote").textContent = r.ok ? "Saved. The support page updates within a few minutes." : (r.error || "Couldn't save. Check the key and try again.");
     return;
   }

@@ -191,14 +191,17 @@ exports.handler = async (event) => {
         .map((l) => ({ amount: Math.round(Number(l && l.amount) * 100) / 100, url: clip(l && l.url, 300) }))
         .filter((l) => l.url && Number.isFinite(l.amount) && l.amount >= 1 && l.amount <= 1000);
       const monthly = clean(body.monthly), once = clean(body.once);
-      if ([...monthly, ...once].some((l) => !/^https:\/\/[^\s]+$/.test(l.url))) return json(400, { error: "Each link must start with https://" });
+      // One giving page (a donation platform) where the giver picks the
+      // amount and whether it repeats. When set, it replaces the buttons.
+      const page = clip(body.page, 300);
+      if ([...monthly, ...once, ...(page ? [{ url: page }] : [])].some((l) => !/^https:\/\/[^\s]+$/.test(l.url))) return json(400, { error: "Each link must start with https://" });
       // What the page promises about the money: the card fee, the share kept
       // to run the app, who gets the rest, and how much has been passed on.
       const num = (v, lo, hi) => { const n = Number(v); return String(v ?? "").trim() !== "" && Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
       const fee = num(body.fee, 0, 30), procPct = num(body.procPct, 0, 10), procFixed = num(body.procFixed, 0, 2);
       const sent = Number(body.sent), goal = Number(body.goal), raised = Number(body.raised);
       const give = {
-        monthly, once,
+        monthly, once, page,
         fee: fee === null ? null : Math.round(fee * 10) / 10,
         procPct: procPct === null ? 2.99 : procPct,
         procFixed: procFixed === null ? 0 : procFixed,
@@ -212,7 +215,7 @@ exports.handler = async (event) => {
         checkDate: /^\d{4}-\d{2}-\d{2}$/.test(body.checkDate || "") ? body.checkDate : "",
         at: Date.now(),
       };
-      const any = monthly.length + once.length;
+      const any = monthly.length + once.length + (page ? 1 : 0);
       if (!any && !give.recipient && give.fee === null) { await settings.delete("donate"); return json(200, { ok: true, donate: null }); }
       await settings.set("donate", give);
       return json(200, { ok: true, donate: give, showing: !!(any && give.recipient && give.fee !== null) });

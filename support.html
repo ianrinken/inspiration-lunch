@@ -28,13 +28,15 @@
       <h2>Chip in for student lunches</h2>
       <div class="card">
         <p id="giveWhere"></p>
-        <p class="field-label">Where each dollar goes</p>
+        <p class="split-bubble" id="giveBubble" hidden></p>
+        <p class="field-label" id="giveSplitLabel">Where each dollar goes</p>
         <ul class="plain-list" id="giveSplit"></ul>
         <div class="seg" id="giveMode" role="group" aria-label="How often" hidden>
           <button type="button" data-mode="monthly" aria-pressed="true">Monthly</button>
           <button type="button" data-mode="once" aria-pressed="false">One time</button>
         </div>
         <div class="amounts" id="donateBtns"></div>
+        <p class="fine" id="givePageNote" hidden>You choose the amount on the next page, monthly or one time.</p>
         <p class="fine" id="giveCancel" hidden>Monthly gifts repeat on the same day each month. You can cancel any time from the link in your receipt.</p>
         <div class="goal" id="giveGoal" hidden><div class="goal-bar"><span id="giveGoalFill"></span></div></div>
         <p class="give-line" id="giveSent" hidden></p>

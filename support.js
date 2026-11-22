@@ -11,7 +11,7 @@
     // The lunch fund shows only when the owner has said who gets the money
     // and what share is kept, so the page never promises what isn't set up.
     const give = s && s.donate;
-    if (!give || !((give.monthly || []).length + (give.once || []).length)) return;
+    if (!give || !(give.page || (give.monthly || []).length + (give.once || []).length)) return;
     const money = (n) => `$${Number(n).toLocaleString("en-US", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
     const esc = (x) => String(x ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     // What actually reaches lunches from a gift, after the card fee and the
@@ -19,7 +19,18 @@
     const reaches = (amt) => Math.max(0, Math.floor((amt - (amt * give.procPct / 100 + give.procFixed) - amt * give.fee / 100) * 100) / 100);
     document.getElementById("giveWhere").textContent = `What you give goes to ${give.recipient}`.replace(/\.?$/, ".");
     const cents = Math.round(give.procFixed * 100);
-    document.getElementById("giveSplit").innerHTML = [
+    // With one giving page the split is two plain shares; any transaction
+    // cost comes out of the app's share, never out of the lunch share.
+    if (give.page) {
+      // The split, in one small bubble above the button.
+      const bubble = document.getElementById("giveBubble");
+      bubble.innerHTML = `<b>${100 - give.fee}%</b> goes to student lunches${give.fee > 0 ? `<span>${give.fee}% runs this app</span>` : ""}`;
+      bubble.hidden = false;
+      document.getElementById("giveSplitLabel").hidden = true;
+      document.getElementById("giveSplit").hidden = true;
+      document.getElementById("donateBtns").innerHTML = `<a class="btn primary block give-btn" href="${esc(give.page)}" target="_blank" rel="noopener"><b>Give</b></a>`;
+      document.getElementById("givePageNote").hidden = false;
+    } else document.getElementById("giveSplit").innerHTML = [
       `<li>Card processing takes ${give.procPct}%${cents ? ` plus ${cents} cents` : ""} of each gift</li>`,
       give.fee > 0 ? `<li>${give.fee}% is an administrative fee that keeps this app running</li>` : "",
       `<li>The rest goes to student lunches</li>`,
@@ -34,9 +45,9 @@
       for (const b of seg.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
       document.getElementById("giveCancel").hidden = mode !== "monthly";
     };
-    seg.hidden = !both;
+    seg.hidden = !both || !!give.page;
     seg.addEventListener("click", (e) => { const m = e.target.dataset.mode; if (m) { mode = m; draw(); } });
-    draw();
+    if (!give.page) draw();
     // Progress toward the check: what parents have given so far, when the
     // check is handed over, and what the district has already received.
     const day = (d) => new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });

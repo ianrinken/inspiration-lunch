@@ -12,7 +12,7 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
   const data = await res.json();
   const { reports, usage, misses = [], pin, answers = [], drift, overrides = [], sponsors = {}, leads = [] } = data;
   const give = data.donate || {};
-  const giveShowing = !!(((give.monthly || []).length + (give.once || []).length) && give.recipient && give.fee !== null && give.fee !== undefined);
+  const giveShowing = !!((give.page || (give.monthly || []).length + (give.once || []).length) && give.recipient && give.fee !== null && give.fee !== undefined);
   window.__sponsors = sponsors;
   const SP_TABS = [["today", "Today"], ["lunch", "Lunch"], ["calendar", "Calendar"], ["guide", "Guide"], ["school", "School"]];
   const spTab = window.__spTab || "today";
@@ -51,6 +51,10 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
     </form>
     <p class="section-label">Chip in for student lunches</p>
     <form class="card field" id="donateForm">
+      <label class="field-label" for="donPage">Giving page link (your Givebutter campaign)</label>
+      <input class="text-input" id="donPage" type="url" placeholder="https://givebutter.com/..." value="${esc(give.page || "")}">
+      <p class="fine">Givers choose their own amount there, monthly or one time. With this filled in, the card shows one Give button.</p>
+      <details class="don-more"${give.page ? "" : " open"}><summary>Use a separate payment link for each amount instead</summary>
       <p class="fine">Up to three amounts each. Every amount needs its own payment link from your processor. Monthly shows first when it has links.</p>
       <p class="field-label">Monthly: dollars, then the subscription link</p>
       ${[0, 1, 2].map((i) => donRow("monthly", i)).join("")}
@@ -58,9 +62,10 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
       ${[0, 1, 2].map((i) => donRow("once", i)).join("")}
       <p class="field-label">Card processing fee: percent, then cents per gift</p>
       <div class="don-row"><input class="text-input" id="donProcPct" type="number" min="0" max="10" step="0.01" inputmode="decimal" aria-label="Processing percent" value="${esc(give.procPct ?? 2.99)}"><input class="text-input" id="donProcFixed" type="number" min="0" max="200" step="1" inputmode="numeric" aria-label="Processing cents per gift" value="${esc(Math.round((give.procFixed ?? 0) * 100))}"></div>
+      </details>
       <label class="field-label" for="donRecipient">Who gets the money (shown as "What you give goes to ...")</label>
       <input class="text-input" id="donRecipient" maxlength="160" placeholder="Brandon Valley Child Nutrition, toward unpaid student lunch balances" value="${esc(give.recipient || "")}">
-      <label class="field-label" for="donFee">Administrative fee kept to run the app, in percent</label>
+      <label class="field-label" for="donFee">Share kept to run the app, in percent</label>
       <input class="text-input" id="donFee" type="number" min="0" max="30" step="0.5" inputmode="decimal" value="${give.fee === null || give.fee === undefined ? "" : esc(give.fee)}">
       <label class="field-label" for="donRaised">Raised so far, in dollars (from your payment reports)</label>
       <input class="text-input" id="donRaised" type="number" min="0" step="0.01" inputmode="decimal" value="${give.raised ? esc(give.raised) : ""}">
@@ -73,7 +78,7 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
       <label class="field-label" for="donSent">Already given to the district, in dollars</label>
       <input class="text-input" id="donSent" type="number" min="0" step="0.01" inputmode="decimal" value="${give.sent ? esc(give.sent) : ""}">
       <button class="btn primary block" style="margin-top:10px">Save</button>
-      <p class="fine" id="donateNote">${giveShowing ? "The Chip in card is showing on the support page." : "The card stays hidden until there is at least one amount with its link, a named recipient and a fee (0 is allowed)."}</p>
+      <p class="fine" id="donateNote">${giveShowing ? "The Chip in card is showing on the support page." : "The card stays hidden until there is a giving link, a named recipient and a share (0 is allowed)."}</p>
     </form>
     <p class="section-label">Sponsor inquiries (${leads.length})</p>
     <article class="card">${leads.map((l) => `<div class="report"><p><b>${esc(l.business)}</b> ${esc(l.name)}${l.screen ? ` · ${esc(l.screen)} screen` : ""}</p><p>${esc(l.contact)}</p>${l.note ? `<p>${esc(l.note)}</p>` : ""}<p class="fine">${esc(new Date(l.at).toLocaleString())} <button class="small-btn" type="button" data-lead-done="${esc(l.key)}">Done</button></p></div>`).join("") || '<p class="empty-note">None yet. They arrive from the support page.</p>'}</article>
@@ -172,7 +177,7 @@ document.addEventListener("submit", async (e) => {
     e.preventDefault();
     const gv = (id) => document.getElementById(id).value.trim();
     const rows = (kind) => [0, 1, 2].map((i) => ({ amount: gv(`don-${kind}-amt${i}`), url: gv(`don-${kind}-url${i}`) })).filter((l) => l.url && l.amount);
-    const r = await ownerPost({ action: "donate", monthly: rows("monthly"), once: rows("once"), procPct: gv("donProcPct"), procFixed: gv("donProcFixed") === "" ? "" : String(Number(gv("donProcFixed")) / 100), recipient: gv("donRecipient"), fee: gv("donFee"), sent: gv("donSent"), sentAsOf: gv("donSentAsOf"), goal: gv("donGoal"), raised: gv("donRaised"), checkDate: gv("donCheckDate") });
+    const r = await ownerPost({ action: "donate", page: gv("donPage"), monthly: rows("monthly"), once: rows("once"), procPct: gv("donProcPct"), procFixed: gv("donProcFixed") === "" ? "" : String(Number(gv("donProcFixed")) / 100), recipient: gv("donRecipient"), fee: gv("donFee"), sent: gv("donSent"), sentAsOf: gv("donSentAsOf"), goal: gv("donGoal"), raised: gv("donRaised"), checkDate: gv("donCheckDate") });
     if (r.ok) { document.getElementById("keyForm").requestSubmit(); return; }
     document.getElementById("donateNote").textContent = r.error || "Couldn't save. Check the key and try again.";
     return;

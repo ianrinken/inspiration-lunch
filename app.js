@@ -1585,14 +1585,14 @@
     const days = [0, 1, 2, 3, 4].map((i) => addDays(week, i));
     v.innerHTML = `
       ${hintHtml("lunch")}
+      <div id="fundBox"></div>
       ${sponsorSlot("lunch")}
       <div class="pager">
         <button class="pager-btn" data-week="-1" aria-label="${t("Previous week")}">${PREV}</button>
         <button class="pager-label" data-week="0" title="${t("This week")}">${t("{a} to {b}", { a: esc(fmtMonthDay(days[0])), b: esc(fmtMonthDay(days[4])) })}</button>
         <button class="pager-btn" data-week="1" aria-label="${t("Next week")}">${NEXT}</button>
       </div>
-      <div id="lunchDays" class="view"><p class="loading">${t("Loading menu")}</p></div>
-      <div id="fundBox"></div>`;
+      <div id="lunchDays" class="view"><p class="loading">${t("Loading menu")}</p></div>`;
     // The answer first, like the Brandon Valley app: the next lunch this
     // student will eat, big, with a peek at the one after.
     v.insertAdjacentHTML("afterbegin", `<div id="lunchHero"></div>`);

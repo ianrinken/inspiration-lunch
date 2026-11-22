@@ -254,6 +254,13 @@
   }
   hydrateKids();
   if (!demo) repairFromOldApp();
+  // The giving page sends people back here after a gift: /?thanks=1.
+  let justGave = false;
+  if (new URLSearchParams(location.search).get("thanks") === "1") {
+    justGave = true;
+    store.set("sfp-fund-seen", 1);
+    history.replaceState(null, "", location.pathname + location.hash);
+  }
   // A school page's "Open the app" button: /?school=bvhs lands on that school.
   {
     const q = new URLSearchParams(location.search).get("school");
@@ -791,6 +798,13 @@
     const give = status && status.donate;
     if (demo || !give) { for (const box of boxes) box.innerHTML = ""; return; }
     const seen = !!store.get(FUND_SEEN_KEY, 0);
+    // Straight back from giving: thank them where the giving row would be,
+    // and point a newcomer at the one thing to do next.
+    if (justGave) {
+      const next = kids.length ? "" : `<span class="sub">${t("While you are here, pick your school below to see its lunch menu and games.")}</span>`;
+      for (const box of boxes) box.innerHTML = box.dataset.fund === "top" || box.dataset.fund === "welcome" ? `<div class="fund-thanks" role="status"><b>${t("Thank you for your gift.")}</b><span class="sub">${esc(t("It goes to {who}.", { who: give.recipient }))}</span>${next}</div>` : "";
+      return;
+    }
     const money = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
     const sub = give.raised && give.goal ? t("{sent} of {goal} raised so far", { sent: money(give.raised), goal: money(give.goal) }) : give.raised ? t("{sent} raised so far", { sent: money(give.raised) }) : t("Every gift goes to the Brandon Area Food Pantry");
     const row = (isNew) => `<a class="sponsor-row fund-row${isNew ? " is-new" : ""}" href="/support.html"><span class="sponsor-text"><b>${isNew ? `<span class="new-tag">${t("New")}</span> ` : ""}${t("Help feed Brandon families this holiday season")}</b><span class="sub">${esc(sub)}</span></span>${CHEVRON}</a>`;
@@ -3913,7 +3927,7 @@
   window.addEventListener("online", refreshIfVisible);
   setInterval(refreshIfVisible, 5 * 60 * 1000);
 
-  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
     // Reload only when a NEW version replaces an old one. On a first visit
     // there was no old version, and reloading would wipe whatever the parent
     // was in the middle of (it reset student setup).

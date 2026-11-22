@@ -60,3 +60,16 @@ body.page { background: var(--bg); color: var(--text); }
 .support .split-bubble p { margin: 0; line-height: 1.5; font-weight: 500; }
 .support .split-bubble p + p { margin-top: 4px; }
 .support .split-bubble b { font-weight: 800; }
+/* The giving page: room between each piece, one thing per row. */
+.support .lede { font-size: 1.05rem; margin: 0 0 20px; }
+.support h2 { margin: 32px 0 12px; }
+.support .give-card { padding: 22px 20px; }
+.support .give-card > p:last-child { margin-bottom: 0; }
+.support .give-top { margin-bottom: 18px; }
+.support .give-top > p { margin: 0; font-size: 1.05rem; font-weight: 600; line-height: 1.45; }
+.support .split-bubble { margin: 14px 0 0; }
+.support #givePageNote { margin: 12px 0 0; text-align: center; }
+.support #giveShare { margin-top: 22px; }
+.support .give-legal { margin: 14px 4px 0; }
+.support #appCard .btn { margin-top: 16px; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+.support .nw { white-space: nowrap; }

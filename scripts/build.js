@@ -19,6 +19,17 @@ fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 for (const f of FILES) fs.copyFileSync(path.join(ROOT, f), path.join(OUT, f));
 for (const d of DIRS) fs.cpSync(path.join(ROOT, d), path.join(OUT, d), { recursive: true });
+// Each release gets its own offline-cache name, a fingerprint of the
+// published files, so installed phones move to the new version together
+// (see sw.js). Same files, same name: a rebuild alone changes nothing.
+{
+  const hash = require("crypto").createHash("sha256");
+  for (const f of FILES.filter((x) => x !== "sw.js").sort()) hash.update(f).update(fs.readFileSync(path.join(OUT, f)));
+  const stamp = hash.digest("hex").slice(0, 10);
+  const sw = fs.readFileSync(path.join(OUT, "sw.js"), "utf8");
+  if (!sw.includes('const CACHE = "sfp-shell-v1";')) throw new Error("sw.js: cache name not found, cannot stamp the release");
+  fs.writeFileSync(path.join(OUT, "sw.js"), sw.replace('const CACHE = "sfp-shell-v1";', `const CACHE = "sfp-shell-${stamp}";`));
+}
 // One public page per school, plus the sitemap that lists them.
 const pages = require("./pages.js").write(OUT);
 // Safety net: refuse to publish anything that looks like a secret.

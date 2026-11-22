@@ -1,6 +1,9 @@
 /* Offline shell for Brandon Valley Lunch. Live data (menus, events, news) is
  * cached by the app itself in localStorage; this only keeps the shell and
  * fonts so the app opens without a connection. */
+// The build stamps this name with a fingerprint of the published files, so
+// every release is a new version: it saves its own copy of the app, removes
+// the old one, and the open app reloads once onto matching files.
 const CACHE = "sfp-shell-v1";
 const FONT_CACHE = "sfp-fonts-v1";
 const SHELL = [
@@ -19,6 +22,8 @@ const SHELL = [
   "icons/apple-touch-icon.png",
   "favicon.ico",
 ];
+
+const SHELL_PATHS = new Set(SHELL.map((p) => new URL(p, self.location.href).pathname));
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -51,6 +56,21 @@ self.addEventListener("fetch", (e) => {
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith("/.netlify/")) return;
   if (e.request.method !== "GET") return;
+
+  // Pages outside the app itself (the giving page, school pages, privacy)
+  // always come fresh from the network, so a page and its styles can never
+  // be from two different releases. The saved copy is only for when offline.
+  if (!SHELL_PATHS.has(url.pathname)) {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); }
+          return res;
+        })
+        .catch(() => caches.match(e.request).then((cached) => cached || Response.error()))
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(e.request).then((cached) => {

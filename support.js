@@ -6,7 +6,7 @@
     if (s && s.sponsorInquiries) {
       document.getElementById("sponsorCard").hidden = false;
       document.getElementById("sponsorNote").hidden = false;
-      document.getElementById("supportLede").textContent = "A Brandon Valley parent built this app and keeps it running. Here is how to help feed Brandon families this holiday season, and how a local business can sponsor the app.";
+      document.getElementById("supportLede").textContent = "This holiday season, help feed Brandon families. Local businesses can also sponsor the app.";
     }
     // Which screens are still open, worked out from what is showing now.
     const names = { today: "Today", lunch: "Lunch", calendar: "Calendar", guide: "Guide", school: "School" };
@@ -84,7 +84,7 @@
   // Sharing the fund is how it reaches the next family.
   document.getElementById("giveShare").addEventListener("click", (e) => {
     const text = "Help feed Brandon families this holiday season. Every gift goes to the Brandon Area Food Pantry.";
-    const url = "https://brandonvalleylunch.com/support.html";
+    const url = "https://brandonvalleylunch.com/give";
     if (navigator.share) navigator.share({ text, url }).catch(() => {});
     else if (navigator.clipboard) navigator.clipboard.writeText(`${text}\n${url}`).then(() => { e.target.textContent = "Copied. Paste it into a text or post."; }, () => {});
   });

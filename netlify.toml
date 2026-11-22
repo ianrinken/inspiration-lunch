@@ -41,3 +41,9 @@
   to = "/.netlify/functions/events"
   status = 200
   force = true
+
+# The short address used in posts: brandonvalleylunch.com/give
+[[redirects]]
+  from = "/give"
+  to = "/support.html"
+  status = 200

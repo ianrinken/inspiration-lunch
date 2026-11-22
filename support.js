@@ -32,7 +32,11 @@
       // bubble, tap anywhere else or press Escape to put it away.
       const bubble = document.getElementById("giveBubble");
       const info = document.getElementById("giveInfo");
-      bubble.innerHTML = `<p><b>${100 - give.fee}%</b> goes to student lunches</p>${give.fee > 0 ? `<p><b>${give.fee}%</b> runs this app</p>` : ""}`;
+      // With no share kept, the only thing that can come out of a gift is the
+      // giving page's own processing fee, which the giver can choose to cover.
+      bubble.innerHTML = give.fee > 0
+        ? `<p><b>${100 - give.fee}%</b> goes to student lunches</p><p><b>${give.fee}%</b> runs this app</p>`
+        : `<p><b>This app keeps none of your gift.</b></p><p>Processing fees come out unless you cover them at checkout. The rest goes to student lunches.</p>`;
       info.hidden = false;
       const setOpen = (open) => { bubble.classList.toggle("open", open); info.setAttribute("aria-expanded", String(open)); };
       info.addEventListener("click", (e) => { e.stopPropagation(); setOpen(!bubble.classList.contains("open")); });

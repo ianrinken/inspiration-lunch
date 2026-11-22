@@ -192,12 +192,14 @@ exports.handler = async (event) => {
       // app, who gets the rest, and how much has been passed on so far.
       const fee = Number(body.fee);
       const sent = Number(body.sent);
+      const goal = Number(body.goal);
       const give = {
         links,
         fee: Number.isFinite(fee) && fee >= 0 && fee <= 30 && String(body.fee).trim() !== "" ? Math.round(fee * 10) / 10 : null,
         recipient: clip(body.recipient, 160),
         sent: Number.isFinite(sent) && sent >= 0 ? Math.round(sent * 100) / 100 : 0,
         sentAsOf: /^\d{4}-\d{2}-\d{2}$/.test(body.sentAsOf || "") ? body.sentAsOf : "",
+        goal: Number.isFinite(goal) && goal > 0 ? Math.round(goal) : 0,
         at: Date.now(),
       };
       if (!links.length && !give.recipient && give.fee === null) { await settings.delete("donate"); return json(200, { ok: true, donate: null }); }

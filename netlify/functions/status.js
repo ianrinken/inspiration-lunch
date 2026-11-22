@@ -17,6 +17,6 @@ exports.handler = async (event) => {
     statusCode: 200,
     headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=120", "Netlify-CDN-Cache-Control": "public, s-maxage=60" },
     // answers: the district's own answers to common questions, for search.
-    body: JSON.stringify({ ...(status || { at: null, bound: {}, docs: {} }), pin: live, sponsors, donate: don && (don.links || []).length && don.recipient && don.fee !== null && don.fee !== undefined ? { links: don.links, fee: don.fee, recipient: don.recipient, sent: don.sent || 0, sentAsOf: don.sentAsOf || "" } : null, answers: (answers || []).map(({ id, q, a, link, qEs, aEs }) => ({ id, q, a, link, qEs, aEs })) }),
+    body: JSON.stringify({ ...(status || { at: null, bound: {}, docs: {} }), pin: live, sponsors, donate: don && (don.links || []).length && don.recipient && don.fee !== null && don.fee !== undefined ? { links: don.links, fee: don.fee, recipient: don.recipient, sent: don.sent || 0, sentAsOf: don.sentAsOf || "", goal: don.goal || 0 } : null, answers: (answers || []).map(({ id, q, a, link, qEs, aEs }) => ({ id, q, a, link, qEs, aEs })) }),
   };
 };

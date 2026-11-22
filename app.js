@@ -773,6 +773,18 @@
     renderChanged(results.filter(Boolean), token);
   }
 
+  // The student lunch fund, once the owner has set it up: one row under the
+  // week's menu that opens the support page.
+  async function fillFund() {
+    const status = await getStatus().catch(() => null);
+    const box = $("fundBox");
+    const give = status && status.donate;
+    if (!box || demo || !give) return;
+    const money = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
+    const sub = give.goal && give.sent ? t("{sent} of {goal} passed on so far", { sent: money(give.sent), goal: money(give.goal) }) : give.sent ? t("{sent} passed on so far", { sent: money(give.sent) }) : t("Help cover a lunch for a Brandon Valley student");
+    box.innerHTML = `<a class="sponsor-row fund-row" href="/support.html"><span class="sponsor-text"><b>${t("Chip in for a student's lunch")}</b><span class="sub">${esc(sub)}</span></span>${CHEVRON}</a>`;
+  }
+
   // One sponsor per tab, set by the owner: a name and a link in a quiet row.
   // No ad network, nothing tracked; a tap adds one to that day's count.
   const sponsorSlot = (tab) => `<div class="sponsor-slot" data-slot="${tab}"></div>`;
@@ -782,8 +794,8 @@
     for (const box of document.querySelectorAll(".sponsor-slot")) {
       const tab = box.dataset.slot, sp = all[tab];
       if (demo) { box.innerHTML = ""; continue; }
-      // An open Today slot says so, quietly; the other tabs stay empty.
-      if (!sp) { box.innerHTML = tab === "today" ? `<a class="sponsor-open" href="/support.html">${t("Your business could sponsor this app")}</a>` : ""; continue; }
+      // An open slot shows nothing.
+      if (!sp) { box.innerHTML = ""; continue; }
       if (box.dataset.shown === sp.url + sp.name) continue;
       box.dataset.shown = sp.url + sp.name;
       box.innerHTML = `<a class="sponsor-row" href="${esc(sp.url)}" target="_blank" rel="sponsored noopener">
@@ -1579,11 +1591,13 @@
         <button class="pager-label" data-week="0" title="${t("This week")}">${t("{a} to {b}", { a: esc(fmtMonthDay(days[0])), b: esc(fmtMonthDay(days[4])) })}</button>
         <button class="pager-btn" data-week="1" aria-label="${t("Next week")}">${NEXT}</button>
       </div>
-      <div id="lunchDays" class="view"><p class="loading">${t("Loading menu")}</p></div>`;
+      <div id="lunchDays" class="view"><p class="loading">${t("Loading menu")}</p></div>
+      <div id="fundBox"></div>`;
     // The answer first, like the Brandon Valley app: the next lunch this
     // student will eat, big, with a peek at the one after.
     v.insertAdjacentHTML("afterbegin", `<div id="lunchHero"></div>`);
     fillSponsors();
+    fillFund();
     fillLunchHero(kid, token);
     let menu;
     try { menu = await getMenu(kid.school, days[0], days[4]); }

@@ -38,3 +38,7 @@ body.page { background: var(--bg); color: var(--text); }
 .support .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .support .amounts { display: grid; gap: 8px; }
 .support .amounts .btn { margin: 0; }
+.support .goal { margin: 14px 0 6px; }
+.support .goal-bar { height: 12px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.support .goal-bar span { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--navy-2); }
+.support #giveShare { margin-top: 10px; }

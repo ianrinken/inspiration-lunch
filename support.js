@@ -21,7 +21,14 @@
       give.fee > 0 ? `<li>${give.fee}% is an administrative fee that keeps this app running</li>` : "",
       `<li>The rest, about ${rest}%, goes to student lunches</li>`,
     ].join("");
-    if (give.sent > 0) {
+    if (give.goal > 0) {
+      document.getElementById("giveGoalFill").style.width = `${Math.min(100, Math.round((give.sent / give.goal) * 100))}%`;
+      document.getElementById("giveGoal").hidden = false;
+      const el = document.getElementById("giveSent");
+      const asOf = give.sentAsOf ? ` as of ${new Date(`${give.sentAsOf}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "";
+      el.textContent = `${money(give.sent)} of ${money(give.goal)} passed on so far${asOf}.`;
+      el.hidden = false;
+    } else if (give.sent > 0) {
       const asOf = give.sentAsOf ? ` as of ${new Date(`${give.sentAsOf}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "";
       const el = document.getElementById("giveSent");
       el.textContent = `Passed on so far: ${money(give.sent)}${asOf}.`;
@@ -31,6 +38,14 @@
     document.getElementById("donateBtns").innerHTML = links.map((l, i) => `<a class="btn ${i === 0 ? "primary" : ""} block" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label || "Chip in")}</a>`).join("");
     document.getElementById("donateCard").hidden = false;
   }).catch(() => {});
+
+  // Sharing the fund is how it reaches the next family.
+  document.getElementById("giveShare").addEventListener("click", (e) => {
+    const text = "Chip in for a Brandon Valley student's lunch";
+    const url = "https://brandonvalleylunch.com/support.html";
+    if (navigator.share) navigator.share({ text, url }).catch(() => {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(`${text}\n${url}`).then(() => { e.target.textContent = "Copied. Paste it into a text or post."; }, () => {});
+  });
 
   const form = document.getElementById("leadForm");
   const msg = document.getElementById("lfMsg");

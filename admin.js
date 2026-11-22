@@ -61,6 +61,8 @@ document.getElementById("keyForm").addEventListener("submit", async (e) => {
       <input class="text-input" id="donFee" type="number" min="0" max="30" step="0.5" inputmode="decimal" value="${give.fee === null || give.fee === undefined ? "" : esc(give.fee)}">
       <label class="field-label" for="donSent">Passed on so far, in dollars</label>
       <input class="text-input" id="donSent" type="number" min="0" step="0.01" inputmode="decimal" value="${give.sent ? esc(give.sent) : ""}">
+      <label class="field-label" for="donGoal">Goal, in dollars (optional; shows a progress bar)</label>
+      <input class="text-input" id="donGoal" type="number" min="0" step="1" inputmode="numeric" value="${give.goal ? esc(give.goal) : ""}">
       <label class="field-label" for="donSentAsOf">As of</label>
       <input class="text-input" id="donSentAsOf" type="date" value="${esc(give.sentAsOf || "")}">
       <button class="btn primary block" style="margin-top:10px">Save</button>
@@ -163,7 +165,7 @@ document.addEventListener("submit", async (e) => {
     e.preventDefault();
     const links = [0, 1, 2].map((i) => ({ label: document.getElementById(`donLabel${i}`).value.trim(), url: document.getElementById(`donUrl${i}`).value.trim() })).filter((l) => l.url);
     const gv = (id) => document.getElementById(id).value.trim();
-    const r = await ownerPost({ action: "donate", links, recipient: gv("donRecipient"), fee: gv("donFee"), sent: gv("donSent"), sentAsOf: gv("donSentAsOf") });
+    const r = await ownerPost({ action: "donate", links, recipient: gv("donRecipient"), fee: gv("donFee"), sent: gv("donSent"), sentAsOf: gv("donSentAsOf"), goal: gv("donGoal") });
     if (r.ok) { document.getElementById("keyForm").requestSubmit(); return; }
     document.getElementById("donateNote").textContent = r.error || "Couldn't save. Check the key and try again.";
     return;
